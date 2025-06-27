@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PUO Memo Pooled - Memory System with Connection Pooling
-Handles concurrent requests safely with database connection pooling
+PUO Memo Simple - Simplified Memory System
+Clean, reliable memory management without over-engineering
 """
 import asyncio
 import json
@@ -11,7 +11,6 @@ import uuid
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-from contextlib import asynccontextmanager
 
 # Database imports
 import asyncpg
@@ -34,32 +33,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class PuoMemoPooled:
-    """Memory system with connection pooling for concurrent access"""
+class PuoMemoSimple:
+    """Simplified memory system focused on reliability"""
     
     def __init__(self):
-        self.pool = None
+        self.conn = None
         self.ai_enabled = False
         self.model = None
         self.current_context = "default"
         
     async def initialize(self):
-        """Initialize database connection pool and optional AI"""
+        """Initialize database connection and optional AI"""
         try:
-            # Database connection pool
+            # Database connection
             db_config = {
                 'host': os.getenv('DB_HOST'),
                 'port': int(os.getenv('DB_PORT', 5432)),
                 'database': os.getenv('DB_NAME'),
                 'user': os.getenv('DB_USER'),
-                'password': os.getenv('DB_PASSWORD'),
-                'min_size': 5,
-                'max_size': 20,
-                'command_timeout': 10
+                'password': os.getenv('DB_PASSWORD')
             }
             
-            self.pool = await asyncpg.create_pool(**db_config)
-            logger.info("✅ Connected to PostgreSQL with connection pool")
+            self.conn = await asyncpg.connect(**db_config)
+            logger.info("✅ Connected to PostgreSQL")
             
             # Optional AI setup
             if GEMINI_AVAILABLE:
@@ -80,14 +76,8 @@ class PuoMemoPooled:
     
     async def cleanup(self):
         """Clean up resources"""
-        if self.pool:
-            await self.pool.close()
-    
-    @asynccontextmanager
-    async def get_connection(self):
-        """Get a connection from the pool"""
-        async with self.pool.acquire() as conn:
-            yield conn
+        if self.conn:
+            await self.conn.close()
     
     # Core Memory Operations
     
@@ -103,18 +93,17 @@ class PuoMemoPooled:
             memory_id = str(uuid.uuid4())
             tags = tags or []
             metadata = {
-                "created_via": "puo_memo_pooled",
+                "created_via": "puo_memo_simple",
                 "version": "1.0"
             }
             
             # Insert into database
-            async with self.get_connection() as conn:
-                await conn.execute("""
-                    INSERT INTO memory_entities 
-                    (id, content, title, memory_type, tags, metadata, project_context, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                """, memory_id, content, title, memory_type, tags, json.dumps(metadata),
-                    self.current_context, datetime.now(timezone.utc))
+            await self.conn.execute("""
+                INSERT INTO memory_entities 
+                (id, content, title, memory_type, tags, metadata, project_context, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """, memory_id, content, title, memory_type, tags, json.dumps(metadata),
+                self.current_context, datetime.now(timezone.utc))
             
             return {
                 "id": memory_id,
@@ -133,19 +122,18 @@ class PuoMemoPooled:
         """Search memories using basic text search"""
         try:
             # Basic text search
-            async with self.get_connection() as conn:
-                results = await conn.fetch("""
-                    SELECT id, title, content, memory_type, tags, created_at
-                    FROM memory_entities
-                    WHERE (
-                        content ILIKE $1 OR 
-                        title ILIKE $1 OR 
-                        $2 = ANY(tags)
-                    )
-                    AND project_context = $3
-                    ORDER BY created_at DESC
-                    LIMIT $4
-                """, f"%{query}%", query, self.current_context, limit)
+            results = await self.conn.fetch("""
+                SELECT id, title, content, memory_type, tags, created_at
+                FROM memory_entities
+                WHERE (
+                    content ILIKE $1 OR 
+                    title ILIKE $1 OR 
+                    $2 = ANY(tags)
+                )
+                AND project_context = $3
+                ORDER BY created_at DESC
+                LIMIT $4
+            """, f"%{query}%", query, self.current_context, limit)
             
             memories = []
             for row in results:
@@ -249,12 +237,11 @@ Answer:"""
             params.append(memory_id)
             
             # Execute update
-            async with self.get_connection() as conn:
-                result = await conn.execute(f"""
-                    UPDATE memory_entities
-                    SET {', '.join(updates)}
-                    WHERE id = ${param_count}
-                """, *params)
+            result = await self.conn.execute(f"""
+                UPDATE memory_entities
+                SET {', '.join(updates)}
+                WHERE id = ${param_count}
+            """, *params)
             
             if result == "UPDATE 0":
                 return {"error": "Memory not found"}
@@ -268,10 +255,9 @@ Answer:"""
     async def delete_memory(self, memory_id: str) -> Dict[str, Any]:
         """Delete a memory"""
         try:
-            async with self.get_connection() as conn:
-                result = await conn.execute("""
-                    DELETE FROM memory_entities WHERE id = $1
-                """, memory_id)
+            result = await self.conn.execute("""
+                DELETE FROM memory_entities WHERE id = $1
+            """, memory_id)
             
             if result == "DELETE 0":
                 return {"error": "Memory not found"}
@@ -285,20 +271,19 @@ Answer:"""
     async def list_memories(self, limit: int = 20, offset: int = 0) -> Dict[str, Any]:
         """List recent memories"""
         try:
-            async with self.get_connection() as conn:
-                # Get total count
-                count_result = await conn.fetchval("""
-                    SELECT COUNT(*) FROM memory_entities WHERE project_context = $1
-                """, self.current_context)
-                
-                # Get memories
-                results = await conn.fetch("""
-                    SELECT id, title, memory_type, tags, created_at
-                    FROM memory_entities
-                    WHERE project_context = $1
-                    ORDER BY created_at DESC
-                    LIMIT $2 OFFSET $3
-                """, self.current_context, limit, offset)
+            # Get total count
+            count_result = await self.conn.fetchval("""
+                SELECT COUNT(*) FROM memory_entities WHERE project_context = $1
+            """, self.current_context)
+            
+            # Get memories
+            results = await self.conn.fetch("""
+                SELECT id, title, memory_type, tags, created_at
+                FROM memory_entities
+                WHERE project_context = $1
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+            """, self.current_context, limit, offset)
             
             memories = []
             for row in results:
@@ -324,31 +309,30 @@ Answer:"""
     async def get_stats(self) -> Dict[str, Any]:
         """Get memory statistics"""
         try:
-            async with self.get_connection() as conn:
-                # Total memories
-                total = await conn.fetchval("""
-                    SELECT COUNT(*) FROM memory_entities
-                """)
-                
-                # By context
-                context_stats = await conn.fetch("""
-                    SELECT project_context, COUNT(*) as count
-                    FROM memory_entities
-                    GROUP BY project_context
-                """)
-                
-                # By type
-                type_stats = await conn.fetch("""
-                    SELECT memory_type, COUNT(*) as count
-                    FROM memory_entities
-                    GROUP BY memory_type
-                """)
-                
-                # Recent activity
-                recent = await conn.fetchval("""
-                    SELECT COUNT(*) FROM memory_entities
-                    WHERE created_at > NOW() - INTERVAL '24 hours'
-                """)
+            # Total memories
+            total = await self.conn.fetchval("""
+                SELECT COUNT(*) FROM memory_entities
+            """)
+            
+            # By context
+            context_stats = await self.conn.fetch("""
+                SELECT project_context, COUNT(*) as count
+                FROM memory_entities
+                GROUP BY project_context
+            """)
+            
+            # By type
+            type_stats = await self.conn.fetch("""
+                SELECT memory_type, COUNT(*) as count
+                FROM memory_entities
+                GROUP BY memory_type
+            """)
+            
+            # Recent activity
+            recent = await self.conn.fetchval("""
+                SELECT COUNT(*) FROM memory_entities
+                WHERE created_at > NOW() - INTERVAL '24 hours'
+            """)
             
             return {
                 "total_memories": total,
@@ -366,25 +350,24 @@ Answer:"""
     async def switch_context(self, context_name: str) -> Dict[str, Any]:
         """Switch project context"""
         try:
-            async with self.get_connection() as conn:
-                # Check if context exists
-                exists = await conn.fetchval("""
-                    SELECT COUNT(*) FROM project_contexts WHERE name = $1
-                """, context_name)
-                
-                if not exists:
-                    # Create new context
-                    await conn.execute("""
-                        INSERT INTO project_contexts (id, name, created_at)
-                        VALUES ($1, $2, $3)
-                    """, str(uuid.uuid4()), context_name, datetime.now(timezone.utc))
-                
-                self.current_context = context_name
-                
-                # Get memory count for this context
-                count = await conn.fetchval("""
-                    SELECT COUNT(*) FROM memory_entities WHERE project_context = $1
-                """, context_name)
+            # Check if context exists
+            exists = await self.conn.fetchval("""
+                SELECT COUNT(*) FROM project_contexts WHERE name = $1
+            """, context_name)
+            
+            if not exists:
+                # Create new context
+                await self.conn.execute("""
+                    INSERT INTO project_contexts (id, name, created_at)
+                    VALUES ($1, $2, $3)
+                """, str(uuid.uuid4()), context_name, datetime.now(timezone.utc))
+            
+            self.current_context = context_name
+            
+            # Get memory count for this context
+            count = await self.conn.fetchval("""
+                SELECT COUNT(*) FROM memory_entities WHERE project_context = $1
+            """, context_name)
             
             return {
                 "context": context_name,

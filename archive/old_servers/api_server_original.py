@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-PUO Memo API Server - Fixed with Connection Pooling
-Properly handles async event loops and concurrent requests
+PUO Memo API Server - HTTP Bridge for Unified Memory
+Accepts captures from memorylane extension and stores in shared database
 """
 import asyncio
 import json
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+import uuid
 
 from aiohttp import web
 from aiohttp.web import Request, Response
 import aiohttp_cors
 
-from puo_memo_pooled import PuoMemoPooled
+from puo_memo_simple import PuoMemoSimple
 
 # Configure logging
 logging.basicConfig(
@@ -24,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 class PuoMemoAPI:
-    """HTTP API server for unified memory system with proper async handling"""
+    """HTTP API server for unified memory system"""
     
     def __init__(self):
-        self.puo = None  # Will be initialized asynchronously
+        self.puo = PuoMemoSimple()
         self.app = web.Application()
         self.setup_routes()
         self.setup_cors()
@@ -55,26 +56,23 @@ class PuoMemoAPI:
             cors.add(route)
     
     async def initialize(self):
-        """Initialize memory system with connection pool"""
-        self.puo = PuoMemoPooled()
+        """Initialize memory system"""
         success = await self.puo.initialize()
         if not success:
             raise Exception("Failed to initialize PUO Memo")
-        logger.info("✅ PUO Memo API Server initialized with connection pooling")
+        logger.info("✅ PUO Memo API Server initialized")
         
     async def cleanup(self):
         """Cleanup resources"""
-        if self.puo:
-            await self.puo.cleanup()
+        await self.puo.cleanup()
     
     async def handle_health(self, request: Request) -> Response:
         """Health check endpoint"""
         return web.json_response({
             "status": "healthy",
-            "service": "puo-memo-api-pooled",
-            "version": "2.0.0",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "pool_status": "active" if self.puo and self.puo.pool else "inactive"
+            "service": "puo-memo-api",
+            "version": "1.0.0",
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
     
     async def handle_memory_capture(self, request: Request) -> Response:
@@ -105,10 +103,10 @@ class PuoMemoAPI:
                 **metadata,
                 "source": source,
                 "capture_timestamp": datetime.now(timezone.utc).isoformat(),
-                "api_version": "2.0.0"
+                "api_version": "1.0.0"
             }
             
-            # Create memory using pooled system
+            # Create memory using existing system
             result = await self.puo.create_memory(
                 content=content,
                 title=title,
@@ -118,13 +116,12 @@ class PuoMemoAPI:
             
             # Store additional metadata if memory was created successfully
             if result.get('id') and not result.get('error'):
-                # Update the memory with full metadata using a separate connection
-                async with self.puo.get_connection() as conn:
-                    await conn.execute("""
-                        UPDATE memory_entities 
-                        SET metadata = $1
-                        WHERE id = $2
-                    """, json.dumps(enhanced_metadata), result['id'])
+                # Update the memory with full metadata
+                await self.puo.conn.execute("""
+                    UPDATE memory_entities 
+                    SET metadata = $1
+                    WHERE id = $2
+                """, json.dumps(enhanced_metadata), result['id'])
             
             logger.info(f"📝 Captured {memory_type} from {source}: {title[:50]}...")
             
@@ -135,7 +132,7 @@ class PuoMemoAPI:
             })
             
         except Exception as e:
-            logger.error(f"Memory capture failed: {e}", exc_info=True)
+            logger.error(f"Memory capture failed: {e}")
             return web.json_response({
                 "success": False,
                 "error": str(e)
@@ -152,7 +149,7 @@ class PuoMemoAPI:
             return web.json_response(result)
             
         except Exception as e:
-            logger.error(f"List memories failed: {e}", exc_info=True)
+            logger.error(f"List memories failed: {e}")
             return web.json_response({
                 "error": str(e)
             }, status=500)
@@ -173,7 +170,7 @@ class PuoMemoAPI:
             return web.json_response(result)
             
         except Exception as e:
-            logger.error(f"Search failed: {e}", exc_info=True)
+            logger.error(f"Search failed: {e}")
             return web.json_response({
                 "error": str(e)
             }, status=500)
@@ -375,40 +372,52 @@ class PuoMemoAPI:
 async def create_app():
     """Create and initialize the application"""
     api = PuoMemoAPI()
-    
-    # Setup startup and cleanup handlers
-    async def on_startup(app):
-        await api.initialize()
-        app['api'] = api
-    
-    async def on_cleanup(app):
-        await app['api'].cleanup()
-    
-    api.app.on_startup.append(on_startup)
-    api.app.on_cleanup.append(on_cleanup)
-    
+    await api.initialize()
     return api.app
 
 
+async def cleanup_app(app):
+    """Cleanup on shutdown"""
+    # Find our API instance (stored in app state or use global)
+    # For now, we'll handle cleanup in the main function
+    pass
+
+
 def main():
-    """Main entry point - proper async handling"""
-    # Setup logging
-    logging.getLogger('aiohttp').setLevel(logging.WARNING)
+    """Run the API server"""
+    # Create event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # Create API instance
+    api = PuoMemoAPI()
+    
+    # Initialize
+    loop.run_until_complete(api.initialize())
+    
+    # Configure web app
+    app = api.app
+    
+    # Add cleanup handler
+    async def cleanup(app):
+        await api.cleanup()
+    
+    app.on_cleanup.append(cleanup)
     
     # Start server
-    logger.info("🚀 Starting PUO Memo API Server (Fixed with Connection Pooling)")
-    logger.info("📡 Server will run on http://localhost:8000")
+    logger.info("🚀 Starting PUO Memo API Server")
+    logger.info("📡 Listening on http://localhost:8000")
     logger.info("🔗 Endpoints:")
     logger.info("   POST /memory - Capture memories from extension")
     logger.info("   GET /memories - List recent memories")
     logger.info("   GET /search?q=query - Search memories")
-    logger.info("✨ Features:")
-    logger.info("   - Connection pooling for concurrent requests")
-    logger.info("   - Proper async/await handling")
-    logger.info("   - No event loop conflicts")
     
-    # Run the app with proper async handling
-    web.run_app(create_app(), host='0.0.0.0', port=8000)
+    try:
+        web.run_app(app, host='0.0.0.0', port=8000)
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+    finally:
+        loop.run_until_complete(api.cleanup())
 
 
 if __name__ == '__main__':

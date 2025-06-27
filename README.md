@@ -1,55 +1,148 @@
-# PUO Memo MCP - Ultra Simple Memory System
+# PUO Memo MCP - Clean Architecture
 
-The ultimate simplified MCP (Model Context Protocol) server with just 2 tools. Pure memory management without complexity.
+A memory system with Model Context Protocol (MCP) integration, featuring a clean, modular architecture.
 
-## Features
+## 📁 Project Structure
 
-- **Just 2 Tools** - `memory` and `recall` - that's it!
-- **Cloud SQL Ready** - Pre-configured for your database
-- **AI-Enhanced Search** - Optional Gemini integration
-- **No Redundancy** - Save = Update, Search = List
-- **Ultra Simple** - Maximum simplicity, maximum reliability
+```
+puo-memo-mcp/
+├── src/
+│   ├── core/             # Core business logic
+│   │   ├── memory.py     # Memory CRUD operations
+│   │   ├── database.py   # Database connection management
+│   │   └── ai.py         # Optional AI features (Gemini)
+│   ├── mcp/              # MCP server implementation
+│   │   └── server.py     # MCP server with 2 tools
+│   ├── api/              # REST API for browser extension
+│   │   └── server.py     # HTTP API server
+│   └── utils/            # Utilities
+│       └── config.py     # Configuration management
+├── scripts/              # Utility scripts
+│   ├── setup_database.py
+│   ├── check_system_status.py
+│   └── check_db_contents.py
+├── tests/                # Test suite
+│   └── test_memory.py
+├── archive/              # Old/legacy code
+├── .env                  # Environment configuration
+└── requirements.txt      # Python dependencies
+```
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Setup Environment
 
 ```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Copy environment file (if needed)
+cp .env.example .env
+# Edit .env with your database credentials
 ```
 
 ### 2. Setup Database
 
 ```bash
-python setup_database.py
+python scripts/setup_database.py
 ```
 
-This will create the necessary tables in your Cloud SQL database.
+### 3. Run Components
 
-### 3. Run the Server
+**MCP Server** (for Claude Desktop):
+```bash
+python -m src.mcp.server
+```
+
+**API Server** (for browser extension):
+```bash
+python -m src.api.server
+```
+
+## 🛠 Architecture
+
+### Core Components
+
+1. **MemoryStore** (`src/core/memory.py`)
+   - Handles all memory CRUD operations
+   - Clean, async interface
+   - Type-safe with proper hints
+
+2. **DatabaseConnection** (`src/core/database.py`)
+   - PostgreSQL connection pooling
+   - Async context managers
+   - Automatic cleanup
+
+3. **AIAssistant** (`src/core/ai.py`)
+   - Optional Gemini integration
+   - Smart title generation
+   - Tag suggestions
+
+### MCP Server
+
+- Just 2 tools: `memory` and `recall`
+- Clean implementation in `src/mcp/server.py`
+- Auto-starts with Claude Desktop
+
+### API Server
+
+- RESTful endpoints for browser extension
+- CORS enabled for browser access
+- Clean implementation in `src/api/server.py`
+
+## 📝 Configuration
+
+All configuration is managed through environment variables or `pydantic` settings:
+
+```python
+# src/utils/config.py
+- Database settings
+- AI API keys
+- Server ports
+- Connection pool settings
+```
+
+## 🧪 Testing
+
+Run the test suite:
 
 ```bash
-python server_ultra_simple.py
+python tests/test_memory.py
 ```
 
-### 4. Add to Claude Desktop
+## 🔧 MCP Configuration
 
-Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to Claude Desktop's config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "puo-memo": {
-      "command": "/path/to/venv/bin/python3",
-      "args": ["/path/to/puo memo mcp/server_ultra_simple.py"]
+      "command": "/path/to/venv/bin/python",
+      "args": ["-m", "src.mcp.server"],
+      "cwd": "/path/to/puo-memo-mcp",
+      "env": {
+        "PYTHONPATH": "."
+      }
     }
   }
 }
 ```
 
-Restart Claude Desktop and you're ready to go!
+## 📚 Key Benefits of Refactoring
 
-## Available Tools
+1. **Clean Architecture** - Separated concerns, easy to maintain
+2. **Type Safety** - Full type hints throughout
+3. **Modular Design** - Easy to extend with new features
+4. **Proper Testing** - Automated test suite
+5. **Configuration Management** - Centralized settings
+6. **No Code Duplication** - Single source of truth
+
+## 🎯 Available Tools
 
 ### 1. `memory`
 Save anything to memory. Creates new memories or updates existing ones.
@@ -67,56 +160,25 @@ Examples:
 - "recall:" (list recent memories)
 ```
 
-That's it! Just 2 tools for all your memory needs.
+## 🔍 System Status
 
-## Configuration
-
-The `.env` file contains:
-- **Database credentials** - Pre-configured for your Cloud SQL
-- **Gemini API key** - Optional, enables AI-enhanced search
-
-## Architecture
-
-```
-server.py          # MCP server with 8 tools
-puo_memo_simple.py # Core memory operations
-setup_database.py  # Database initialization
-.env              # Configuration (included for convenience)
-```
-
-## Key Differences from Original
-
-- **No file watching** - No macOS permission dialogs
-- **No background services** - Simple and predictable
-- **Only 2 search modes** - Basic and AI-enhanced
-- **No context injection** - No timeout issues
-- **Clean codebase** - Easy to understand and modify
-
-## Testing
-
-Run the test script to verify everything works:
-
+Check system status:
 ```bash
-python test_connection.py
+python scripts/check_system_status.py
 ```
 
-## Troubleshooting
+Check database contents:
+```bash
+python scripts/check_db_contents.py
+```
 
-### "Connection refused" error
-- Check your Cloud SQL instance is running
-- Verify IP whitelist includes your current IP
+## 📋 Next Steps
 
-### "Table does not exist" error
-- Run `python setup_database.py` to create tables
-
-### Tools not showing in Claude Desktop
-- Restart Claude Desktop after updating config
-- Check logs: `tail -f ~/Library/Logs/Claude/mcp*.log`
+- Add graph-based memory features
+- Implement vector search
+- Add more AI capabilities
+- Create web UI dashboard
 
 ## License
 
 MIT License - Use freely!
-
-## Credits
-
-Simplified version of PUO Memo MCP, focusing on reliability and ease of use.
