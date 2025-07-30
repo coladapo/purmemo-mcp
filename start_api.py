@@ -85,10 +85,8 @@ async def init_database():
 
 def main():
     """Main entry point"""
-    # Initialize database
-    if not asyncio.run(init_database()):
-        print("Failed to initialize database!")
-        sys.exit(1)
+    # Skip database init - using existing Supabase tables
+    print("Using existing Supabase database")
     
     # Import and run the API
     from src.api.render_api import app

@@ -41,14 +41,16 @@ class MemoryCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=50000)
     title: Optional[str] = Field(None, max_length=200)
     tags: List[str] = Field(default_factory=list)
-    visibility: str = Field("private", pattern="^(private|team|public)$")
+    type: Optional[str] = Field("note", max_length=50)
+    context: Optional[str] = Field(None, max_length=255)
 
 class MemoryResponse(BaseModel):
     id: str
     content: str
     title: Optional[str]
     tags: List[str]
-    visibility: str
+    type: Optional[str]
+    context: Optional[str]
     created_at: datetime
     updated_at: datetime
 
@@ -94,7 +96,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     db = await get_db()
     async with db.acquire() as conn:
         result = await conn.fetchrow("""
-            SELECT id, tenant_id, permissions 
+            SELECT id, user_id, permissions 
             FROM api_keys 
             WHERE key_hash = $1 AND is_active = true
         """, key_hash)
@@ -111,7 +113,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
         
         return {
             'api_key_id': result['id'],
-            'tenant_id': result['tenant_id'],
+            'user_id': result['user_id'],
             'permissions': result['permissions']
         }
 
@@ -148,19 +150,20 @@ async def create_memory(
         # Insert memory
         result = await conn.fetchrow("""
             INSERT INTO memories (
-                content, title, tags, visibility, 
-                created_by, tenant_id
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+                content, title, tags, type, context,
+                user_id, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             RETURNING id, created_at, updated_at
         """, memory.content, memory.title, memory.tags, 
-            memory.visibility, auth['api_key_id'], auth['tenant_id'])
+            memory.type, memory.context, auth['user_id'])
         
         return MemoryResponse(
             id=str(result['id']),
             content=memory.content,
             title=memory.title,
             tags=memory.tags,
-            visibility=memory.visibility,
+            type=memory.type,
+            context=memory.context,
             created_at=result['created_at'],
             updated_at=result['updated_at']
         )
@@ -175,23 +178,24 @@ async def list_memories(
     db = await get_db()
     
     async with db.acquire() as conn:
-        # Fetch memories for tenant
+        # Fetch memories for user
         rows = await conn.fetch("""
-            SELECT id, content, title, tags, visibility, 
+            SELECT id, content, title, tags, type, context,
                    created_at, updated_at
             FROM memories
-            WHERE tenant_id = $1
+            WHERE user_id = $1 AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT $2 OFFSET $3
-        """, auth['tenant_id'], limit, offset)
+        """, auth['user_id'], limit, offset)
         
         return [
             MemoryResponse(
                 id=str(row['id']),
                 content=row['content'],
                 title=row['title'],
-                tags=row['tags'],
-                visibility=row['visibility'],
+                tags=row['tags'] or [],
+                type=row['type'],
+                context=row['context'],
                 created_at=row['created_at'],
                 updated_at=row['updated_at']
             )
@@ -208,11 +212,11 @@ async def get_memory(
     
     async with db.acquire() as conn:
         row = await conn.fetchrow("""
-            SELECT id, content, title, tags, visibility, 
+            SELECT id, content, title, tags, type, context,
                    created_at, updated_at
             FROM memories
-            WHERE id = $1 AND tenant_id = $2
-        """, memory_id, auth['tenant_id'])
+            WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+        """, memory_id, auth['user_id'])
         
         if not row:
             raise HTTPException(status_code=404, detail="Memory not found")
@@ -221,8 +225,9 @@ async def get_memory(
             id=str(row['id']),
             content=row['content'],
             title=row['title'],
-            tags=row['tags'],
-            visibility=row['visibility'],
+            tags=row['tags'] or [],
+            type=row['type'],
+            context=row['context'],
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
@@ -236,12 +241,14 @@ async def delete_memory(
     db = await get_db()
     
     async with db.acquire() as conn:
+        # Soft delete
         result = await conn.execute("""
-            DELETE FROM memories
-            WHERE id = $1 AND tenant_id = $2
-        """, memory_id, auth['tenant_id'])
+            UPDATE memories
+            SET deleted_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+        """, memory_id, auth['user_id'])
         
-        if result == "DELETE 0":
+        if result == "UPDATE 0":
             raise HTTPException(status_code=404, detail="Memory not found")
         
         return {"message": "Memory deleted successfully"}
@@ -259,16 +266,26 @@ async def create_api_key(admin_secret: str):
     
     db = await get_db()
     async with db.acquire() as conn:
-        # Create tenant
-        tenant_id = await conn.fetchval("""
-            INSERT INTO api_keys (key_hash, name, permissions)
-            VALUES ($1, 'First API Key', '["memory:create", "memory:read", "memory:delete"]')
-            RETURNING tenant_id
-        """, key_hash)
+        # First, check if we have any users
+        user_id = await conn.fetchval("SELECT id FROM users LIMIT 1")
+        
+        if not user_id:
+            # Create a default user
+            user_id = await conn.fetchval("""
+                INSERT INTO users (email, name, created_at)
+                VALUES ('admin@puo-memo.com', 'Admin User', CURRENT_TIMESTAMP)
+                RETURNING id
+            """)
+        
+        # Create API key
+        await conn.execute("""
+            INSERT INTO api_keys (key_hash, name, permissions, user_id, created_at)
+            VALUES ($1, 'First API Key', '["memory:create", "memory:read", "memory:delete"]', $2, CURRENT_TIMESTAMP)
+        """, key_hash, user_id)
         
         return {
             "api_key": api_key,
-            "tenant_id": str(tenant_id) if tenant_id else None,
+            "user_id": str(user_id),
             "message": "Save this API key - it won't be shown again!"
         }
 
