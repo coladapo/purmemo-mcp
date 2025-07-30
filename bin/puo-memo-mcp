@@ -20,6 +20,17 @@ function log(message, color = 'reset') {
 }
 
 function findPython() {
+  // First check for venv Python
+  const venvPath = path.join(os.homedir(), '.puo-memo-mcp', 'venv');
+  const venvPython = process.platform === 'win32' 
+    ? path.join(venvPath, 'Scripts', 'python.exe')
+    : path.join(venvPath, 'bin', 'python');
+  
+  if (fs.existsSync(venvPython)) {
+    return venvPython;
+  }
+  
+  // Fall back to system Python
   const commands = process.platform === 'win32' 
     ? ['python', 'python3', 'py -3'] 
     : ['python3', 'python'];
@@ -46,24 +57,29 @@ function checkPythonVersion(pythonCmd) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore']
     });
-    const version = parseFloat(result.trim());
-    return version >= 3.8;
+    const [major, minor] = result.trim().split('.').map(Number);
+    return major === 3 && minor >= 8;
   } catch (e) {
     return false;
   }
 }
 
 function checkDependencies(pythonCmd, packageDir) {
-  const requiredPackages = ['aiohttp', 'pydantic', 'python-dotenv', 'requests'];
+  const requiredPackages = [
+    { import: 'aiohttp', package: 'aiohttp' },
+    { import: 'pydantic', package: 'pydantic' },
+    { import: 'dotenv', package: 'python-dotenv' },
+    { import: 'requests', package: 'requests' }
+  ];
   const missing = [];
   
   for (const pkg of requiredPackages) {
     try {
-      require('child_process').execSync(`${pythonCmd} -c "import ${pkg}"`, {
+      require('child_process').execSync(`${pythonCmd} -c "import ${pkg.import}"`, {
         stdio: 'ignore'
       });
     } catch (e) {
-      missing.push(pkg);
+      missing.push(pkg.package);
     }
   }
   
@@ -111,7 +127,7 @@ For more information, visit: https://github.com/coladapo/puo-memo-mcp
   }
 
   const packageDir = path.resolve(__dirname, '..');
-  const serverPath = path.join(packageDir, 'src', 'mcp', 'server.py');
+  const serverPath = path.join(packageDir, 'src', 'mcp', 'validated_client_server.py');
   
   // Check if server file exists
   if (!fs.existsSync(serverPath)) {

@@ -1,0 +1,179 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 3 AM
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-npm-dependencies:
+    name: Update NPM Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Update dependencies
+        run: |
+          npx npm-check-updates -u
+          npm install
+          npm audit fix || true
+      
+      - name: Run tests
+        run: |
+          npm test || echo "No test script"
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update npm dependencies'
+          title: 'chore: update npm dependencies'
+          body: |
+            ## 📦 Dependency Updates
+            
+            This PR updates NPM dependencies to their latest versions.
+            
+            ### Changes
+            - Updated package.json dependencies
+            - Updated package-lock.json
+            - Ran npm audit fix
+            
+            ### Testing
+            - [ ] All tests pass
+            - [ ] No breaking changes detected
+            - [ ] Security vulnerabilities addressed
+          branch: deps/npm-updates
+          delete-branch: true
+
+  update-python-dependencies:
+    name: Update Python Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Update dependencies
+        run: |
+          pip install pip-tools
+          
+          # Update API dependencies
+          pip-compile requirements-api.in -U -o requirements-api.txt
+          
+          # Update MCP dependencies  
+          pip-compile requirements.in -U -o requirements.txt
+      
+      - name: Test updated dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-api.txt
+          python -m pytest test/ || echo "Tests need updating"
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update python dependencies'
+          title: 'chore: update python dependencies'
+          body: |
+            ## 🐍 Python Dependency Updates
+            
+            This PR updates Python dependencies to their latest versions.
+            
+            ### Changes
+            - Updated requirements.txt
+            - Updated requirements-api.txt
+            
+            ### Testing
+            - [ ] All tests pass
+            - [ ] No breaking changes detected
+            - [ ] Compatible with Python 3.11+
+          branch: deps/python-updates
+          delete-branch: true
+
+  update-docker-base-images:
+    name: Update Docker Base Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update Dockerfiles
+        run: |
+          # Update Python base image
+          sed -i 's/FROM python:3\.[0-9]\+-slim/FROM python:3.11-slim/g' docker/Dockerfile.api
+          
+          # Update Node base image
+          sed -i 's/FROM node:[0-9]\+/FROM node:20/g' docker/Dockerfile.mcp || true
+      
+      - name: Test Docker builds
+        run: |
+          docker build -f docker/Dockerfile.api -t test-api .
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update docker base images'
+          title: 'chore: update docker base images'
+          body: |
+            ## 🐳 Docker Base Image Updates
+            
+            This PR updates Docker base images to their latest versions.
+            
+            ### Changes
+            - Updated Python base image
+            - Updated Node.js base image
+            
+            ### Testing
+            - [ ] Images build successfully
+            - [ ] No compatibility issues
+          branch: deps/docker-updates
+          delete-branch: true
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      - name: Create security report
+        run: |
+          echo "# Security Audit Report" > SECURITY_REPORT.md
+          echo "Generated on: $(date)" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          
+          # Add npm audit results
+          echo "## NPM Vulnerabilities" >> SECURITY_REPORT.md
+          npm audit >> SECURITY_REPORT.md || true
+          
+          # Add pip audit results
+          echo "## Python Vulnerabilities" >> SECURITY_REPORT.md
+          pip install pip-audit
+          pip-audit >> SECURITY_REPORT.md || true
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: SECURITY_REPORT.md

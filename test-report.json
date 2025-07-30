@@ -1,0 +1,452 @@
+{
+  "startTime": "2025-07-30T17:57:18.555Z",
+  "tests": [
+    {
+      "name": "Connect to MCP Server",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.239Z",
+      "duration": 664
+    },
+    {
+      "name": "List Tools",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.241Z",
+      "tools": [
+        "memory",
+        "recall",
+        "entities"
+      ]
+    },
+    {
+      "name": "Tool exists: memory",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Valid schema: memory",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Tool exists: recall",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Valid schema: recall",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Tool exists: entities",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Valid schema: entities",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.242Z"
+    },
+    {
+      "name": "Basic memory storage",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.248Z",
+      "duration": 6,
+      "error": null
+    },
+    {
+      "name": "Memory with special characters",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.251Z",
+      "duration": 3,
+      "error": null
+    },
+    {
+      "name": "Memory with very long content",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.254Z",
+      "duration": 3,
+      "error": null
+    },
+    {
+      "name": "Memory without optional fields",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.256Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Memory with empty tags",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.259Z",
+      "duration": 3,
+      "error": null
+    },
+    {
+      "name": "Missing required content",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.260Z",
+      "duration": 1,
+      "expectedError": "Input validation error: 'content' is a required property"
+    },
+    {
+      "name": "Invalid tags type",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.262Z",
+      "duration": 2,
+      "expectedError": "Input validation error: 'not-an-array' is not of type 'array'"
+    },
+    {
+      "name": "Search for specific term",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.774Z",
+      "duration": 3,
+      "error": null
+    },
+    {
+      "name": "Search with limit",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.777Z",
+      "duration": 3,
+      "error": null
+    },
+    {
+      "name": "Empty search query",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.780Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Search for non-existent term",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.782Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Missing query parameter",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.783Z",
+      "duration": 1,
+      "expectedError": "Input validation error: 'query' is a required property"
+    },
+    {
+      "name": "Invalid limit type",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.785Z",
+      "duration": 2,
+      "expectedError": "Input validation error: 'not-a-number' is not of type 'integer'"
+    },
+    {
+      "name": "List all entities",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.787Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Filter by entity type",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.789Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Search by entity name",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.791Z",
+      "duration": 2,
+      "error": null
+    },
+    {
+      "name": "Invalid entity type",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.792Z",
+      "duration": 1,
+      "error": null
+    },
+    {
+      "name": "Average latency < 200ms",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.815Z",
+      "avgLatency": 2.2,
+      "maxLatency": 3
+    },
+    {
+      "name": "Handle concurrent requests",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.833Z",
+      "totalRequests": 10,
+      "duration": 18
+    },
+    {
+      "name": "Create memory for integration",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:21.836Z"
+    },
+    {
+      "name": "Find created memory",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:22.342Z"
+    },
+    {
+      "name": "List entities after creation",
+      "status": "passed",
+      "timestamp": "2025-07-30T17:57:22.346Z"
+    }
+  ],
+  "phases": {
+    "Initialization": {
+      "name": "Initialization",
+      "startTime": 1753898240557,
+      "tests": [
+        {
+          "name": "Connect to MCP Server",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.239Z",
+          "duration": 664
+        },
+        {
+          "name": "List Tools",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.241Z",
+          "tools": [
+            "memory",
+            "recall",
+            "entities"
+          ]
+        }
+      ],
+      "duration": 684
+    },
+    "Tool Discovery": {
+      "name": "Tool Discovery",
+      "startTime": 1753898241241,
+      "tests": [
+        {
+          "name": "Tool exists: memory",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        },
+        {
+          "name": "Valid schema: memory",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        },
+        {
+          "name": "Tool exists: recall",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        },
+        {
+          "name": "Valid schema: recall",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        },
+        {
+          "name": "Tool exists: entities",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        },
+        {
+          "name": "Valid schema: entities",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.242Z"
+        }
+      ],
+      "duration": 1
+    },
+    "Memory Tool Tests": {
+      "name": "Memory Tool Tests",
+      "startTime": 1753898241242,
+      "tests": [
+        {
+          "name": "Basic memory storage",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.248Z",
+          "duration": 6,
+          "error": null
+        },
+        {
+          "name": "Memory with special characters",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.251Z",
+          "duration": 3,
+          "error": null
+        },
+        {
+          "name": "Memory with very long content",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.254Z",
+          "duration": 3,
+          "error": null
+        },
+        {
+          "name": "Memory without optional fields",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.256Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Memory with empty tags",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.259Z",
+          "duration": 3,
+          "error": null
+        },
+        {
+          "name": "Missing required content",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.260Z",
+          "duration": 1,
+          "expectedError": "Input validation error: 'content' is a required property"
+        },
+        {
+          "name": "Invalid tags type",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.262Z",
+          "duration": 2,
+          "expectedError": "Input validation error: 'not-an-array' is not of type 'array'"
+        }
+      ],
+      "duration": 20
+    },
+    "Recall Tool Tests": {
+      "name": "Recall Tool Tests",
+      "startTime": 1753898241262,
+      "tests": [
+        {
+          "name": "Search for specific term",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.774Z",
+          "duration": 3,
+          "error": null
+        },
+        {
+          "name": "Search with limit",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.777Z",
+          "duration": 3,
+          "error": null
+        },
+        {
+          "name": "Empty search query",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.780Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Search for non-existent term",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.782Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Missing query parameter",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.783Z",
+          "duration": 1,
+          "expectedError": "Input validation error: 'query' is a required property"
+        },
+        {
+          "name": "Invalid limit type",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.785Z",
+          "duration": 2,
+          "expectedError": "Input validation error: 'not-a-number' is not of type 'integer'"
+        }
+      ],
+      "duration": 523
+    },
+    "Entities Tool Tests": {
+      "name": "Entities Tool Tests",
+      "startTime": 1753898241785,
+      "tests": [
+        {
+          "name": "List all entities",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.787Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Filter by entity type",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.789Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Search by entity name",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.791Z",
+          "duration": 2,
+          "error": null
+        },
+        {
+          "name": "Invalid entity type",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.792Z",
+          "duration": 1,
+          "error": null
+        }
+      ],
+      "duration": 8
+    },
+    "Performance Tests": {
+      "name": "Performance Tests",
+      "startTime": 1753898241793,
+      "tests": [
+        {
+          "name": "Average latency < 200ms",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.815Z",
+          "avgLatency": 2.2,
+          "maxLatency": 3
+        },
+        {
+          "name": "Handle concurrent requests",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.833Z",
+          "totalRequests": 10,
+          "duration": 18
+        }
+      ],
+      "duration": 40
+    },
+    "Integration Tests": {
+      "name": "Integration Tests",
+      "startTime": 1753898241833,
+      "tests": [
+        {
+          "name": "Create memory for integration",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:21.836Z"
+        },
+        {
+          "name": "Find created memory",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:22.342Z"
+        },
+        {
+          "name": "List entities after creation",
+          "status": "passed",
+          "timestamp": "2025-07-30T17:57:22.346Z"
+        }
+      ],
+      "duration": 513
+    }
+  },
+  "metrics": {
+    "totalTests": 30,
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "duration": 3791
+  },
+  "endTime": "2025-07-30T17:57:22.346Z"
+}

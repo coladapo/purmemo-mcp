@@ -12,11 +12,15 @@ Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory ma
 ## Features
 
 - 🧠 **Smart Memory Storage** - Save and organize information with AI assistance
-- 🔍 **Intelligent Search** - Hybrid search combining keywords and semantic understanding
+- 🔍 **Semantic Search** - Advanced AI-powered search that understands meaning and context
+  - Keyword search for exact matches
+  - Semantic search for conceptual queries
+  - Hybrid search combining both approaches
 - 📎 **File Attachments** - Attach files and URLs to memories
 - 🏷️ **Smart Tagging** - Automatic and manual categorization
 - 🔗 **Knowledge Graph** - Automatic entity extraction and relationship mapping
 - 📥 **Chat Import** - Import conversations from Claude, ChatGPT, and other AI assistants
+- 🚀 **Vector Embeddings** - State-of-the-art embeddings with multiple provider options
 
 ## Installation
 
