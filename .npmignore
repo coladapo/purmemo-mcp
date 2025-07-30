@@ -1,0 +1,75 @@
+# Development files
+.env
+.env.local
+.env.*
+!.env.example
+
+# Local documentation
+docs-local/
+*.local.md
+*.private.md
+
+# IDE files
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+test-*.js
+tests/
+__pycache__/
+*.pyc
+
+# Build files
+dist/
+build/
+*.log
+
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Attachments and user data
+attachments/
+
+# Git files
+.git/
+.gitignore
+
+# CI/CD
+.github/
+.travis.yml
+.circleci/
+
+# Docker files (if not needed for npm package)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Railway specific
+railway.json
+railway.toml
+nixpacks.toml
+railway.env.example
+
+# Archive and backup
+archive/
+backup/
+*.backup
+*.old
+
+# Documentation source files (keep compiled docs)
+docs-src/
+
+# Example secrets
+*.key
+*.pem
+*.cert

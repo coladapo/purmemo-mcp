@@ -1,19 +1,53 @@
 {
   "name": "puo-memo-mcp",
   "version": "1.0.0",
-  "description": "A memory system with Model Context Protocol (MCP) integration, featuring a clean, modular architecture.",
-  "main": "bookmarklet.js",
+  "description": "Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities",
+  "main": "src/mcp/server.py",
+  "bin": {
+    "puo-memo-mcp": "./bin/puo-memo-mcp"
+  },
+  "files": [
+    "src/",
+    "bin/",
+    "docs/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "directories": {
     "doc": "docs",
     "example": "examples",
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "python3 src/mcp/server.py",
+    "test": "node test_mcp_suite.js",
+    "postinstall": "echo 'PUO Memo MCP installed! Configure Claude Desktop with your API key to get started.'"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "memory",
+    "knowledge-management",
+    "ai",
+    "claude",
+    "chatgpt",
+    "puo-memo"
+  ],
+  "author": "Wivak Coladapo <coladapo@puo-memo.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coladapo/puo-memo-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/coladapo/puo-memo-mcp/issues"
+  },
+  "homepage": "https://api.puo-memo.com",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0"
   }

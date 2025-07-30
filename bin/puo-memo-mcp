@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import sys
+import os
+
+# Add the package directory to Python path
+package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, package_dir)
+
+# Import and run the server
+from src.mcp.server import main
+
+if __name__ == "__main__":
+    main()
