@@ -69,13 +69,20 @@ async def init_db():
     if not database_url:
         raise ValueError("DATABASE_URL environment variable is required")
     
+    # Add SSL requirement for Supabase
+    if "supabase" in database_url:
+        database_url = database_url.replace("postgresql://", "postgresql://")
+        if "sslmode" not in database_url:
+            database_url += "?sslmode=require"
+    
     # Create connection pool with pgbouncer compatibility
     db_pool = await asyncpg.create_pool(
         database_url,
         min_size=1,
         max_size=10,
         command_timeout=60,
-        statement_cache_size=0  # Required for pgbouncer
+        statement_cache_size=0,  # Required for pgbouncer
+        ssl='require' if "supabase" in database_url else None
     )
 
 async def get_db():
