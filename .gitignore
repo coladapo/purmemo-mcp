@@ -95,6 +95,5 @@ test_api_compatibility.py
 nixpacks.toml
 railway.toml
 
-# Test files
-test-*.js
+# Test files (excluding npm package tests)
 test_*.py
