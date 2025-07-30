@@ -155,7 +155,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
         db = await get_db()
         async with db.acquire() as conn:
             result = await conn.fetchrow("""
-                SELECT id, user_id, permissions 
+                SELECT id, user_id, scopes 
                 FROM api_keys 
                 WHERE key_hash = $1 AND is_active = true
             """, key_hash)
@@ -173,7 +173,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
             return {
                 'api_key_id': result['id'],
                 'user_id': result['user_id'],
-                'permissions': result['permissions']
+                'scopes': result['scopes'] or []
             }
     except HTTPException:
         raise
@@ -344,11 +344,19 @@ async def create_api_key(request: AdminRequest):
                     RETURNING id
                 """)
             
-            # Create API key with JSONB permissions
+            # Extract prefix and suffix from API key
+            key_prefix = api_key[:7]  # "puo_xxx"
+            key_suffix = api_key[-4:]  # last 4 chars
+            
+            # Create API key with correct schema
             await conn.execute("""
-                INSERT INTO api_keys (key_hash, name, permissions, user_id, created_at, is_active)
-                VALUES ($1, 'First API Key', '["memory:create", "memory:read", "memory:delete"]'::jsonb, $2, CURRENT_TIMESTAMP, true)
-            """, key_hash, user_id)
+                INSERT INTO api_keys (
+                    key_hash, key_prefix, key_suffix, name, 
+                    scopes, user_id, created_at, is_active
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, true)
+            """, key_hash, key_prefix, key_suffix, 'API Key', 
+                ['memory:create', 'memory:read', 'memory:delete'], user_id)
             
             return {
                 "api_key": api_key,
