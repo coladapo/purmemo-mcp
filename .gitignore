@@ -98,3 +98,4 @@ railway.toml
 # Test files (excluding npm package tests)
 test_*.py
 node_modules/
+docker-logs.txt
