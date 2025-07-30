@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-07-30
+
+### Added
+- NPM and GitHub badges to README
+- Comprehensive documentation site
+- GitHub Actions for CI/CD
+  - Automated testing workflow
+  - Automated NPM publishing
+  - GitHub Pages documentation deployment
+- Professional documentation structure
+  - Installation guide
+  - Configuration guide
+  - API reference with examples
+  - Troubleshooting guide
+
+### Improved
+- Package.json metadata for better NPM presence
+- README with badges and clearer structure
+
+### Fixed
+- Executable bin script for proper NPM installation
+
 ## [1.0.0] - 2025-07-30
 
 ### Added
@@ -39,7 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic MCP server implementation
 - Core memory operations
 
-[Unreleased]: https://github.com/coladapo/puo-memo-mcp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/coladapo/puo-memo-mcp/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/coladapo/puo-memo-mcp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/coladapo/puo-memo-mcp/compare/v0.1.1...v1.0.0
 [0.1.1]: https://github.com/coladapo/puo-memo-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/coladapo/puo-memo-mcp/releases/tag/v0.1.0
