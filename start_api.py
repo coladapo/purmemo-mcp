@@ -89,7 +89,7 @@ def main():
     print("Using existing Supabase database")
     
     # Import and run the API
-    from src.api.render_api import app
+    from src.api.simple_api import app
     
     # Get configuration from environment
     host = os.getenv('HOST', '0.0.0.0')
@@ -99,7 +99,7 @@ def main():
     
     # Run the server
     uvicorn.run(
-        "src.api.render_api:app",
+        "src.api.simple_api:app",
         host=host,
         port=port,
         reload=False,
