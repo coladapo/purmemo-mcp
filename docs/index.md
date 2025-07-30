@@ -1,5 +1,8 @@
 # PUO Memo MCP Documentation
 
+[![npm version](https://badge.fury.io/js/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Welcome to the official documentation for PUO Memo MCP - a powerful Model Context Protocol server for memory management with AI capabilities.
 
 ## Quick Links
@@ -9,6 +12,7 @@ Welcome to the official documentation for PUO Memo MCP - a powerful Model Contex
 - [API Reference](./api-reference.md)
 - [Examples](./examples.md)
 - [Troubleshooting](./troubleshooting.md)
+- [GitHub Setup Guide](./GITHUB_SETUP_GUIDE.md) - NEW! Full CI/CD setup
 
 ## What is PUO Memo MCP?
 
