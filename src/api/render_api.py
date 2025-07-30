@@ -255,10 +255,13 @@ async def delete_memory(
         return {"message": "Memory deleted successfully"}
 
 # Admin endpoint to create first API key
+class AdminRequest(BaseModel):
+    admin_secret: str
+
 @app.post("/api/v1/admin/create-api-key")
-async def create_api_key(admin_secret: str):
+async def create_api_key(request: AdminRequest):
     """Create an API key (requires admin secret)"""
-    if admin_secret != os.getenv('ADMIN_SECRET', 'change-me-in-production'):
+    if request.admin_secret != os.getenv('ADMIN_SECRET', 'change-me-in-production'):
         raise HTTPException(status_code=403, detail="Invalid admin secret")
     
     # Generate API key
