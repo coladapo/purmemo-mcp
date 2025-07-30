@@ -1,0 +1,163 @@
+puo-memo-api  | Traceback (most recent call last):
+puo-memo-api  |   File "/app/src/utils/config.py", line 7, in <module>
+puo-memo-api  |     from pydantic_settings import BaseSettings
+puo-memo-db   | The files belonging to this database system will be owned by user "postgres".
+puo-memo-api  | ModuleNotFoundError: No module named 'pydantic_settings'
+puo-memo-api  | 
+puo-memo-api  | 
+puo-memo-api  | During handling of the above exception, another exception occurred:
+puo-memo-api  | 
+puo-memo-api  | 
+puo-memo-api  | Traceback (most recent call last):
+puo-memo-api  |   File "<frozen runpy>", line 198, in _run_module_as_main
+puo-memo-api  |   File "<frozen runpy>", line 88, in _run_code
+puo-memo-api  |   File "/app/src/api/server.py", line 16, in <module>
+puo-memo-api  |     from src.core.database import DatabaseConnection
+puo-memo-api  |   File "/app/src/core/database.py", line 9, in <module>
+puo-memo-api  |     from src.utils.config import get_settings
+puo-memo-api  |   File "/app/src/utils/config.py", line 11, in <module>
+puo-memo-api  |     from pydantic import BaseSettings, Field
+puo-memo-api  |   File "/home/puomemo/.local/lib/python3.11/site-packages/pydantic/__init__.py", line 426, in __getattr__
+puo-memo-api  |     return _getattr_migration(attr_name)
+puo-memo-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+puo-memo-api  |   File "/home/puomemo/.local/lib/python3.11/site-packages/pydantic/_migration.py", line 296, in wrapper
+puo-memo-api  |     raise PydanticImportError(
+puo-memo-api  | pydantic.errors.PydanticImportError: `BaseSettings` has been moved to the `pydantic-settings` package. See https://docs.pydantic.dev/2.11/migration/#basesettings-has-moved-to-pydantic-settings for more details.
+puo-memo-db   | This user must also own the server process.
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | The database cluster will be initialized with locale "en_US.utf8".
+puo-memo-db   | The default database encoding has accordingly been set to "UTF8".
+puo-memo-db   | The default text search configuration will be set to "english".
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | Data page checksums are disabled.
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+puo-memo-db   | creating subdirectories ... ok
+puo-memo-db   | selecting dynamic shared memory implementation ... posix
+puo-memo-db   | selecting default max_connections ... 100
+puo-memo-db   | selecting default shared_buffers ... 128MB
+puo-memo-db   | selecting default time zone ... UTC
+puo-memo-db   | creating configuration files ... ok
+puo-memo-db   | running bootstrap script ... ok
+puo-memo-db   | sh: locale: not found
+puo-memo-db   | 2025-07-30 16:29:51.104 UTC [35] WARNING:  no usable system locales were found
+puo-memo-db   | performing post-bootstrap initialization ... ok
+puo-memo-db   | syncing data to disk ... ok
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | Success. You can now start the database server using:
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-api  | 
+puo-memo-api  | 
+puo-memo-api  | For further information visit https://errors.pydantic.dev/2.11/u/import-error
+puo-memo-api  | Traceback (most recent call last):
+puo-memo-api  |   File "<frozen runpy>", line 198, in _run_module_as_main
+puo-memo-api  |   File "<frozen runpy>", line 88, in _run_code
+puo-memo-api  |   File "/app/src/api/minimal_server.py", line 8, in <module>
+puo-memo-api  |     import uvicorn
+puo-memo-api  | ModuleNotFoundError: No module named 'uvicorn'
+puo-memo-api  | Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:06] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:06] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:11] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:11] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:16] code 404, message File not found
+puo-memo-db   | initdb: warning: enabling "trust" authentication for local connections
+puo-memo-db   | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+puo-memo-db   | waiting for server to start....2025-07-30 16:29:51.625 UTC [41] LOG:  starting PostgreSQL 15.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+puo-memo-db   | 2025-07-30 16:29:51.626 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+puo-memo-db   | 2025-07-30 16:29:51.629 UTC [44] LOG:  database system was shut down at 2025-07-30 16:29:51 UTC
+puo-memo-db   | 2025-07-30 16:29:51.633 UTC [41] LOG:  database system is ready to accept connections
+puo-memo-db   |  done
+puo-memo-db   | server started
+puo-memo-db   | CREATE DATABASE
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | 
+puo-memo-db   | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/init.sql
+puo-memo-db   | CREATE EXTENSION
+puo-memo-db   | CREATE EXTENSION
+puo-memo-db   | CREATE EXTENSION
+puo-memo-db   | CREATE SCHEMA
+puo-memo-db   | SET
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:16] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:21] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:21] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:26] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:26] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:31] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:31] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:36] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:36] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:41] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:30:41] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:31:11] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:31:11] "GET /health HTTP/1.1" 404 -
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:31:41] code 404, message File not found
+puo-memo-api  | 127.0.0.1 - - [30/Jul/2025 16:31:41] "GET /health HTTP/1.1" 404 -
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE TABLE
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE INDEX
+puo-memo-db   | CREATE FUNCTION
+puo-memo-db   | CREATE TRIGGER
+puo-memo-db   | CREATE TRIGGER
+puo-memo-db   | CREATE TRIGGER
+puo-memo-db   | DO
+puo-memo-db   | GRANT
+puo-memo-redis  | 1:C 30 Jul 2025 16:29:50.665 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+puo-memo-redis  | 1:C 30 Jul 2025 16:29:50.665 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+puo-memo-redis  | 1:C 30 Jul 2025 16:29:50.665 * Redis version=7.4.5, bits=64, commit=00000000, modified=0, pid=1, just started
+puo-memo-redis  | 1:C 30 Jul 2025 16:29:50.665 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf
+puo-memo-redis  | 1:M 30 Jul 2025 16:29:50.665 * monotonic clock: POSIX clock_gettime
+puo-memo-redis  | 1:M 30 Jul 2025 16:29:50.666 * Running mode=standalone, port=6379.
+puo-memo-redis  | 1:M 30 Jul 2025 16:29:50.666 * Server initialized
+puo-memo-redis  | 1:M 30 Jul 2025 16:29:50.666 * Ready to accept connections tcp
+puo-memo-db     | GRANT
+puo-memo-db     | GRANT
+puo-memo-db     | 
+puo-memo-db     | 
+puo-memo-db     | 
+puo-memo-db     | 
+puo-memo-db     | waiting for server to shut down...2025-07-30 16:29:51.881 UTC [41] LOG:  received fast shutdown request
+puo-memo-db     | .2025-07-30 16:29:51.882 UTC [41] LOG:  aborting any active transactions
+puo-memo-db     | 2025-07-30 16:29:51.884 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+puo-memo-db     | 2025-07-30 16:29:51.885 UTC [42] LOG:  shutting down
+puo-memo-db     | 2025-07-30 16:29:51.886 UTC [42] LOG:  checkpoint starting: shutdown immediate
+puo-memo-db     | 2025-07-30 16:29:51.906 UTC [42] LOG:  checkpoint complete: wrote 980 buffers (6.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.017 s, sync=0.002 s, total=0.021 s; sync files=344, longest=0.001 s, average=0.001 s; distance=4614 kB, estimate=4614 kB
+puo-memo-db     | 2025-07-30 16:29:51.913 UTC [41] LOG:  database system is shut down
+puo-memo-db     |  done
+puo-memo-db     | server stopped
+puo-memo-db     | 
+puo-memo-db     | 
+puo-memo-db     | PostgreSQL init process complete; ready for start up.
+puo-memo-db     | 
+puo-memo-db     | 
+puo-memo-db     | 2025-07-30 16:29:52.001 UTC [1] LOG:  starting PostgreSQL 15.13 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+puo-memo-db     | 2025-07-30 16:29:52.001 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+puo-memo-db     | 2025-07-30 16:29:52.001 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+puo-memo-db     | 2025-07-30 16:29:52.002 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+puo-memo-db     | 2025-07-30 16:29:52.005 UTC [59] LOG:  database system was shut down at 2025-07-30 16:29:51 UTC
+puo-memo-db     | 2025-07-30 16:29:52.009 UTC [1] LOG:  database system is ready to accept connections

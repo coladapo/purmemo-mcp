@@ -40,7 +40,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: puo-memo-api
-    command: ["sh", "-c", "python -m src.api.server 2>&1 || python -m src.api.minimal_server || python -m http.server 8000"]
+    command: ["python", "/app/src/api/simple_server.py"]
     environment:
       # Database
       DB_HOST: postgres
