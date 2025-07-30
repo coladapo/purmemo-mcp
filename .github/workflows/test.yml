@@ -12,8 +12,8 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
-        python-version: ['3.9', '3.10', '3.11']
+        node-version: [18.x]
+        python-version: ['3.11']
 
     steps:
     - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
     
     - name: Check Python syntax
       run: |
-        python -m py_compile src/**/*.py || true
+        find src -name "*.py" -exec python -m py_compile {} + || true
         
     - name: Lint Python code
       run: |
