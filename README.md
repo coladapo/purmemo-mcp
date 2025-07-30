@@ -65,8 +65,31 @@ Once configured, you can use these commands in Claude:
 - `import_chat` - Import AI conversations
 - `correction` - Add corrections to memories
 
+## Docker Setup (Development)
+
+For local development or self-hosting:
+
+```bash
+# Quick setup
+./setup.sh
+
+# Or manual setup
+cp .env.example .env
+# Edit .env with your configuration
+docker-compose up -d
+```
+
+This starts:
+- PostgreSQL database
+- Redis cache
+- PUO Memo API server
+- MCP server (optional)
+
+See [docs/GITHUB_SETUP_GUIDE.md](docs/GITHUB_SETUP_GUIDE.md) for full CI/CD setup.
+
 ## Documentation
 
+- [GitHub Setup Guide](docs/GITHUB_SETUP_GUIDE.md)
 - [API Reference](docs/api-reference.md)
 - [Configuration Guide](docs/configuration.md)
 - [Examples](examples/)
