@@ -24,8 +24,9 @@
     "test": "tests"
   },
   "scripts": {
-    "start": "python3 src/mcp/server.py",
-    "test": "echo 'Tests for Python MCP server'",
+    "start": "node bin/puo-memo-mcp",
+    "test": "node test/test-npm-package.js",
+    "test:mcp": "node test_mcp_suite.js || true",
     "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [

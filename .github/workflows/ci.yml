@@ -157,26 +157,20 @@ jobs:
         run: |
           echo "Test environment configured"
       
-      - name: Run tests
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Run NPM package tests
+        run: npm test
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: test_db
-          DB_USER: test_user
-          DB_PASSWORD: test_password
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET_KEY: test-secret-key-for-ci-testing-only
-          API_KEY: test-api-key
-          PYTHONPATH: ${{ github.workspace }}
+          CI: true
+      
+      - name: Test MCP functionality (if API available)
+        if: ${{ secrets.PUO_MEMO_API_KEY != '' }}
+        env:
           PUO_MEMO_API_URL: ${{ secrets.PUO_MEMO_API_URL }}
           PUO_MEMO_API_KEY: ${{ secrets.PUO_MEMO_API_KEY }}
-        run: |
-          # Run MCP test if it exists
-          if [ -f "test_mcp_suite.js" ]; then
-            node test_mcp_suite.js || echo "MCP test skipped"
-          else
-            echo "No tests found - skipping test step"
-          fi
+        run: npm run test:mcp
         continue-on-error: true
       
       - name: Upload coverage reports
