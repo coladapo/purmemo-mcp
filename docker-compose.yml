@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: puo-memo-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-puo_memo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-puo_memo_password}
+      POSTGRES_DB: ${DB_NAME:-puo_memo_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-puo_memo} -d ${DB_NAME:-puo_memo_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: puo-memo-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PUO Memo API Server (for testing)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: puo-memo-api
+    command: ["python", "-m", "src.api.server"]
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-puo_memo_db}
+      DB_USER: ${DB_USER:-puo_memo}
+      DB_PASSWORD: ${DB_PASSWORD:-puo_memo_password}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # API Configuration
+      PUO_MEMO_API_URL: ${PUO_MEMO_API_URL:-http://localhost:8000}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test-secret-key-change-in-production}
+      
+      # Python
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./src:/app/src:ro
+      - ./docs:/app/docs:ro
+
+  # MCP Server (for testing MCP functionality)
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: puo-memo-mcp
+    command: ["python", "-m", "src.mcp.server"]
+    environment:
+      PUO_MEMO_API_URL: http://api:8000
+      PUO_MEMO_API_KEY: ${PUO_MEMO_API_KEY:-test-api-key}
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+    stdin_open: true
+    tty: true
+
+  # Nginx Reverse Proxy (optional, for production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: puo-memo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: puo-memo-network

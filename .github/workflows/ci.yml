@@ -322,14 +322,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup SSH
+        env:
+          STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$STAGING_KEY" > ~/.ssh/staging_key
+          chmod 600 ~/.ssh/staging_key
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+      
       - name: Deploy to staging server
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
-          STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_KEY_PATH: ~/.ssh/staging_key
         run: |
-          echo "Deploying to staging..."
-          # Add deployment script here
+          export GIT_SSH_COMMAND="ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no"
+          bash scripts/deploy-staging.sh
 
   # Deploy to production
   deploy-production:
@@ -341,14 +350,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup SSH
+        env:
+          PROD_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$PROD_KEY" > ~/.ssh/prod_key
+          chmod 600 ~/.ssh/prod_key
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+      
       - name: Deploy to production
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
-          PROD_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_KEY_PATH: ~/.ssh/prod_key
         run: |
-          echo "Deploying to production..."
-          # Add deployment script here
+          export GIT_SSH_COMMAND="ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no"
+          bash scripts/deploy-production.sh
 
   # Notification
   notify:
