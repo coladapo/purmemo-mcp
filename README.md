@@ -3,6 +3,7 @@
 [![npm version](https://badge.fury.io/js/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://coladapo.github.io/puo-memo-mcp/)
 [![GitHub issues](https://img.shields.io/github/issues/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/issues)
 [![GitHub stars](https://img.shields.io/github/stars/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/stargazers)
 
@@ -88,6 +89,8 @@ This starts:
 See [docs/GITHUB_SETUP_GUIDE.md](docs/GITHUB_SETUP_GUIDE.md) for full CI/CD setup.
 
 ## Documentation
+
+📚 **Full documentation available at: [https://coladapo.github.io/puo-memo-mcp/](https://coladapo.github.io/puo-memo-mcp/)**
 
 - [GitHub Setup Guide](docs/GITHUB_SETUP_GUIDE.md)
 - [API Reference](docs/api-reference.md)
