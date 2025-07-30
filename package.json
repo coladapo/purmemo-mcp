@@ -2,7 +2,7 @@
   "name": "puo-memo-mcp",
   "version": "1.0.1",
   "description": "Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities",
-  "main": "src/mcp/server.py",
+  "main": "index.js",
   "bin": {
     "puo-memo-mcp": "./bin/puo-memo-mcp"
   },
@@ -11,9 +11,12 @@
     "bin/",
     "docs/",
     "examples/",
+    "scripts/",
+    "index.js",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "requirements.txt"
   ],
   "directories": {
     "doc": "docs",
@@ -22,8 +25,8 @@
   },
   "scripts": {
     "start": "python3 src/mcp/server.py",
-    "test": "node test_mcp_suite.js",
-    "postinstall": "echo 'PUO Memo MCP installed! Configure Claude Desktop with your API key to get started.'"
+    "test": "echo 'Tests for Python MCP server'",
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "mcp",
@@ -46,7 +49,8 @@
   },
   "homepage": "https://api.puo-memo.com",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "python": ">=3.8.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0"
