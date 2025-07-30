@@ -79,4 +79,4 @@ Import conversations from Claude, ChatGPT, and other AI assistants.
 
 - 📧 Email: support@puo-memo.com
 - 🐛 Issues: [GitHub Issues](https://github.com/coladapo/puo-memo-mcp/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/coladapo/puo-memo-mcp/discussions)# Docker Build Test Wed Jul 30 09:14:27 PDT 2025
+- 💬 Discussions: [GitHub Discussions](https://github.com/coladapo/puo-memo-mcp/discussions)
