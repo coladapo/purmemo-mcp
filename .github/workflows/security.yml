@@ -1,0 +1,204 @@
+name: Security Checks
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Dependency vulnerability scanning
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run pip-audit
+        uses: pypa/gh-action-pip-audit@v1.0.8
+        with:
+          inputs: requirements.txt
+          summary: true
+          vulnerability-service: osv
+      
+      - name: Check for outdated dependencies
+        run: |
+          pip install pip-outdated
+          pip-outdated requirements.txt
+        continue-on-error: true
+
+  # Container scanning
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image for scanning
+        run: docker build -t puo-memo:scan .
+      
+      - name: Run Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'puo-memo:scan'
+          format: 'sarif'
+          output: 'trivy-container.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-container.sarif'
+      
+      - name: Run Grype container scan
+        uses: anchore/scan-action@v3
+        with:
+          image: 'puo-memo:scan'
+          fail-build: false
+          severity-cutoff: high
+
+  # SAST scanning
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install security tools
+        run: |
+          pip install safety bandit semgrep
+      
+      - name: Run Safety check
+        run: safety check --json --output safety-report.json
+        continue-on-error: true
+      
+      - name: Run Bandit
+        run: bandit -r src/ -ll -f json -o bandit-report.json
+        continue-on-error: true
+      
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/python
+            p/django
+            p/flask
+            p/owasp-top-ten
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  # Secrets scanning
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better scanning
+      
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # License compliance
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install license checker
+        run: |
+          pip install pip-licenses
+      
+      - name: Check licenses
+        run: |
+          pip-licenses --format=csv --output-file=licenses.csv
+          pip-licenses --fail-on="GPL;LGPL"
+        continue-on-error: true
+      
+      - name: Upload license report
+        uses: actions/upload-artifact@v3
+        with:
+          name: license-report
+          path: licenses.csv
+
+  # Security policy compliance
+  compliance-check:
+    name: Security Policy Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for security.txt
+        run: |
+          if [ ! -f "SECURITY.md" ]; then
+            echo "::warning::Missing SECURITY.md file"
+          fi
+      
+      - name: Check for security headers in code
+        run: |
+          grep -r "X-Content-Type-Options" src/ || echo "::warning::Missing X-Content-Type-Options header"
+          grep -r "X-Frame-Options" src/ || echo "::warning::Missing X-Frame-Options header"
+          grep -r "X-XSS-Protection" src/ || echo "::warning::Missing X-XSS-Protection header"
+      
+      - name: Check for hardcoded secrets patterns
+        run: |
+          # Check for common secret patterns
+          ! grep -r -E "(api_key|apikey|password|secret)\\s*=\\s*[\"'][^\"']+[\"']" src/ --include="*.py" || exit 1
+
+  # Create security report
+  security-report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, container-scan, sast-scan, secret-scan, license-check, compliance-check]
+    if: always()
+    steps:
+      - name: Create security summary
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "Date: $(date)" >> security-summary.md
+          echo "Repository: ${{ github.repository }}" >> security-summary.md
+          echo "Branch: ${{ github.ref }}" >> security-summary.md
+          echo "Commit: ${{ github.sha }}" >> security-summary.md
+          echo "" >> security-summary.md
+          echo "## Scan Results" >> security-summary.md
+          echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> security-summary.md
+          echo "- Container Scan: ${{ needs.container-scan.result }}" >> security-summary.md
+          echo "- SAST Scan: ${{ needs.sast-scan.result }}" >> security-summary.md
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> security-summary.md
+          echo "- License Check: ${{ needs.license-check.result }}" >> security-summary.md
+          echo "- Compliance Check: ${{ needs.compliance-check.result }}" >> security-summary.md
+      
+      - name: Upload security summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-summary
+          path: security-summary.md

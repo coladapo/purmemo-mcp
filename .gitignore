@@ -57,3 +57,44 @@ htmlcov/
 .env.development
 *.db
 *.sqlite
+# ==================================
+# DOCUMENTATION - PRINCIPAL ENGINEER PATTERNS
+# ==================================
+
+# Local-only documentation (NEVER commit)
+docs-local/
+*.local.md
+*.private.md
+NOTES*.md
+TODO.private.md
+CREDENTIALS*.md
+SECRETS*.md
+
+# Sensitive deployment docs
+*URGENT*.md
+*RAILWAY*.md
+*DEPLOY*.md
+*CRITICAL*.md
+*INTERNAL*.md
+*FIX*.md
+PLATFORM_*.md
+DIRECTORY_*.md
+
+# Business & strategy docs
+*LAUNCH*.md
+*STRATEGY*.md
+*ANALYTICS*.md
+*MONITORING*.md
+DEMO_*.md
+FOUNDERS_*.md
+NEXT_STEPS*.md
+
+# Infrastructure details
+monitor_deployment.py
+test_api_compatibility.py
+nixpacks.toml
+railway.toml
+
+# Test files
+test-*.js
+test_*.py

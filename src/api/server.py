@@ -16,6 +16,7 @@ import aiohttp_cors
 from src.core.database import DatabaseConnection
 from src.core.memory import MemoryStore
 from src.core.ai import AIAssistant
+from src.core.unified_bridge import UnifiedMemoryBridge
 
 # Configure logging
 logging.basicConfig(
@@ -66,8 +67,8 @@ class PuoMemoAPI:
         if not await self.db.initialize():
             raise Exception("Failed to initialize database connection")
         
-        # Create memory store
-        self.memory = MemoryStore(self.db)
+        # Create memory store with AI assistant
+        self.memory = MemoryStore(self.db, self.ai)
         
         logger.info("✅ PUO Memo API Server initialized")
         

@@ -1,0 +1,20 @@
+{
+  "name": "puo-memo-mcp",
+  "version": "1.0.0",
+  "description": "A memory system with Model Context Protocol (MCP) integration, featuring a clean, modular architecture.",
+  "main": "bookmarklet.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0"
+  }
+}

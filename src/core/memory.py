@@ -9,6 +9,9 @@ import logging
 import re
 
 from src.core.cache import cache_manager
+from src.core.unified_bridge import UnifiedMemoryBridge
+from src.core.adaptive_truncation import AdaptiveTruncation
+from src.core.smart_chunker import SmartChunker
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +40,13 @@ class MemoryStore:
         self.knowledge_graph = knowledge_graph
         self.entity_extractor = entity_extractor
         self.attachment_processor = attachment_processor
-        self.current_context = "default"
+        # Use unified context for all platforms
+        self.current_context = UnifiedMemoryBridge.UNIFIED_CONTEXT
         self.config = config
+        
+        # Initialize truncation and chunking components
+        self.adaptive_truncation = AdaptiveTruncation()
+        self.smart_chunker = SmartChunker()
         
         # Initialize versioning
         from src.core.memory_versioning import MemoryVersioning
@@ -362,7 +370,7 @@ class MemoryStore:
         else:
             return []
     
-    async def search(self, query: str, limit: int = 10, offset: int = 0, include_full_content: bool = False) -> Dict[str, Any]:
+    async def search(self, query: str, limit: int = 10, offset: int = 0, include_full_content: bool = False, model: str = None) -> Dict[str, Any]:
         """Search memories using text search - with UUID detection for direct access"""
         try:
             # Check if query is a UUID - if so, use direct database access
@@ -387,10 +395,35 @@ class MemoryStore:
             
             memories = []
             for row in results:
+                # Apply adaptive truncation based on model
+                content = row['content']
+                truncation_info = None
+                if model and not include_full_content:
+                    # Use adaptive truncation for model-aware content delivery
+                    result = self.adaptive_truncation.prepare_content_for_model(content, model, include_full_content)
+                    content = result['content']
+                    truncated = result['truncated']
+                    # Store full truncation info
+                    truncation_info = {
+                        'model': result['model'],
+                        'token_count': result['token_count'],
+                        'token_limit': result['token_limit'],
+                        'strategy': result['strategy'],
+                        'truncated': result['truncated'],
+                        'chunk_info': result.get('chunk_info', {})
+                    }
+                else:
+                    # Fall back to legacy truncation for backward compatibility
+                    if not include_full_content and len(content) > 200:
+                        content = content[:200] + "..."
+                        truncated = True
+                    else:
+                        truncated = False
+                
                 memory_dict = {
                     "id": str(row['id']),
                     "title": row['title'],
-                    "content": row['content'] if include_full_content else (row['content'][:200] + "..." if len(row['content']) > 200 else row['content']),
+                    "content": content,
                     "type": row['memory_type'],
                     "tags": row['tags'],
                     "created_at": row['created_at'].isoformat(),
@@ -398,9 +431,13 @@ class MemoryStore:
                 }
                 
                 # If content was truncated, indicate that full content is available
-                if not include_full_content and len(row['content']) > 200:
+                if truncated:
                     memory_dict['content_truncated'] = True
                     memory_dict['content_length'] = len(row['content'])
+                
+                # Add truncation info if available
+                if truncation_info:
+                    memory_dict['truncation_info'] = truncation_info
                 
                 # Get attachments for this memory if processor is available
                 if self.attachment_processor:
@@ -628,7 +665,7 @@ class MemoryStore:
             logger.error(f"Delete failed: {e}")
             return {"error": str(e)}
     
-    async def list(self, limit: int = 20, offset: int = 0) -> Dict[str, Any]:
+    async def list(self, limit: int = 20, offset: int = 0, model: Optional[str] = None) -> Dict[str, Any]:
         """List recent memories"""
         try:
             async with self.db.get_connection() as conn:
@@ -667,7 +704,7 @@ class MemoryStore:
             logger.error(f"List memories failed: {e}")
             return {"error": str(e)}
     
-    async def semantic_search(self, query: str, limit: int = 10, offset: int = 0, similarity_threshold: float = None, include_full_content: bool = False) -> Dict[str, Any]:
+    async def semantic_search(self, query: str, limit: int = 10, offset: int = 0, similarity_threshold: float = None, include_full_content: bool = False, model: Optional[str] = None) -> Dict[str, Any]:
         """Search memories using semantic similarity with embeddings - with UUID detection"""
         try:
             # Check if query is a UUID - if so, use direct database access
@@ -712,10 +749,35 @@ class MemoryStore:
             
             memories = []
             for row in results:
+                # Handle content truncation based on model
+                content = row['content']
+                truncated = False
+                truncation_info = None
+                
+                if model and not include_full_content:
+                    # Use adaptive truncation for model-aware content delivery
+                    result = self.adaptive_truncation.prepare_content_for_model(content, model, include_full_content)
+                    content = result['content']
+                    truncated = result['truncated']
+                    # Store full truncation info
+                    truncation_info = {
+                        'model': result['model'],
+                        'token_count': result['token_count'],
+                        'token_limit': result['token_limit'],
+                        'strategy': result['strategy'],
+                        'truncated': result['truncated'],
+                        'chunk_info': result.get('chunk_info', {})
+                    }
+                else:
+                    # Fall back to legacy truncation for backward compatibility
+                    if not include_full_content and len(content) > 200:
+                        content = content[:200] + "..."
+                        truncated = True
+                
                 memory_dict = {
                     "id": str(row['id']),
                     "title": row['title'],
-                    "content": row['content'] if include_full_content else (row['content'][:200] + "..." if len(row['content']) > 200 else row['content']),
+                    "content": content,
                     "type": row['memory_type'],
                     "tags": row['tags'],
                     "created_at": row['created_at'].isoformat(),
@@ -724,9 +786,13 @@ class MemoryStore:
                 }
                 
                 # If content was truncated, indicate that full content is available
-                if not include_full_content and len(row['content']) > 200:
+                if truncated:
                     memory_dict['content_truncated'] = True
                     memory_dict['content_length'] = len(row['content'])
+                
+                # Add truncation info if available
+                if truncation_info:
+                    memory_dict['truncation_info'] = truncation_info
                 
                 memories.append(memory_dict)
             
@@ -740,9 +806,9 @@ class MemoryStore:
         except Exception as e:
             logger.error(f"Semantic search failed: {e}")
             logger.warning("Falling back to keyword search")
-            return await self.search(query, limit, offset, include_full_content)
+            return await self.search(query, limit, offset, include_full_content, model)
     
-    async def hybrid_search(self, query: str, limit: int = 10, offset: int = 0, include_full_content: bool = False) -> Dict[str, Any]:
+    async def hybrid_search(self, query: str, limit: int = 10, offset: int = 0, include_full_content: bool = False, model: Optional[str] = None) -> Dict[str, Any]:
         """Hybrid search: try semantic first, fall back to keyword if needed - with UUID detection"""
         try:
             # Check if query is a UUID - if so, use direct database access
@@ -751,7 +817,7 @@ class MemoryStore:
                 return await self.get_memory_by_id(query.strip(), include_full_content)
             
             # Try semantic search first
-            result = await self.semantic_search(query, limit, offset, include_full_content=include_full_content)
+            result = await self.semantic_search(query, limit, offset, include_full_content=include_full_content, model=model)
             
             # If semantic search returned results, use them
             if result.get("count", 0) > 0:
@@ -767,7 +833,7 @@ class MemoryStore:
                 settings = get_settings()
                 threshold = settings.semantic_search_threshold
             logger.info(f"No semantic results (threshold: {threshold:.2f}), falling back to keyword search")
-            keyword_result = await self.search(query, limit, offset, include_full_content)
+            keyword_result = await self.search(query, limit, offset, include_full_content, model=model)
             keyword_result["search_type"] = "hybrid-keyword"
             return keyword_result
             
@@ -779,7 +845,7 @@ class MemoryStore:
         """Set the current project context"""
         self.current_context = context
     
-    async def search_by_entity(self, entity_name: str, limit: int = 10, offset: int = 0, include_full_content: bool = False) -> Dict[str, Any]:
+    async def search_by_entity(self, entity_name: str, limit: int = 10, offset: int = 0, include_full_content: bool = False, model: Optional[str] = None) -> Dict[str, Any]:
         """Search memories associated with a specific entity"""
         try:
             async with self.db.get_connection() as conn:
@@ -813,10 +879,25 @@ class MemoryStore:
                 
                 memories = []
                 for row in results:
+                    # Handle content truncation based on model
+                    content = row['content']
+                    truncated = False
+                    
+                    if model and not include_full_content:
+                        # Use adaptive truncation for model-aware content delivery
+                        result = self.adaptive_truncation.prepare_content_for_model(content, model, include_full_content)
+                        content = result['content']
+                        truncated = result['truncated']
+                    else:
+                        # Fall back to legacy truncation for backward compatibility
+                        if not include_full_content and len(content) > 200:
+                            content = content[:200] + "..."
+                            truncated = True
+                    
                     memory_dict = {
                         "id": str(row['id']),
                         "title": row['title'],
-                        "content": row['content'] if include_full_content else (row['content'][:200] + "..." if len(row['content']) > 200 else row['content']),
+                        "content": content,
                         "type": row['memory_type'],
                         "tags": row['tags'],
                         "created_at": row['created_at'].isoformat(),
@@ -828,7 +909,7 @@ class MemoryStore:
                     }
                     
                     # If content was truncated, indicate that full content is available
-                    if not include_full_content and len(row['content']) > 200:
+                    if truncated:
                         memory_dict['content_truncated'] = True
                         memory_dict['content_length'] = len(row['content'])
                     
@@ -869,13 +950,13 @@ class MemoryStore:
     
     # ========== Natural Language Search ==========
     
-    async def nlp_search(self, query: str, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+    async def nlp_search(self, query: str, limit: int = 10, offset: int = 0, model: Optional[str] = None) -> Dict[str, Any]:
         """Search using natural language query"""
         if not self.nlp_search:
             from src.core.nlp_search import NLPSearchEngine
             self.nlp_search = NLPSearchEngine(self)
             
-        return await self.nlp_search.search(query, limit, offset)
+        return await self.nlp_search.search(query, limit, offset, model)
     
     # ========== Correction Methods ==========
     
