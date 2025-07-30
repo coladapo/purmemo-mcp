@@ -1,6 +1,6 @@
 {
   "name": "puo-memo-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities",
   "main": "index.js",
   "bin": {
@@ -12,6 +12,7 @@
     "docs/",
     "examples/",
     "scripts/",
+    "test/",
     "index.js",
     "README.md",
     "LICENSE",
