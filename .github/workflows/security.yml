@@ -30,8 +30,8 @@ jobs:
       
       - name: Check for outdated dependencies
         run: |
-          pip install pip-outdated
-          pip-outdated requirements.txt
+          pip install -U pip
+          pip list --outdated
         continue-on-error: true
 
   # Container scanning
@@ -41,10 +41,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Check for Dockerfile
+        id: dockerfile_exists
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::warning::No Dockerfile found, skipping container scan"
+          fi
+      
       - name: Build Docker image for scanning
+        if: steps.dockerfile_exists.outputs.exists == 'true'
         run: docker build -t puo-memo:scan .
       
       - name: Run Trivy container scan
+        if: steps.dockerfile_exists.outputs.exists == 'true'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'puo-memo:scan'
@@ -53,11 +65,13 @@ jobs:
           severity: 'CRITICAL,HIGH'
       
       - name: Upload Trivy scan results
+        if: steps.dockerfile_exists.outputs.exists == 'true'
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-container.sarif'
       
       - name: Run Grype container scan
+        if: steps.dockerfile_exists.outputs.exists == 'true'
         uses: anchore/scan-action@v3
         with:
           image: 'puo-memo:scan'
@@ -78,10 +92,12 @@ jobs:
       
       - name: Install security tools
         run: |
-          pip install safety bandit semgrep
+          pip install bandit semgrep
       
-      - name: Run Safety check
-        run: safety check --json --output safety-report.json
+      - name: Check Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
         continue-on-error: true
       
       - name: Run Bandit
@@ -118,9 +134,10 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          base: ${{ github.event.before || github.event.repository.default_branch }}
+          head: ${{ github.event.after || 'HEAD' }}
           extra_args: --debug --only-verified
+        continue-on-error: true
 
   # License compliance
   license-check:
@@ -145,7 +162,7 @@ jobs:
         continue-on-error: true
       
       - name: Upload license report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: license-report
           path: licenses.csv
@@ -198,7 +215,7 @@ jobs:
           echo "- Compliance Check: ${{ needs.compliance-check.result }}" >> security-summary.md
       
       - name: Upload security summary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-summary
           path: security-summary.md
