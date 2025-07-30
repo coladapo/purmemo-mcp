@@ -166,11 +166,15 @@ jobs:
           CI: true
       
       - name: Test MCP functionality (if API available)
-        if: ${{ secrets.PUO_MEMO_API_KEY != '' }}
         env:
           PUO_MEMO_API_URL: ${{ secrets.PUO_MEMO_API_URL }}
           PUO_MEMO_API_KEY: ${{ secrets.PUO_MEMO_API_KEY }}
-        run: npm run test:mcp
+        run: |
+          if [ -n "$PUO_MEMO_API_KEY" ]; then
+            npm run test:mcp
+          else
+            echo "Skipping MCP tests - no API key provided"
+          fi
         continue-on-error: true
       
       - name: Upload coverage reports
