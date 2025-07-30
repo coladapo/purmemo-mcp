@@ -330,30 +330,34 @@ async def create_api_key(request: AdminRequest):
     api_key = f"puo_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     
-    db = await get_db()
-    async with db.acquire() as conn:
-        # First, check if we have any users
-        user_id = await conn.fetchval("SELECT id FROM users LIMIT 1")
-        
-        if not user_id:
-            # Create a default user
-            user_id = await conn.fetchval("""
-                INSERT INTO users (email, name, created_at)
-                VALUES ('admin@puo-memo.com', 'Admin User', CURRENT_TIMESTAMP)
-                RETURNING id
-            """)
-        
-        # Create API key
-        await conn.execute("""
-            INSERT INTO api_keys (key_hash, name, permissions, user_id, created_at)
-            VALUES ($1, 'First API Key', '[\"memory:create\", \"memory:read\", \"memory:delete\"]', $2, CURRENT_TIMESTAMP)
-        """, key_hash, user_id)
-        
-        return {
-            "api_key": api_key,
-            "user_id": str(user_id),
-            "message": "Save this API key - it won't be shown again!"
-        }
+    try:
+        db = await get_db()
+        async with db.acquire() as conn:
+            # First, check if we have any users
+            user_id = await conn.fetchval("SELECT id FROM users LIMIT 1")
+            
+            if not user_id:
+                # Create a default user with required fields
+                user_id = await conn.fetchval("""
+                    INSERT INTO users (email, password_hash, full_name, is_active, is_verified)
+                    VALUES ('admin@puo-memo.com', 'not-used', 'Admin User', true, true)
+                    RETURNING id
+                """)
+            
+            # Create API key with JSONB permissions
+            await conn.execute("""
+                INSERT INTO api_keys (key_hash, name, permissions, user_id, created_at, is_active)
+                VALUES ($1, 'First API Key', '["memory:create", "memory:read", "memory:delete"]'::jsonb, $2, CURRENT_TIMESTAMP, true)
+            """, key_hash, user_id)
+            
+            return {
+                "api_key": api_key,
+                "user_id": str(user_id),
+                "message": "Save this API key - it won't be shown again!"
+            }
+    except Exception as e:
+        print(f"Error creating API key: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating API key: {str(e)}")
 
 # Root endpoint
 @app.get("/")
