@@ -1,5 +1,11 @@
 # PUO Memo MCP
 
+[![npm version](https://badge.fury.io/js/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/issues)
+[![GitHub stars](https://img.shields.io/github/stars/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/stargazers)
+
 Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities.
 
 ## Features
