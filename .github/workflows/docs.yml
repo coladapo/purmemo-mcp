@@ -20,23 +20,42 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.check-pages.outputs.pages_enabled }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         
+      - name: Check if Pages is enabled
+        id: check-pages
+        run: |
+          if gh api repos/${{ github.repository }}/pages --silent; then
+            echo "pages_enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "pages_enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::GitHub Pages is not enabled for this repository. Please enable it in Settings > Pages > Source: GitHub Actions"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        continue-on-error: true
+        
       - name: Setup Pages
+        if: steps.check-pages.outputs.pages_enabled == 'true'
         uses: actions/configure-pages@v4
         
       - name: Build with Jekyll
+        if: steps.check-pages.outputs.pages_enabled == 'true'
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
           
       - name: Upload artifact
+        if: steps.check-pages.outputs.pages_enabled == 'true'
         uses: actions/upload-pages-artifact@v3
 
   deploy:
+    if: needs.build.outputs.pages_enabled == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

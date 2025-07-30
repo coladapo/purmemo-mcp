@@ -186,9 +186,11 @@ jobs:
       
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: coverage-report
           path: htmlcov/
+          if-no-files-found: ignore
 
   # Integration tests
   integration-test:
@@ -203,38 +205,55 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Start services with docker-compose
+      - name: Check for docker-compose
+        id: check-compose
         run: |
-          cp .env.example .env
+          if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+            echo "has_compose=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_compose=false" >> $GITHUB_OUTPUT
+            echo "::warning::No docker-compose file found. Skipping integration tests."
+          fi
+      
+      - name: Start services with docker-compose
+        if: steps.check-compose.outputs.has_compose == 'true'
+        run: |
+          cp .env.example .env || echo "No .env.example found"
           docker-compose up -d
           sleep 30  # Wait for services to start
       
       - name: Check service health
+        if: steps.check-compose.outputs.has_compose == 'true'
         run: |
           docker-compose ps
           curl -f http://localhost:8000/health || exit 1
       
       - name: Run integration tests
+        if: steps.check-compose.outputs.has_compose == 'true'
         run: |
           pip install pytest requests
           pytest tests/integration/ -v
         continue-on-error: true
       
       - name: Collect docker logs
-        if: always()
+        if: always() && steps.check-compose.outputs.has_compose == 'true'
         run: |
           docker-compose logs > docker-logs.txt
       
       - name: Upload docker logs
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.check-compose.outputs.has_compose == 'true'
         with:
           name: docker-logs
           path: docker-logs.txt
       
       - name: Stop services
-        if: always()
+        if: always() && steps.check-compose.outputs.has_compose == 'true'
         run: docker-compose down
+      
+      - name: Skip integration tests
+        if: steps.check-compose.outputs.has_compose != 'true'
+        run: echo "::notice::Integration tests skipped - no docker-compose file"
 
   # Build Docker image
   build:
@@ -247,12 +266,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
+      - name: Check Docker credentials
+        id: check-docker
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_TOKEN }}" ]; then
+            echo "has_credentials=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_credentials=false" >> $GITHUB_OUTPUT
+            echo "::warning::Docker credentials not configured. Skipping Docker build and push."
+          fi
+      
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
+        if: steps.check-docker.outputs.has_credentials == 'true' && github.event_name != 'pull_request'
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-        if: github.event_name != 'pull_request'
       
       - name: Extract metadata
         id: meta
@@ -269,14 +298,19 @@ jobs:
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
+        if: steps.check-docker.outputs.has_credentials == 'true' || github.event_name == 'pull_request'
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ steps.check-docker.outputs.has_credentials == 'true' && github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      
+      - name: Skip Docker build
+        if: steps.check-docker.outputs.has_credentials != 'true' && github.event_name != 'pull_request'
+        run: echo "::notice::Docker build skipped due to missing credentials"
 
   # Deploy to staging
   deploy-staging:
