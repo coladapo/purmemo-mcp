@@ -99,3 +99,18 @@ railway.toml
 test_*.py
 node_modules/
 docker-logs.txt
+
+# API Keys and sensitive data
+*api_key*.txt
+chris_api_key.txt
+test_api_key.txt
+
+# Import and migration scripts (contain DB credentials)
+import_*.py
+check_*.py
+copy_*.py
+reconstruct_*.py
+find_*.py
+
+# Test outputs
+test_results.json
