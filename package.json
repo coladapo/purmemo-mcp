@@ -29,6 +29,15 @@
     "type": "git",
     "url": "git+https://github.com/coladapo/puo-memo-mcp.git"
   },
+  "bugs": {
+    "url": "https://github.com/coladapo/puo-memo-mcp/issues",
+    "email": "support@puo-memo.com"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/coladapo"
+  },
+  "support": "https://github.com/coladapo/puo-memo-mcp/discussions",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
     "node-fetch": "^3.3.2"
