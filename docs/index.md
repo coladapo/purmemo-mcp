@@ -137,7 +137,7 @@ Use our custom GPT or integrate via API. [Learn more →](https://github.com/col
       <li>Shared memories</li>
       <li>Admin controls</li>
     </ul>
-    <a href="mailto:sales@puo-memo.com" class="cta-button-outline">Contact Sales</a>
+    <a href="./contact.html" class="cta-button-outline">Contact Sales</a>
   </div>
 </div>
 
@@ -152,7 +152,7 @@ Use our custom GPT or integrate via API. [Learn more →](https://github.com/col
 
 <div align="center" style="margin: 2rem 0;">
   <p>Not sure which plan is right for you? Our team is here to help!</p>
-  <a href="mailto:sales@puo-memo.com?subject=PUO%20Memo%20Plan%20Inquiry&body=Hi%20PUO%20Memo%20Team,%0A%0AI'm%20interested%20in%20learning%20more%20about%20your%20plans.%0A%0AMy%20use%20case:%20%0ATeam%20size:%20%0AQuestions:%20%0A%0AThanks!" class="cta-button-outline">Talk to Sales</a>
+  <a href="./contact.html" class="cta-button-outline">Talk to Sales</a>
 </div>
 
 ---
