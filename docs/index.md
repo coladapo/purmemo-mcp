@@ -6,7 +6,8 @@ title: PUO Memo MCP - Unified Memory for AI
 # PUO Memo MCP
 
 <div align="center">
-  <img src="https://api.puo-memo.com/logo.png" alt="PUO Memo Logo" width="200">
+  <!-- Logo placeholder - replace with actual logo -->
+  <h1 style="font-size: 3rem; margin: 0;">🧠</h1>
   
   <h3>Your Unified Memory Layer for AI Assistants</h3>
   
@@ -53,7 +54,7 @@ npm install -g puo-memo-mcp
 
 ### 2. Get Your API Key
 
-<a href="https://api.puo-memo.com" class="cta-button">Sign Up for Free</a>
+<a href="https://github.com/coladapo/puo-memo-mcp#quick-start" class="cta-button">Get Started</a>
 
 ### 3. Configure Your AI Tool
 
@@ -87,7 +88,7 @@ Coming soon! Check our [GitHub](https://github.com/coladapo/puo-memo-mcp) for up
 <details>
 <summary><strong>ChatGPT</strong></summary>
 
-Use our custom GPT or integrate via API. [Learn more →](https://api.puo-memo.com/docs)
+Use our custom GPT or integrate via API. [Learn more →](https://github.com/coladapo/puo-memo-mcp#chatgpt-integration)
 
 </details>
 
@@ -112,7 +113,7 @@ Use our custom GPT or integrate via API. [Learn more →](https://api.puo-memo.c
       <li>Basic search</li>
       <li>3 AI tools</li>
     </ul>
-    <a href="https://api.puo-memo.com" class="cta-button-outline">Get Started</a>
+    <a href="https://github.com/coladapo/puo-memo-mcp#quick-start" class="cta-button-outline">Get Started</a>
   </div>
   
   <div class="pricing-card featured">
@@ -124,7 +125,7 @@ Use our custom GPT or integrate via API. [Learn more →](https://api.puo-memo.c
       <li>Unlimited tools</li>
       <li>Priority support</li>
     </ul>
-    <a href="https://api.puo-memo.com" class="cta-button">Start Free Trial</a>
+    <a href="https://github.com/coladapo/puo-memo-mcp#quick-start" class="cta-button">Start Free Trial</a>
   </div>
   
   <div class="pricing-card">
@@ -143,8 +144,15 @@ Use our custom GPT or integrate via API. [Learn more →](https://api.puo-memo.c
 ## Ready to Never Lose Context Again?
 
 <div align="center">
-  <a href="https://api.puo-memo.com" class="cta-button large">Start Your Free Trial</a>
+  <a href="https://github.com/coladapo/puo-memo-mcp#quick-start" class="cta-button large">Start Your Free Trial</a>
   <p><small>No credit card required • 14-day free trial</small></p>
+</div>
+
+## Need Help Choosing?
+
+<div align="center" style="margin: 2rem 0;">
+  <p>Not sure which plan is right for you? Our team is here to help!</p>
+  <a href="mailto:sales@puo-memo.com?subject=PUO%20Memo%20Plan%20Inquiry&body=Hi%20PUO%20Memo%20Team,%0A%0AI'm%20interested%20in%20learning%20more%20about%20your%20plans.%0A%0AMy%20use%20case:%20%0ATeam%20size:%20%0AQuestions:%20%0A%0AThanks!" class="cta-button-outline">Talk to Sales</a>
 </div>
 
 ---
@@ -152,9 +160,9 @@ Use our custom GPT or integrate via API. [Learn more →](https://api.puo-memo.c
 <div align="center">
   <p>
     <a href="https://github.com/coladapo/puo-memo-mcp">GitHub</a> •
-    <a href="https://api.puo-memo.com/docs">API Docs</a> •
+    <a href="https://github.com/coladapo/puo-memo-mcp/wiki">Documentation</a> •
     <a href="https://www.npmjs.com/package/puo-memo-mcp">NPM</a> •
-    <a href="mailto:support@puo-memo.com">Support</a>
+    <a href="https://github.com/coladapo/puo-memo-mcp/issues">Support</a>
   </p>
   
   <p><small>© 2024 PUO Memo. Built with ❤️ for the AI community.</small></p>
