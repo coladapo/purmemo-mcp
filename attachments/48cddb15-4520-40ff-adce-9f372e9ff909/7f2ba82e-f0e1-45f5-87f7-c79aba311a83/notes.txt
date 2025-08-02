@@ -1,7 +1,0 @@
-
-    Meeting Notes - AI Research Project
-    
-    Discussed transformer architectures and their applications.
-    Key participants: Dr. Smith, Prof. Johnson
-    Next steps: Implement prototype using BERT
-    

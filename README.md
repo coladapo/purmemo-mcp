@@ -3,36 +3,32 @@
 [![npm version](https://badge.fury.io/js/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://coladapo.github.io/puo-memo-mcp/)
-[![GitHub issues](https://img.shields.io/github/issues/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/issues)
-[![GitHub stars](https://img.shields.io/github/stars/coladapo/puo-memo-mcp)](https://github.com/coladapo/puo-memo-mcp/stargazers)
 
-Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities.
+Official Model Context Protocol (MCP) server for PUO Memo - Your unified memory layer for AI assistants.
 
 ## Features
 
-- 🧠 **Smart Memory Storage** - Save and organize information with AI assistance
-- 🔍 **Semantic Search** - Advanced AI-powered search that understands meaning and context
-  - Keyword search for exact matches
-  - Semantic search for conceptual queries
-  - Hybrid search combining both approaches
+- 🧠 **Smart Memory Storage** - Save and organize information across all your AI tools
+- 🔍 **Intelligent Search** - Find memories using natural language
 - 📎 **File Attachments** - Attach files and URLs to memories
-- 🏷️ **Smart Tagging** - Automatic and manual categorization
-- 🔗 **Knowledge Graph** - Automatic entity extraction and relationship mapping
-- 📥 **Chat Import** - Import conversations from Claude, ChatGPT, and other AI assistants
-- 🚀 **Vector Embeddings** - State-of-the-art embeddings with multiple provider options
+- 🏷️ **Smart Tagging** - Automatic categorization
+- 🔐 **Secure** - All processing happens on PUO Memo servers
 
 ## Installation
 
 ```bash
-npm install puo-memo-mcp
+npm install -g puo-memo-mcp
 ```
 
 ## Quick Start
 
-### 1. Configure Claude Desktop
+### 1. Get Your API Key
 
-Add to your Claude Desktop configuration:
+Sign up at [https://api.puo-memo.com](https://api.puo-memo.com) to get your API key.
+
+### 2. Configure Claude Desktop
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -41,65 +37,30 @@ Add to your Claude Desktop configuration:
       "command": "npx",
       "args": ["puo-memo-mcp"],
       "env": {
-        "PUO_MEMO_API_URL": "https://api.puo-memo.com",
-        "PUO_MEMO_API_KEY": "your-api-key"
+        "PUO_MEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
 
-### 2. Get Your API Key
-
-Sign up at [https://api.puo-memo.com](https://api.puo-memo.com) to get your API key.
-
 ### 3. Start Using
 
-Once configured, you can use these commands in Claude:
-
 - **Save a memory**: "Remember that the meeting is at 3pm tomorrow"
-- **Search memories**: "What did we discuss about the project timeline?"
+- **Search memories**: "What did we discuss about the project?"
 - **List entities**: "Show me all the people I've mentioned"
 
 ## Available Tools
 
-- `memory` - Create or update memories
+- `memory` - Save information to your memory vault
 - `recall` - Search and retrieve memories
-- `entities` - Explore knowledge graph
+- `entities` - Explore your knowledge graph
 - `attach` - Attach files to memories
-- `import_chat` - Import AI conversations
-- `correction` - Add corrections to memories
+- `correction` - Add corrections to existing memories
 
-## Docker Setup (Development)
+## Security
 
-For local development or self-hosting:
-
-```bash
-# Quick setup
-./setup.sh
-
-# Or manual setup
-cp .env.example .env
-# Edit .env with your configuration
-docker-compose up -d
-```
-
-This starts:
-- PostgreSQL database
-- Redis cache
-- PUO Memo API server
-- MCP server (optional)
-
-See [docs/GITHUB_SETUP_GUIDE.md](docs/GITHUB_SETUP_GUIDE.md) for full CI/CD setup.
-
-## Documentation
-
-📚 **Full documentation available at: [https://coladapo.github.io/puo-memo-mcp/](https://coladapo.github.io/puo-memo-mcp/)**
-
-- [GitHub Setup Guide](docs/GITHUB_SETUP_GUIDE.md)
-- [API Reference](docs/api-reference.md)
-- [Configuration Guide](docs/configuration.md)
-- [Examples](examples/)
+This is a thin client that forwards all requests to the PUO Memo API. No data is processed locally, ensuring your information remains secure on PUO Memo servers.
 
 ## Support
 
@@ -114,4 +75,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ---
 
 **Note**: This MCP server requires a PUO Memo account. Sign up at [https://api.puo-memo.com](https://api.puo-memo.com).
-EOF < /dev/null

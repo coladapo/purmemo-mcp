@@ -1,43 +1,26 @@
 {
   "name": "puo-memo-mcp",
-  "version": "1.0.5",
-  "description": "Official Model Context Protocol (MCP) server for PUO Memo - a powerful memory management system with AI capabilities",
-  "main": "index.js",
+  "version": "1.0.6",
+  "description": "Official Model Context Protocol (MCP) server for PUO Memo - Secure client that connects to PUO Memo API",
+  "main": "src/index.js",
+  "type": "module",
   "bin": {
     "puo-memo-mcp": "./bin/puo-memo-mcp"
   },
   "files": [
     "src/",
     "bin/",
-    "docs/",
-    "examples/",
-    "scripts/",
-    "test/",
-    "index.js",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md",
-    "requirements.txt"
+    "LICENSE"
   ],
-  "directories": {
-    "doc": "docs",
-    "example": "examples",
-    "test": "tests"
-  },
   "scripts": {
-    "start": "node bin/puo-memo-mcp",
-    "test": "node test/test-npm-package.js",
-    "test:mcp": "echo 'MCP integration test skipped in CI'",
-    "postinstall": "node scripts/postinstall.js"
+    "start": "node src/index.js"
   },
   "keywords": [
     "mcp",
-    "model-context-protocol",
     "memory",
-    "knowledge-management",
     "ai",
     "claude",
-    "chatgpt",
     "puo-memo"
   ],
   "author": "Wivak Coladapo <coladapo@puo-memo.com>",
@@ -46,16 +29,11 @@
     "type": "git",
     "url": "git+https://github.com/coladapo/puo-memo-mcp.git"
   },
-  "bugs": {
-    "url": "https://github.com/coladapo/puo-memo-mcp/issues"
-  },
-  "homepage": "https://api.puo-memo.com",
-  "engines": {
-    "node": ">=18.0.0",
-    "python": ">=3.8.0"
-  },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.0",
-    "puo-memo-mcp": "^1.0.5"
+    "@modelcontextprotocol/sdk": "^1.16.0",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

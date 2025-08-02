@@ -1,2 +1,0 @@
-# Extra Documentation
-Additional notes
