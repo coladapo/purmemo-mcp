@@ -1,0 +1,9 @@
+theme: jekyll-theme-cayman
+title: PUO Memo MCP
+description: Your Unified Memory Layer for AI Assistants
+google_analytics: 
+show_downloads: true
+github:
+  is_project_page: true
+  repository_url: https://github.com/coladapo/puo-memo-mcp
+  repository_name: puo-memo-mcp
