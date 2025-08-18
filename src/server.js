@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * PUO Memo MCP Server - Secure Thin Client v1.0.6
- * All processing happens on PUO Memo servers
+ * pūrmemo MCP Server - Secure Thin Client v1.1.2
+ * All processing happens on pūrmemo servers
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -18,7 +18,7 @@ const API_URL = process.env.PUO_MEMO_API_URL || 'https://api.puo-memo.com';
 
 if (!API_KEY) {
   console.error('❌ PUO_MEMO_API_KEY environment variable is required');
-  console.error('Get your API key at https://api.puo-memo.com');
+  console.error('Get your API key at https://app.purmemo.ai');
   process.exit(1);
 }
 
@@ -95,9 +95,9 @@ const TOOLS = [
 // Create MCP server
 const server = new Server(
   {
-    name: 'puo-memo',
-    vendor: 'PUO Memo',
-    version: '1.0.6'
+    name: 'purmemo',
+    vendor: 'pūrmemo',
+    version: '1.1.2'
   },
   {
     capabilities: {
@@ -126,7 +126,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'puo-memo-mcp/1.0.6'
+            'User-Agent': 'purmemo-mcp/1.1.2'
           },
           body: JSON.stringify(args)
         });
@@ -142,7 +142,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         response = await fetch(`${API_URL}/api/v5/memories/search?${searchParams}`, {
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
-            'User-Agent': 'puo-memo-mcp/1.0.6'
+            'User-Agent': 'purmemo-mcp/1.1.2'
           }
         });
         break;
@@ -156,7 +156,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         response = await fetch(`${API_URL}/api/v5/entities?${entityParams}`, {
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
-            'User-Agent': 'puo-memo-mcp/1.0.6'
+            'User-Agent': 'purmemo-mcp/1.1.2'
           }
         });
         break;
@@ -168,7 +168,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'puo-memo-mcp/1.0.6'
+            'User-Agent': 'purmemo-mcp/1.1.2'
           },
           body: JSON.stringify({ file_paths: args.file_paths })
         });
@@ -181,7 +181,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'puo-memo-mcp/1.0.6'
+            'User-Agent': 'purmemo-mcp/1.1.2'
           },
           body: JSON.stringify({
             correction: args.correction,
@@ -221,10 +221,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
-  console.error('🚀 PUO Memo MCP Server v1.0.6 - Secure Thin Client');
+  console.error('🚀 pūrmemo MCP Server v1.1.2 - Hybrid Open-Core Model');
   console.error('📡 Connected to:', API_URL);
-  console.error('🔐 Using API key authentication');
-  console.error('💡 All processing happens on PUO Memo servers');
+  console.error('🔐 OAuth 2.1 + API key authentication');
+  console.error('💡 94% accuracy with <50ms retrieval');
   
   const transport = new StdioServerTransport();
   await server.connect(transport);

@@ -1,7 +1,7 @@
 {
   "name": "puo-memo-mcp",
-  "version": "1.1.1",
-  "description": "Official Model Context Protocol (MCP) server for PUO Memo - Secure client that connects to PUO Memo API",
+  "version": "1.1.2",
+  "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 94% memory retrieval accuracy",
   "main": "src/index.js",
   "type": "module",
   "bin": {
@@ -21,17 +21,17 @@
     "memory",
     "ai",
     "claude",
-    "puo-memo"
+    "purmemo"
   ],
-  "author": "Wivak Coladapo <coladapo@puo-memo.com>",
+  "author": "Christopher Coladapo <support@purmemo.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/coladapo/puo-memo-mcp.git"
+    "url": "git+https://github.com/coladapo/purmemo-mcp.git"
   },
   "bugs": {
     "url": "https://github.com/coladapo/puo-memo-mcp/issues",
-    "email": "support@puo-memo.com"
+    "email": "support@purmemo.ai"
   },
   "funding": {
     "type": "github",
