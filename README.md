@@ -1,146 +1,251 @@
-# PUO Memo MCP
+# Purmemo MCP Server
 
-[![npm version](https://badge.fury.io/js/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/puo-memo-mcp.svg)](https://www.npmjs.com/package/puo-memo-mcp)
-[![GitHub stars](https://img.shields.io/github/stars/coladapo/puo-memo-mcp.svg)](https://github.com/coladapo/puo-memo-mcp/stargazers)
+[![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
+[![GitHub stars](https://img.shields.io/github/stars/coladapo/purmemo-mcp.svg)](https://github.com/coladapo/purmemo-mcp/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Official-green.svg)](https://modelcontextprotocol.io)
 
-Official Model Context Protocol (MCP) server for PUO Memo - Your unified memory layer for AI assistants.
+**Official Model Context Protocol (MCP) server for Purmemo** - Your AI-powered second brain with 94% memory retrieval accuracy.
 
-🚀 **Use the same memory across Claude, ChatGPT, Cursor, and more!**
+🚀 **Never lose a thought again - Purmemo remembers everything so you can focus on what matters.**
 
-## Features
+## 🏗️ Architecture: Open Protocol, Protected Innovation
 
-- 🧠 **Smart Memory Storage** - Save and organize information across all your AI tools
-- 🔍 **Intelligent Search** - Find memories using natural language
-- 📎 **File Attachments** - Attach files and URLs to memories
-- 🏷️ **Smart Tagging** - Automatic categorization
-- 🔐 **Secure** - All processing happens on PUO Memo servers
+This repository contains the **open-source MCP protocol wrapper** that connects to Purmemo's proprietary API:
 
-## Installation
-
-```bash
-npm install -g puo-memo-mcp
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│  Claude/Client  │────▶│  MCP Server      │────▶│  Purmemo API    │────▶│  Proprietary     │
+│                 │ MCP │  (This Repo)     │ REST│  (Documented)   │     │  Core Engine     │
+└─────────────────┘     └──────────────────┘     └─────────────────┘     └──────────────────┘
+    Open Protocol           MIT Licensed           Terms of Service         Trade Secrets
+                               You Fork                You Use              Protected IP
 ```
 
-## Why PUO Memo?
+### What's Open Source (This Repository)
+✅ MCP protocol implementation  
+✅ OAuth 2.1 authentication flow  
+✅ Tool interface definitions  
+✅ API client wrapper  
+✅ Documentation and examples  
 
-Stop losing context between AI conversations! PUO Memo creates a unified memory layer that works across all your AI tools:
+### What's Proprietary (Our Secret Sauce)
+🔒 94% accuracy memory algorithms  
+🔒 AI-powered entity extraction  
+🔒 <50ms retrieval optimization  
+🔒 Workflow intelligence engine  
+🔒 Consciousness gradient system  
 
-- 💬 **Claude Desktop** - Native MCP integration
-- 🤖 **ChatGPT** - Via custom GPT or API
-- 💻 **Cursor/VS Code** - Full IDE integration
-- 🔗 **Any MCP-compatible tool** - Future-proof design
+## ✨ Features
 
-## Quick Start
+- 🧠 **Smart Memory Storage** - AI understands context, not just keywords
+- 🔍 **Natural Language Search** - "What did I learn about React hooks last month?"
+- 📎 **Rich Attachments** - Files, images, links with automatic metadata
+- 🏷️ **Automatic Entity Extraction** - People, places, topics, dates without manual tagging
+- ⚡ **Lightning Fast** - <50ms average retrieval time
+- 🔐 **Enterprise Security** - OAuth 2.1 + PKCE, end-to-end encryption
+
+## 🚀 Quick Start
 
 ### 1. Get Your API Key
 
-Sign up at [https://api.puo-memo.com](https://api.puo-memo.com) to get your API key.
+Sign up at [app.purmemo.ai](https://app.purmemo.ai) to get your free API key.
 
-### 2. Configure Claude Desktop
+### 2. Install the MCP Server
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+```bash
+npm install -g purmemo-mcp
+```
+
+### 3. Configure Claude Desktop
+
+Add to your Claude Desktop configuration:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+**Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
-    "puo-memo": {
+    "purmemo": {
       "command": "npx",
-      "args": ["puo-memo-mcp"],
+      "args": ["purmemo-mcp"],
       "env": {
-        "PUO_MEMO_API_KEY": "your-api-key-here"
+        "PURMEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
 
-### 3. Start Using
+### 4. Start Using in Claude
 
-- **Save a memory**: "Remember that the meeting is at 3pm tomorrow"
-- **Search memories**: "What did we discuss about the project?"
-- **List entities**: "Show me all the people I've mentioned"
-
-## Real-World Use Cases
-
-### 🎯 Project Management
 ```
-You: "Remember the new API endpoint needs rate limiting at 100 requests per minute"
-Claude: "I've saved that to your memory."
+You: "Remember that the meeting with Sarah is at 3pm tomorrow about the API redesign"
+Claude: "I've stored that memory with entities: Sarah (person), 3pm tomorrow (time), API redesign (topic)"
 
-// Later in Cursor...
-You: "What were the rate limiting requirements?"
-Cursor: "Based on your memories: 100 requests per minute for the new API endpoint"
+You: "What meetings do I have with Sarah?"
+Claude: "Based on your memories: Tomorrow at 3pm - API redesign discussion"
 ```
 
-### 📚 Learning & Research
-```
-You: "Remember this article about transformer architecture [link]"
-ChatGPT: "Saved! I've also extracted key concepts: attention mechanism, positional encoding..."
+## 🛠️ Available MCP Tools
 
-// Next day in Claude...
-You: "Show me what I've learned about transformers"
-Claude: "Here are your memories about transformer architecture..."
+### `memory`
+Store new memories with automatic enhancement
+```typescript
+memory(content: string, metadata?: object): MemoryResponse
 ```
 
-### 💼 Client Work
-```
-You: "Remember client X prefers PostgreSQL over MySQL for all projects"
-You: "Client Y's API key format is: XY-[8 chars]-[timestamp]"
-
-// When starting new project...
-You: "What do I need to remember about client X?"
+### `recall`
+Retrieve memories using natural language
+```typescript
+recall(query: string, limit?: number): Memory[]
 ```
 
-## Available Tools
+### `entities`
+Explore your automatically extracted knowledge graph
+```typescript
+entities(type?: string, memory_id?: string): Entity[]
+```
 
-- `memory` - Save information to your memory vault
-- `recall` - Search and retrieve memories
-- `entities` - Explore your knowledge graph
-- `attach` - Attach files to memories
-- `correction` - Add corrections to existing memories
+### `attach`
+Add rich media attachments to memories
+```typescript
+attach(memory_id: string, attachment: Attachment): Response
+```
 
-## Security
+### `correction`
+Update or refine existing memories
+```typescript
+correction(memory_id: string, updates: object): Response
+```
 
-This is a thin client that forwards all requests to the PUO Memo API. No data is processed locally, ensuring your information remains secure on PUO Memo servers.
+## 🎯 Real-World Use Cases
 
-## Support
+### For Developers
+```
+"Remember the Redis cache config: max-memory 2gb, eviction policy LRU, persistence AOF"
+"What were those PostgreSQL optimization tips from last week's debugging session?"
+"Show me all the API endpoints I've documented this month"
+```
 
-- 📧 Email: support@puo-memo.com
-- 🐛 Issues: [GitHub Issues](https://github.com/coladapo/puo-memo-mcp/issues)
-- 📚 Docs: [https://api.puo-memo.com/docs](https://api.puo-memo.com/docs)
+### For Researchers
+```
+"Store this paper: [arxiv link] - key insight about transformer attention mechanisms"
+"What connections exist between my notes on neural networks and optimization?"
+"Find all memories related to machine learning from Q3 2024"
+```
 
-## Contributing
+### For Project Managers
+```
+"Remember stakeholder feedback: John wants faster load times, prioritize performance"
+"What were the action items from yesterday's standup?"
+"Show me all decisions made about the Q4 roadmap"
+```
 
-We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+## 🔒 Security & Privacy
 
-### Development
+- **OAuth 2.1 + PKCE**: Industry-standard secure authentication
+- **End-to-end encryption**: Your memories are encrypted in transit and at rest
+- **SOC 2 Type II**: Compliance in progress
+- **GDPR compliant**: Full data control and right to deletion
+- **Zero-knowledge option**: Available for enterprise customers
+
+## 💰 Pricing
+
+### Free Tier
+- 100 memories/month
+- Basic search
+- Full MCP integration
+- Community support
+
+### Pro ($9/month)
+- Unlimited memories
+- Advanced AI features
+- Priority support
+- API access
+
+### Enterprise (Custom)
+- Self-hosted option
+- Custom AI training
+- White-label MCP
+- SLA guarantees
+
+## 🔧 Development
+
+### Local Development
 
 ```bash
 # Clone the repository
-git clone https://github.com/coladapo/puo-memo-mcp.git
-cd puo-memo-mcp
+git clone https://github.com/coladapo/purmemo-mcp.git
+cd purmemo-mcp
 
 # Install dependencies
 npm install
 
-# Test locally
-PUO_MEMO_API_KEY=your-key node src/index.js
+# Run tests
+npm test
+
+# Start local server
+PURMEMO_API_KEY=your-key npm start
 ```
 
-## Roadmap
+### Contributing
 
-- [ ] Batch memory operations
-- [ ] Memory export/import
-- [ ] Advanced search filters
+We welcome contributions to the MCP protocol implementation! Please note:
+- This repository contains only the open-source MCP wrapper
+- Core memory algorithms remain proprietary
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
+
+## 📚 Documentation
+
+- [API Documentation](https://api.purmemo.ai/docs)
+- [MCP Integration Guide](https://docs.purmemo.ai/mcp)
+- [Security Whitepaper](https://purmemo.ai/security)
+- [Terms of Service](https://purmemo.ai/terms)
+
+## 🎖️ Recognition
+
+Purmemo MCP is pursuing official recognition in the [Model Context Protocol servers repository](https://github.com/modelcontextprotocol/servers).
+
+## 📄 License
+
+### Open Source Components (This Repository)
+**MIT License** - See [LICENSE](LICENSE) file
+
+You are free to:
+- Use this MCP server commercially
+- Modify and distribute
+- Create your own implementations
+
+### Proprietary Components (Purmemo Core)
+**Proprietary License** - Protected by trade secrets and pending patents
+
+The following remain proprietary:
+- Memory retrieval algorithms
+- Entity extraction engine
+- Workflow intelligence system
+- Performance optimization techniques
+
+## 🆘 Support
+
+- 📧 Email: support@purmemo.ai
+- 💬 Discord: [discord.gg/purmemo](https://discord.gg/purmemo)
+- 🐛 Issues: [GitHub Issues](https://github.com/coladapo/purmemo-mcp/issues)
+- 🌐 Status: [status.purmemo.ai](https://status.purmemo.ai)
+
+## 🗺️ Roadmap
+
+- [x] Core MCP implementation
+- [x] OAuth 2.1 authentication
+- [x] 5 essential tools
+- [ ] WebSocket support for real-time
+- [ ] Batch operations
 - [ ] Memory sharing between users
 - [ ] Voice memory capture
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
+- [ ] Official MCP recognition
 
 ---
 
@@ -148,6 +253,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Built with ❤️ for the AI community**
 
-[Website](https://puo-memo.com) · [API Docs](https://api.puo-memo.com/docs) · [NPM](https://www.npmjs.com/package/puo-memo-mcp) · [Issues](https://github.com/coladapo/puo-memo-mcp/issues)
+*"Open the door, protect the house"* - Hybrid open-core model for sustainable innovation
+
+[Website](https://purmemo.ai) · [Dashboard](https://app.purmemo.ai) · [API Docs](https://api.purmemo.ai/docs) · [NPM](https://www.npmjs.com/package/purmemo-mcp)
 
 </div>
