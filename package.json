@@ -1,11 +1,11 @@
 {
-  "name": "puo-memo-mcp",
-  "version": "1.1.2",
+  "name": "purmemo-mcp",
+  "version": "1.0.0",
   "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 94% memory retrieval accuracy",
   "main": "src/index.js",
   "type": "module",
   "bin": {
-    "puo-memo-mcp": "./bin/puo-memo-mcp"
+    "purmemo-mcp": "./bin/purmemo-mcp"
   },
   "files": [
     "src/",
