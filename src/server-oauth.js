@@ -364,11 +364,41 @@ async function initialize() {
   console.log('Ready to serve MCP requests\n');
 }
 
-// Start server
-initialize().then(() => {
-  const transport = new StdioServerTransport();
-  server.connect(transport);
+// Handle CLI commands if provided
+async function handleCliCommands() {
+  const args = process.argv.slice(2);
+  if (args.length > 0) {
+    const command = args[0];
+    
+    if (command === 'setup' || command === 'status' || command === 'logout' || command === 'upgrade') {
+      // Delegate to setup script for CLI commands
+      const { execSync } = await import('child_process');
+      const setupPath = new URL('./setup.js', import.meta.url).pathname;
+      
+      try {
+        execSync(`node "${setupPath}" ${args.join(' ')}`, { 
+          stdio: 'inherit',
+          cwd: process.cwd()
+        });
+        process.exit(0);
+      } catch (error) {
+        process.exit(error.status || 1);
+      }
+    }
+  }
+}
+
+// Start server or handle CLI commands
+handleCliCommands().then(() => {
+  // If we get here, it's not a CLI command, so start the MCP server
+  initialize().then(() => {
+    const transport = new StdioServerTransport();
+    server.connect(transport);
+  }).catch(error => {
+    console.error('Failed to initialize:', error);
+    process.exit(1);
+  });
 }).catch(error => {
-  console.error('Failed to initialize:', error);
+  console.error('Failed to handle CLI commands:', error);
   process.exit(1);
 });
