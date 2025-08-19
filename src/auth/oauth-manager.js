@@ -6,12 +6,9 @@
 import crypto from 'crypto';
 import express from 'express';
 import open from 'open';
-import { spawn, exec } from 'child_process';
-import { promisify } from 'util';
+import { exec } from 'child_process';
 import os from 'os';
 import TokenStore from './token-store.js';
-
-const execAsync = promisify(exec);
 
 class OAuthManager {
   constructor(config = {}) {
@@ -26,140 +23,8 @@ class OAuthManager {
     this.platform = os.platform();
   }
 
-  /**
-   * Robust browser opening with multiple fallback strategies
-   * Handles macOS security restrictions and provides user-friendly alternatives
-   */
-  async openBrowserRobustly(url) {
-    console.log(`🌐 Opening OAuth URL...`);
-    
-    const strategies = [
-      () => this.tryOpenPackage(url),
-      () => this.tryDirectCommand(url),
-      () => this.tryAlternativeCommands(url),
-      () => this.tryAppleScript(url),
-      () => this.provideFallbackInstructions(url)
-    ];
-
-    for (let i = 0; i < strategies.length; i++) {
-      try {
-        const result = await strategies[i]();
-        
-        if (result.success) {
-          if (result.requiresManualAction) {
-            // User needs to manually open the URL
-            return { opened: false, manualRequired: true, url };
-          }
-          console.log(`✅ Browser opened successfully`);
-          return { opened: true, manualRequired: false };
-        }
-      } catch (error) {
-        console.log(`Strategy ${i + 1} failed, trying next...`);
-      }
-    }
-
-    return { opened: false, manualRequired: true, url };
-  }
-
-  async tryOpenPackage(url) {
-    try {
-      await open(url, { wait: false });
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
-    } catch (error) {
-      throw new Error(`open package failed: ${error.message}`);
-    }
-  }
-
-  async tryDirectCommand(url) {
-    try {
-      let command;
-      
-      switch (this.platform) {
-        case 'darwin':
-          command = `open "${url}"`;
-          break;
-        case 'win32':
-          command = `start "" "${url}"`;
-          break;
-        default:
-          command = `xdg-open "${url}"`;
-      }
-
-      await execAsync(command);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
-    } catch (error) {
-      throw new Error(`direct command failed: ${error.message}`);
-    }
-  }
-
-  async tryAlternativeCommands(url) {
-    if (this.platform !== 'darwin') {
-      throw new Error('Not macOS');
-    }
-
-    const commands = [
-      `open -a Safari "${url}"`,
-      `open -a "Google Chrome" "${url}"`,
-      `open -a Firefox "${url}"`,
-      `/usr/bin/open "${url}"`
-    ];
-
-    for (const command of commands) {
-      try {
-        await execAsync(command);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return { success: true };
-      } catch (error) {
-        continue;
-      }
-    }
-    
-    throw new Error('All alternative commands failed');
-  }
-
-  async tryAppleScript(url) {
-    if (this.platform !== 'darwin') {
-      throw new Error('Not macOS');
-    }
-
-    try {
-      const script = `tell application "Safari" to open location "${url}"`;
-      await execAsync(`osascript -e '${script}'`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
-    } catch (error) {
-      throw new Error(`AppleScript failed: ${error.message}`);
-    }
-  }
-
-  async provideFallbackInstructions(url) {
-    console.log('\n' + '━'.repeat(60));
-    console.log('🚨 BROWSER OPENING BLOCKED BY SECURITY');
-    console.log('━'.repeat(60));
-    console.log('');
-    console.log('Please manually copy and paste this URL into your browser:');
-    console.log('');
-    console.log('📋 COPY THIS URL:');
-    console.log('⬇'.repeat(40));
-    console.log(url);
-    console.log('⬆'.repeat(40));
-    console.log('');
-    console.log('📱 QUICK STEPS:');
-    console.log('1. Copy the URL above');
-    console.log('2. Open your browser');
-    console.log('3. Paste and press Enter');
-    console.log('4. Sign in with Google/GitHub');
-    console.log('');
-    console.log('⏰ Waiting for OAuth callback...');
-    console.log('━'.repeat(60));
-
-    return { 
-      success: true, 
-      requiresManualAction: true 
-    };
-  }
+  // Removed complex browser opening strategies - going manual-first
+  // The performOAuthFlow method now handles everything clearly
 
   /**
    * Get current authentication token
@@ -229,8 +94,6 @@ class OAuthManager {
    * Perform the actual OAuth flow
    */
   async performOAuthFlow() {
-    console.log('\n🔐 Starting Purmemo authentication...\n');
-    
     // Generate PKCE challenge
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = this.generateCodeChallenge(codeVerifier);
@@ -246,15 +109,50 @@ class OAuthManager {
     authUrl.searchParams.append('code_challenge', codeChallenge);
     authUrl.searchParams.append('code_challenge_method', 'S256');
 
-    // Start local server for callback
+    // Start local server for callback FIRST
     const authCode = await this.startCallbackServer(state);
     
-    // Open browser for authentication with robust fallback
-    const browserResult = await this.openBrowserRobustly(authUrl.toString());
+    // MANUAL-FIRST: Always show the URL clearly
+    console.log('\n' + '═'.repeat(70));
+    console.log('🔐 AUTHENTICATION REQUIRED');
+    console.log('═'.repeat(70));
+    console.log('');
+    console.log('Please complete authentication in your browser:');
+    console.log('');
+    console.log('📋 COPY THIS URL:');
+    console.log('─'.repeat(70));
+    console.log(authUrl.toString());
+    console.log('─'.repeat(70));
+    console.log('');
+    console.log('📱 STEPS:');
+    console.log('  1. Copy the URL above');
+    console.log('  2. Open your browser');
+    console.log('  3. Paste and press Enter');
+    console.log('  4. Sign in with Google, GitHub, or Email');
+    console.log('  5. You\'ll be redirected back automatically');
+    console.log('');
+    console.log('⏳ Waiting for you to sign in...');
+    console.log('═'.repeat(70));
+    console.log('');
     
-    if (!browserResult.opened && browserResult.manualRequired) {
-      // The robust method already displayed instructions
-      console.log(''); // Just add some spacing
+    // Try to open browser quietly in background (might work, might not)
+    try {
+      if (this.platform === 'darwin') {
+        // On macOS, try using 'open' directly without the npm context
+        exec(`open "${authUrl.toString()}"`, (error) => {
+          if (!error) {
+            console.log('✨ Browser opened automatically - check your browser tabs');
+          }
+          // If it fails, that's fine - user has manual instructions
+        });
+      } else {
+        // Try other platforms
+        await open(authUrl.toString(), { wait: false }).catch(() => {
+          // Silently fail - manual instructions are already shown
+        });
+      }
+    } catch {
+      // Silent fail - manual instructions are primary
     }
 
     // Wait for callback with auth code

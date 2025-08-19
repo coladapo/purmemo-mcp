@@ -71,18 +71,9 @@ program
     }
     
     console.log(chalk.yellow('\n📱 Starting authentication process...\n'));
-    console.log(chalk.gray('You will be redirected to your browser to sign in.'));
-    console.log(chalk.gray('Choose your preferred method: Google, GitHub, or Email.\n'));
-    
-    const spinner = ora('Preparing authentication...').start();
+    console.log(chalk.gray('Follow the instructions below to sign in.\n'));
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause
-      spinner.stop();
-      
-      // Ensure manual instructions are visible if browser fails
-      console.log(chalk.cyan('\n🔐 Starting Purmemo authentication...\n'));
-      
       const token = await authManager.authenticate();
       
       if (token) {
