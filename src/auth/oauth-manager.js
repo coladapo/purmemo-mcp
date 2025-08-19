@@ -235,7 +235,7 @@ class OAuthManager {
     const state = crypto.randomBytes(16).toString('hex');
 
     // Build OAuth URL
-    const authUrl = new URL(`${this.apiUrl}/api/oauth/initiate`);
+    const authUrl = new URL(`${this.apiUrl}/api/oauth/authorize`);
     authUrl.searchParams.append('client_id', this.clientId);
     authUrl.searchParams.append('redirect_uri', this.redirectUri);
     authUrl.searchParams.append('response_type', 'code');
