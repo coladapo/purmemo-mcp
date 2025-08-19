@@ -109,10 +109,7 @@ class OAuthManager {
     authUrl.searchParams.append('code_challenge', codeChallenge);
     authUrl.searchParams.append('code_challenge_method', 'S256');
 
-    // Start local server for callback FIRST
-    const authCode = await this.startCallbackServer(state);
-    
-    // MANUAL-FIRST: Always show the URL clearly
+    // MANUAL-FIRST: Show the URL BEFORE starting the server
     console.log('\n' + '═'.repeat(70));
     console.log('🔐 AUTHENTICATION REQUIRED');
     console.log('═'.repeat(70));
@@ -134,6 +131,9 @@ class OAuthManager {
     console.log('⏳ Waiting for you to sign in...');
     console.log('═'.repeat(70));
     console.log('');
+    
+    // NOW start the callback server after showing instructions
+    const authCode = await this.startCallbackServer(state);
     
     // Try to open browser quietly in background (might work, might not)
     try {
