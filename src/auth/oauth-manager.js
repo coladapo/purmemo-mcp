@@ -16,7 +16,7 @@ const execAsync = promisify(exec);
 class OAuthManager {
   constructor(config = {}) {
     this.apiUrl = config.apiUrl || process.env.PUO_MEMO_API_URL || 'https://api.purmemo.ai';
-    this.clientId = config.clientId || 'purmemo-mcp';
+    this.clientId = config.clientId || 'chatgpt-purmemo';
     this.redirectUri = config.redirectUri || 'http://localhost:3456/callback';
     this.tokenStore = new TokenStore();
     this.server = null;
