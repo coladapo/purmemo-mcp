@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v2.0.0 - With OAuth Support
- * Seamless authentication without manual API key configuration
+ * pūrmemo MCP Server v2.1.0 - Fixed OAuth Support
+ * Non-blocking authentication for Claude Desktop compatibility
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -24,6 +24,7 @@ const API_URL = process.env.PUO_MEMO_API_URL || 'https://api.purmemo.ai';
 // User state
 let userInfo = null;
 let memoryCount = 0;
+let isAuthenticationInProgress = false;
 
 // Tool definitions
 const TOOLS = [
@@ -49,7 +50,11 @@ const TOOLS = [
       properties: {
         query: { type: 'string', description: 'What to search for' },
         limit: { type: 'integer', description: 'How many results (default: 10)', default: 10 },
-        search_type: { type: 'string', enum: ['keyword', 'semantic', 'hybrid'], default: 'hybrid' }
+        search_type: { 
+          type: 'string', 
+          enum: ['keyword', 'semantic', 'hybrid'],
+          default: 'hybrid'
+        }
       },
       required: ['query']
     }
@@ -62,9 +67,9 @@ const TOOLS = [
       properties: {
         entity_name: { type: 'string', description: 'Optional: Specific entity to look up' },
         entity_type: { 
-          type: 'string', 
+          type: 'string',
           enum: ['person', 'organization', 'location', 'concept', 'technology', 'project', 'document', 'event'],
-          description: 'Optional: Filter by entity type' 
+          description: 'Optional: Filter by entity type'
         }
       }
     }
@@ -96,309 +101,372 @@ const TOOLS = [
   }
 ];
 
-// Create server
-const server = new Server(
-  {
-    name: 'purmemo-mcp',
-    version: '2.0.0'
-  },
-  {
-    capabilities: {
-      tools: {}
-    }
-  }
-);
-
 /**
- * Get authentication token, prompting for OAuth if needed
+ * Get authentication token - NON-BLOCKING version
+ * Returns null if no token available, doesn't wait for OAuth
  */
-async function getAuthToken() {
-  let token = await authManager.getToken();
-  
-  if (!token) {
-    console.log('\n⚠️  Authentication required for Purmemo MCP');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('This is a one-time setup. You\'ll be redirected to sign in.');
-    console.log('After authentication, all tools will work automatically.\n');
-    
-    token = await authManager.authenticate();
-    
-    // Get user info after authentication
-    userInfo = await authManager.tokenStore.getUserInfo();
-    if (userInfo) {
-      console.log(`👤 Authenticated as: ${userInfo.email}`);
-      console.log(`📊 Account tier: ${userInfo.tier}`);
-      if (userInfo.memory_limit) {
-        console.log(`📝 Memory limit: ${userInfo.memory_limit} (upgrade to Pro for unlimited)`);
-      }
-      console.log('');
-    }
+async function getAuthTokenNonBlocking() {
+  try {
+    // Only get existing token, don't trigger OAuth flow
+    const token = await authManager.getToken();
+    return token;
+  } catch (error) {
+    // Silent error handling for MCP compatibility
+    return null;
   }
-  
-  return token;
 }
 
 /**
- * Check if user has reached memory limit (for free tier)
+ * Create helpful authentication message
+ */
+function createAuthMessage(toolName) {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `🔐 Authentication Required for ${toolName}\n\n` +
+              `To use Purmemo tools, you need to authenticate first.\n\n` +
+              `🚀 **Quick Setup:**\n` +
+              `1. Run in terminal: \`npx purmemo-mcp setup\`\n` +
+              `2. Follow the OAuth flow\n` +
+              `3. Come back and try again!\n\n` +
+              `🌐 **Alternative Setup:**\n` +
+              `• Visit: https://app.purmemo.ai/settings\n` +
+              `• Generate an API key\n` +
+              `• Set environment variable: \`PUO_MEMO_API_KEY=your_key\`\n\n` +
+              `After authentication, all tools will work seamlessly! 🚀`
+      }
+    ]
+  };
+}
+
+/**
+ * Check memory limit without blocking
  */
 async function checkMemoryLimit(token) {
-  if (!userInfo) {
-    userInfo = await authManager.tokenStore.getUserInfo();
-  }
+  if (!userInfo || !token) return { exceeded: false };
   
-  if (userInfo && userInfo.tier === 'free' && userInfo.memory_limit) {
-    // Get current memory count
-    try {
-      const response = await fetch(`${API_URL}/api/v5/memories?limit=1`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'purmemo-mcp/2.0.0'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        memoryCount = data.total_count || 0;
-        
-        if (memoryCount >= userInfo.memory_limit) {
-          return {
-            exceeded: true,
-            message: `You've reached your free tier limit of ${userInfo.memory_limit} memories. Upgrade to Pro at https://app.purmemo.ai for unlimited memories.`,
-            current: memoryCount,
-            limit: userInfo.memory_limit
-          };
-        }
+  try {
+    const response = await fetch(`${API_URL}/api/v5/memories?limit=1`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'purmemo-mcp/2.1.0'
       }
-    } catch (error) {
-      console.error('Failed to check memory limit:', error);
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      memoryCount = data.total_count || 0;
+      
+      if (memoryCount >= userInfo.memory_limit) {
+        return {
+          exceeded: true,
+          message: `You've reached your free tier limit of ${userInfo.memory_limit} memories. Upgrade to Pro at https://app.purmemo.ai for unlimited memories.`,
+          current: memoryCount,
+          limit: userInfo.memory_limit
+        };
+      }
     }
+  } catch (error) {
+    // Silent error handling for MCP compatibility
   }
   
   return { exceeded: false };
 }
+
+// Create server
+const server = new Server(
+  {
+    name: 'purmemo-mcp',
+    version: '2.1.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: TOOLS
 }));
 
-// Handle tool execution
+// Handle tool execution - NON-BLOCKING VERSION
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   
   try {
-    // Get auth token (will prompt for OAuth if needed)
-    const token = await getAuthToken();
+    // Get auth token without blocking
+    const token = await getAuthTokenNonBlocking();
     
+    // If no token, return helpful auth message instead of hanging
     if (!token) {
-      throw new Error('Authentication required. Please run the setup command to authenticate.');
+      return createAuthMessage(name);
     }
     
-    // Check memory limit for memory creation
-    if (name === 'memory') {
-      const limitCheck = await checkMemoryLimit(token);
-      if (limitCheck.exceeded) {
-        return {
-          error: 'Memory limit exceeded',
-          message: limitCheck.message,
-          current_count: limitCheck.current,
-          limit: limitCheck.limit,
-          upgrade_url: 'https://app.purmemo.ai/upgrade'
-        };
-      }
-    }
-    
-    let response;
-    
+    // Proceed with authenticated tool execution
     switch (name) {
       case 'memory':
-        // POST request for creating memory
-        response = await fetch(`${API_URL}/api/v5/memories`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'purmemo-mcp/2.0.0'
-          },
-          body: JSON.stringify(args)
-        });
-        
-        // Increment memory count for free tier tracking
-        if (response.ok && userInfo?.tier === 'free') {
-          memoryCount++;
-          if (userInfo.memory_limit) {
-            const remaining = userInfo.memory_limit - memoryCount;
-            if (remaining > 0 && remaining <= 10) {
-              console.log(`ℹ️  ${remaining} memories remaining in free tier`);
-            }
-          }
-        }
-        break;
-        
+        return await handleMemory(args, token);
       case 'recall':
-        // GET request for search
-        const searchParams = new URLSearchParams({
-          q: args.query || '',
-          limit: args.limit || 10,
-          search_type: args.search_type || 'hybrid'
-        });
-        response = await fetch(`${API_URL}/api/v5/memories/search?${searchParams}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'purmemo-mcp/2.0.0'
-          }
-        });
-        break;
-        
+        return await handleRecall(args, token);
       case 'entities':
-        // GET request for entities
-        const entityParams = new URLSearchParams();
-        if (args.entity_name) entityParams.append('name', args.entity_name);
-        if (args.entity_type) entityParams.append('type', args.entity_type);
-        
-        response = await fetch(`${API_URL}/api/v5/entities?${entityParams}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'purmemo-mcp/2.0.0'
-          }
-        });
-        break;
-        
+        return await handleEntities(args, token);
       case 'attach':
-        // POST request for attachments
-        response = await fetch(`${API_URL}/api/v5/memories/${args.memory_id}/attachments`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'purmemo-mcp/2.0.0'
-          },
-          body: JSON.stringify({ file_paths: args.file_paths })
-        });
-        break;
-        
+        return await handleAttach(args, token);
       case 'correction':
-        // POST request for corrections
-        response = await fetch(`${API_URL}/api/v5/memories/${args.memory_id}/corrections`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'purmemo-mcp/2.0.0'
-          },
-          body: JSON.stringify({
-            correction: args.correction,
-            reason: args.reason
-          })
-        });
-        break;
-        
+        return await handleCorrection(args, token);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
     
-    if (!response.ok) {
-      const error = await response.text();
-      
-      // Handle specific error cases
-      if (response.status === 401) {
-        // Token might be expired, try to refresh
-        console.log('🔄 Authentication expired, refreshing...');
-        await authManager.tokenStore.clearToken();
-        const newToken = await authManager.authenticate();
-        
-        // Suggest retrying the operation
-        throw new Error('Authentication refreshed. Please try your request again.');
-      }
-      
-      throw new Error(`API error: ${error}`);
-    }
-    
-    return await response.json();
-    
   } catch (error) {
-    console.error(`❌ Error executing ${name}:`, error.message);
-    
-    // Provide helpful error messages
-    if (error.message.includes('ECONNREFUSED')) {
-      throw new Error('Unable to connect to Purmemo API. Please check your internet connection.');
-    }
-    
-    if (error.message.includes('Authentication')) {
-      throw new Error(`Authentication issue: ${error.message}. You may need to reconnect your account.`);
-    }
-    
-    throw error;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `❌ Error executing ${name}: ${error.message}\n\n` +
+                `If this is an authentication error, please run: \`npx purmemo-mcp setup\``
+        }
+      ]
+    };
   }
 });
 
-// Initialize on startup
-async function initialize() {
-  console.log('🧠 pūrmemo MCP v2.0.0 starting...\n');
-  
-  // Check if we have stored authentication
-  const hasAuth = await authManager.tokenStore.hasToken();
-  
-  if (hasAuth) {
-    userInfo = await authManager.tokenStore.getUserInfo();
-    if (userInfo) {
-      console.log(`✅ Authenticated as: ${userInfo.email}`);
-      console.log(`📊 Account tier: ${userInfo.tier}`);
-      if (userInfo.memory_limit) {
-        console.log(`📝 Memory limit: ${userInfo.memory_limit}`);
-      }
-    }
-  } else {
-    // Check for legacy API key
-    if (process.env.PUO_MEMO_API_KEY) {
-      console.log('📔 Using API key from environment (legacy mode)');
-      console.log('💡 Tip: Remove PUO_MEMO_API_KEY to use OAuth authentication');
-    } else {
-      console.log('🔐 No authentication found');
-      console.log('📱 You\'ll be prompted to sign in when you use your first tool');
-      console.log('   This is a one-time setup for seamless access');
-    }
+// Tool handlers (implement the actual API calls)
+async function handleMemory(args, token) {
+  const limitCheck = await checkMemoryLimit(token);
+  if (limitCheck.exceeded) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `💾 Memory Limit Reached\n\n${limitCheck.message}`
+        }
+      ]
+    };
   }
-  
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Ready to serve MCP requests\n');
-}
 
-// Handle CLI commands if provided
-async function handleCliCommands() {
-  const args = process.argv.slice(2);
-  if (args.length > 0) {
-    const command = args[0];
-    
-    if (command === 'setup' || command === 'status' || command === 'logout' || command === 'upgrade') {
-      // Delegate to setup script for CLI commands
-      const { execSync } = await import('child_process');
-      const setupPath = new URL('./setup.js', import.meta.url).pathname;
-      
-      try {
-        execSync(`node "${setupPath}" ${args.join(' ')}`, { 
-          stdio: 'inherit',
-          cwd: process.cwd()
-        });
-        process.exit(0);
-      } catch (error) {
-        process.exit(error.status || 1);
-      }
-    }
-  }
-}
-
-// Start server or handle CLI commands
-handleCliCommands().then(() => {
-  // If we get here, it's not a CLI command, so start the MCP server
-  initialize().then(() => {
-    const transport = new StdioServerTransport();
-    server.connect(transport);
-  }).catch(error => {
-    console.error('Failed to initialize:', error);
-    process.exit(1);
+  const response = await fetch(`${API_URL}/api/v5/memories/`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'purmemo-mcp/2.1.0'
+    },
+    body: JSON.stringify({
+      content: args.content,
+      title: args.title,
+      tags: args.tags || [],
+      attachments: args.attachments || []
+    })
   });
-}).catch(error => {
-  console.error('Failed to handle CLI commands:', error);
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to create memory');
+  }
+
+  memoryCount++;
+  
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `💾 Memory Saved Successfully!\n\n` +
+              `📝 **Content:** ${args.content}\n` +
+              `🔗 **ID:** ${data.memory_id}\n` +
+              (args.title ? `📋 **Title:** ${args.title}\n` : '') +
+              (args.tags?.length ? `🏷️ **Tags:** ${args.tags.join(', ')}\n` : '') +
+              `📊 **Total Memories:** ${memoryCount}\n\n` +
+              `✨ Your memory is now part of your AI-powered second brain!`
+      }
+    ]
+  };
+}
+
+async function handleRecall(args, token) {
+  const response = await fetch(`${API_URL}/api/v5/memories/search`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'purmemo-mcp/2.1.0'
+    },
+    body: JSON.stringify({
+      query: args.query,
+      limit: args.limit || 10,
+      search_type: args.search_type || 'hybrid'
+    })
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to search memories');
+  }
+
+  if (!data.results || data.results.length === 0) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `🔍 No Memories Found\n\n` +
+                `Query: "${args.query}"\n` +
+                `No matching memories were found. Try different keywords or create some memories first!`
+        }
+      ]
+    };
+  }
+
+  let resultText = `🔍 Found ${data.results.length} memories for "${args.query}"\n\n`;
+  
+  data.results.forEach((memory, index) => {
+    resultText += `${index + 1}. **${memory.title || 'Untitled'}**\n`;
+    resultText += `   📝 ${memory.content.substring(0, 150)}${memory.content.length > 150 ? '...' : ''}\n`;
+    resultText += `   📅 ${new Date(memory.created_at).toLocaleDateString()}\n`;
+    if (memory.tags?.length) {
+      resultText += `   🏷️ ${memory.tags.join(', ')}\n`;
+    }
+    resultText += `   🔗 ID: ${memory.memory_id}\n\n`;
+  });
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: resultText
+      }
+    ]
+  };
+}
+
+async function handleEntities(args, token) {
+  const queryParams = new URLSearchParams();
+  if (args.entity_name) queryParams.set('entity_name', args.entity_name);
+  if (args.entity_type) queryParams.set('entity_type', args.entity_type);
+
+  const response = await fetch(`${API_URL}/api/v5/entities?${queryParams}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'User-Agent': 'purmemo-mcp/2.1.0'
+    }
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to get entities');
+  }
+
+  if (!data.entities || data.entities.length === 0) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `🏷️ No Entities Found\n\n` +
+                `No entities match your criteria. Add more memories to extract entities!`
+        }
+      ]
+    };
+  }
+
+  let resultText = `🏷️ Found ${data.entities.length} entities\n\n`;
+  
+  data.entities.forEach(entity => {
+    resultText += `**${entity.name}** (${entity.type})\n`;
+    resultText += `   📊 Mentioned ${entity.frequency} times\n`;
+    if (entity.description) {
+      resultText += `   📝 ${entity.description}\n`;
+    }
+    resultText += `\n`;
+  });
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: resultText
+      }
+    ]
+  };
+}
+
+async function handleAttach(args, token) {
+  const response = await fetch(`${API_URL}/api/v5/memories/${args.memory_id}/attachments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'purmemo-mcp/2.1.0'
+    },
+    body: JSON.stringify({
+      file_paths: args.file_paths
+    })
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to attach files');
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `📎 Files Attached Successfully!\n\n` +
+              `Memory ID: ${args.memory_id}\n` +
+              `Attached ${args.file_paths.length} file(s):\n` +
+              args.file_paths.map(path => `• ${path}`).join('\n')
+      }
+    ]
+  };
+}
+
+async function handleCorrection(args, token) {
+  const response = await fetch(`${API_URL}/api/v5/memories/${args.memory_id}/corrections`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'purmemo-mcp/2.1.0'
+    },
+    body: JSON.stringify({
+      correction: args.correction,
+      reason: args.reason
+    })
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to add correction');
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `✏️ Correction Added Successfully!\n\n` +
+              `Memory ID: ${args.memory_id}\n` +
+              `Correction: ${args.correction}\n` +
+              (args.reason ? `Reason: ${args.reason}\n` : '') +
+              `\n✨ Your memory has been updated!`
+      }
+    ]
+  };
+}
+
+// Start server
+async function main() {
+  // Silent startup for MCP protocol compatibility
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch((error) => {
   process.exit(1);
 });
