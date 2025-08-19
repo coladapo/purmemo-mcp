@@ -80,6 +80,9 @@ program
       await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause
       spinner.stop();
       
+      // Ensure manual instructions are visible if browser fails
+      console.log(chalk.cyan('\n🔐 Starting Purmemo authentication...\n'));
+      
       const token = await authManager.authenticate();
       
       if (token) {
