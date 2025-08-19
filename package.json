@@ -1,6 +1,6 @@
 {
   "name": "purmemo-mcp",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Official Model Context Protocol (MCP) server for Purmemo - Seamless OAuth authentication for your AI-powered second brain",
   "main": "src/server-oauth.js",
   "type": "module",
