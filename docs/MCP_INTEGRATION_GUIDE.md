@@ -137,11 +137,14 @@ Once connected, Claude can use these 5 tools:
 
 ## Security Notes
 
-- **API keys** are more secure than email/password
-- **Local MCP** keeps all data on your machine until sent to API
-- **Remote MCP** uses SSL/TLS encryption
-- **Never share** your API key publicly
-- **Rotate keys** regularly from the dashboard
+- **API keys provide full access** to your Purmemo account
+- **Store keys securely** using environment variables or secure key managers
+- **Never commit keys** to Git repositories or share publicly  
+- **Regenerate immediately** if a key is compromised
+- **Use HTTPS only** when making API requests (enforced by default)
+- **Local MCP** keeps data on your machine until sent to API
+- **Remote MCP** uses SSL/TLS encryption for all connections
+- **Rotate keys regularly** from the dashboard for best security
 
 ## Version History
 
