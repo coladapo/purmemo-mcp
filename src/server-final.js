@@ -53,18 +53,51 @@ const TOOLS = [
         entity_type: { type: 'string', description: 'Optional: Filter by entity type' }
       }
     }
+  },
+  {
+    name: 'attach',
+    description: '📎 Attach files to an existing memory',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        memory_id: { type: 'string', description: 'Memory ID to attach files to' },
+        files: { type: 'array', items: { type: 'string' }, description: 'File paths or URLs to attach' },
+        description: { type: 'string', description: 'Optional: Description of the attachments' }
+      },
+      required: ['memory_id', 'files']
+    }
+  },
+  {
+    name: 'correction',
+    description: '✏️ Add a correction to an existing memory',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        memory_id: { type: 'string', description: 'Memory ID to add correction to' },
+        correction: { type: 'string', description: 'The correction text or details' },
+        type: { type: 'string', enum: ['factual', 'spelling', 'update', 'clarification'], description: 'Type of correction', default: 'update' }
+      },
+      required: ['memory_id', 'correction']
+    }
   }
 ];
 
 // Create server
 const server = new Server(
-  { name: 'purmemo-mcp', version: '3.1.0' },
+  { name: 'purmemo-mcp', version: '3.2.0' },
   { capabilities: { tools: {} } }
 );
 
-// Authentication function using login
+// Authentication function supporting both API key and login
 async function authenticate() {
-  // Check if token is still valid
+  // Check for API key first (more secure)
+  const apiKey = process.env.PURMEMO_API_KEY;
+  if (apiKey) {
+    // API keys don't expire, return directly
+    return apiKey;
+  }
+  
+  // Fallback to token-based auth if no API key
   if (authToken && tokenExpiry && Date.now() < tokenExpiry) {
     return authToken;
   }
@@ -108,15 +141,15 @@ function createAuthMessage(toolName) {
       type: 'text',
       text: `🔐 Authentication Required\n\n` +
             `To use ${toolName}, please set up credentials:\n\n` +
-            `Add to your Claude Desktop config:\n` +
+            `**Recommended (Secure)**: Use API Key\n` +
+            `"env": {\n` +
+            `  "PURMEMO_API_KEY": "your-api-key-here"\n` +
+            `}\n\n` +
+            `Get your API key at: https://app.purmemo.ai/settings/api-keys\n\n` +
+            `**Alternative**: Use email/password\n` +
             `"env": {\n` +
             `  "PURMEMO_EMAIL": "your-email@example.com",\n` +
             `  "PURMEMO_PASSWORD": "your-password"\n` +
-            `}\n\n` +
-            `Or use the demo account:\n` +
-            `"env": {\n` +
-            `  "PURMEMO_EMAIL": "demo@puo-memo.com",\n` +
-            `  "PURMEMO_PASSWORD": "demodemo123"\n` +
             `}\n\n` +
             `Then restart Claude Desktop.`
     }]
@@ -340,6 +373,72 @@ async function handleEntities(args) {
   }
 }
 
+async function handleAttach(args) {
+  try {
+    const data = await makeApiCall(`/api/v5/memories/${args.memory_id}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify({
+        files: args.files,
+        description: args.description || ""
+      })
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Files attached successfully!\n\n` +
+              `📎 Memory ID: ${args.memory_id}\n` +
+              `📁 Files: ${args.files.join(', ')}\n` +
+              (args.description ? `📝 Description: ${args.description}\n` : '') +
+              `🔗 Attachment ID: ${data.id || data.attachment_id || 'Unknown'}`
+      }]
+    };
+  } catch (error) {
+    if (error.message === 'NO_AUTH') {
+      return createAuthMessage('attach');
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error attaching files: ${error.message}`
+      }]
+    };
+  }
+}
+
+async function handleCorrection(args) {
+  try {
+    const data = await makeApiCall(`/api/v5/memories/${args.memory_id}/corrections`, {
+      method: 'POST',
+      body: JSON.stringify({
+        correction: args.correction,
+        type: args.type || 'update'
+      })
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ Correction added successfully!\n\n` +
+              `📝 Memory ID: ${args.memory_id}\n` +
+              `✏️ Correction: ${args.correction}\n` +
+              `🏷️ Type: ${args.type || 'update'}\n` +
+              `🔗 Correction ID: ${data.id || data.correction_id || 'Unknown'}`
+      }]
+    };
+  } catch (error) {
+    if (error.message === 'NO_AUTH') {
+      return createAuthMessage('correction');
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error adding correction: ${error.message}`
+      }]
+    };
+  }
+}
+
 // Request handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
@@ -354,11 +453,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleRecall(args);
       case 'entities':
         return await handleEntities(args);
+      case 'attach':
+        return await handleAttach(args);
+      case 'correction':
+        return await handleCorrection(args);
       default:
         return {
           content: [{
             type: 'text',
-            text: `❌ Unknown tool: ${name}`
+            text: `❌ Unknown tool: ${name}\n\nAvailable tools:\n• memory - Save memories\n• recall - Search memories\n• entities - List entities\n• attach - Attach files\n• correction - Add corrections`
           }]
         };
     }
