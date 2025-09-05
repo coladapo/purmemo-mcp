@@ -21,45 +21,37 @@
 
 ## 🚀 Quick Start
 
-### 1. Get Your API Key
+### 1. Create Your Purmemo Account
 
 1. Sign up at [purmemo.ai/register](https://www.purmemo.ai/register)
-2. Sign in and go to [purmemo.ai/settings](https://www.purmemo.ai/settings)
-3. Click "API Keys" tab → "Create New Key"
-4. Name it (e.g., "Claude Desktop") → "Create Key"
-5. Copy the key immediately (won't be shown again)
+2. Verify your email
+3. Sign in to your account
+
+**For Option B (Local) only**: Get an API key from [purmemo.ai/settings](https://www.purmemo.ai/settings) → API Keys tab
 
 ### 2. Choose Your Connection Method
 
-| Method | Remote Connection | Local Connection |
-|--------|------------------|------------------|
-| **Setup** | Click & Connect | Edit Config File |
+| Method | Remote Connection (Beta) | Local Connection |
+|--------|--------------------------|------------------|
+| **Setup** | Add Custom Connector | Edit Config File |
+| **Auth** | OAuth flow in browser | API Key in config |
 | **Install** | Nothing to install | Auto-downloads via npx |
-| **Platforms** | Works on Claude Desktop, Web, Mobile | Claude Desktop only |
+| **Platforms** | Works across all Claude platforms | Claude Desktop only |
 | **Updates** | Automatic | Manual (via npm) |
-| **Best For** | Most users - secure & convenient | Advanced users who prefer local control |
-
-#### Option A: Remote Connection (Recommended)
-Use Claude's "Add custom connector" feature to connect directly to our secure MCP server at `mcp.purmemo.ai`. All traffic is encrypted via HTTPS/TLS.
-
-#### Option B: Local Connection (Advanced)
-Run the MCP server locally on your machine. Requires Node.js and only works with Claude Desktop.
+| **Best For** | Most users - no API key needed | Advanced users who prefer local control |
 
 ### 3. Configure Claude Desktop
 
-#### For Remote Connection (Option A):
-1. In Claude Desktop, click the 🔌 icon (bottom right)
-2. Click "Add custom connector (BETA)"
-3. Enter:
-   - **Name**: Purmemo
-   - **URL**: `https://mcp.purmemo.ai`
-4. Add authentication header:
-   - Click "Add Header"
-   - **Key**: `Authorization`
-   - **Value**: `Bearer YOUR_API_KEY_HERE`
-5. Click "Connect"
+#### Option A: Remote Connection via Custom Connector (Beta)
+1. In Claude Desktop, scroll to bottom of connectors list
+2. Click "Add custom connector" 
+3. Enter URL: `https://mcp.purmemo.ai`
+4. You'll be redirected to Purmemo login in your browser
+5. Sign in with your Purmemo account
+6. Authorize Claude to access your memories
+7. Connection established automatically
 
-#### For Local Connection (Option B):
+#### Option B: Local Connection via Config File
 Add to your Claude Desktop configuration file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
