@@ -183,7 +183,7 @@ correction(memory_id: string, updates: object): Response
 ## 💰 Pricing
 
 ### Free Tier
-- 100 memories/month
+- 50 memories/month
 - Basic search
 - Full MCP integration
 - Community support
@@ -194,11 +194,19 @@ correction(memory_id: string, updates: object): Response
 - Priority support
 - API access
 
+### Teams ($29/month)
+- Unlimited memories for 5 users
+- Shared knowledge base
+- Team collaboration features
+- Admin dashboard
+- Priority support
+
 ### Enterprise (Custom)
 - Self-hosted option
 - Custom AI training
 - White-label MCP
 - SLA guarantees
+- Dedicated support
 
 ## 🔧 Development
 
