@@ -56,13 +56,38 @@ This repository contains the **open-source MCP protocol wrapper** that connects 
 4. Name it (e.g., "Claude Desktop") → "Create Key"
 5. Copy the key immediately (won't be shown again)
 
-### 2. No Installation Needed!
+### 2. Choose Your Connection Method
 
-Claude Desktop will automatically download the MCP server using `npx` (see configuration below).
+| Method | Remote Connection | Local Connection |
+|--------|------------------|------------------|
+| **Setup** | Click & Connect | Edit Config File |
+| **Install** | Nothing to install | Auto-downloads via npx |
+| **Privacy** | Data goes through our MCP server | Direct from your machine to API |
+| **Updates** | Automatic | Manual (via npm) |
+| **Best For** | Quick testing, non-sensitive data | Production use, sensitive data |
+
+#### Option A: Remote Connection (Easiest - Beta Feature)
+Use Claude Desktop's "Add custom connector" feature to connect directly to our hosted MCP server at `mcp.purmemo.ai`.
+
+#### Option B: Local Connection (More Control)
+Claude Desktop will automatically download and run the MCP server locally using `npx`.
 
 ### 3. Configure Claude Desktop
 
-Add to your Claude Desktop configuration:
+#### For Remote Connection (Option A):
+1. In Claude Desktop, click the 🔌 icon (bottom right)
+2. Click "Add custom connector (BETA)"
+3. Enter:
+   - **Name**: Purmemo
+   - **URL**: `https://mcp.purmemo.ai`
+4. Add authentication header:
+   - Click "Add Header"
+   - **Key**: `Authorization`
+   - **Value**: `Bearer YOUR_API_KEY_HERE`
+5. Click "Connect"
+
+#### For Local Connection (Option B):
+Add to your Claude Desktop configuration file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
