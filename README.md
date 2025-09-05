@@ -62,15 +62,15 @@ This repository contains the **open-source MCP protocol wrapper** that connects 
 |--------|------------------|------------------|
 | **Setup** | Click & Connect | Edit Config File |
 | **Install** | Nothing to install | Auto-downloads via npx |
-| **Privacy** | Data goes through our MCP server | Direct from your machine to API |
+| **Platforms** | Works on Claude Desktop, Web, Mobile | Claude Desktop only |
 | **Updates** | Automatic | Manual (via npm) |
-| **Best For** | Quick testing, non-sensitive data | Production use, sensitive data |
+| **Best For** | Most users - secure & convenient | Advanced users who prefer local control |
 
-#### Option A: Remote Connection (Easiest - Beta Feature)
-Use Claude Desktop's "Add custom connector" feature to connect directly to our hosted MCP server at `mcp.purmemo.ai`.
+#### Option A: Remote Connection (Recommended)
+Use Claude's "Add custom connector" feature to connect directly to our secure MCP server at `mcp.purmemo.ai`. All traffic is encrypted via HTTPS/TLS.
 
-#### Option B: Local Connection (More Control)
-Claude Desktop will automatically download and run the MCP server locally using `npx`.
+#### Option B: Local Connection (Advanced)
+Run the MCP server locally on your machine. Requires Node.js and only works with Claude Desktop.
 
 ### 3. Configure Claude Desktop
 
@@ -200,13 +200,6 @@ correction(memory_id: string, updates: object): Response
 - Team collaboration features
 - Admin dashboard
 - Priority support
-
-### Enterprise (Custom)
-- Self-hosted option
-- Custom AI training
-- White-label MCP
-- SLA guarantees
-- Dedicated support
 
 ## 🔧 Development
 

@@ -1,6 +1,6 @@
 {
   "name": "purmemo-mcp",
-  "version": "3.2.5",
+  "version": "3.2.6",
   "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 5 complete tools",
   "main": "src/server.js",
   "type": "module",
