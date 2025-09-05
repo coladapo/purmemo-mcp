@@ -21,8 +21,11 @@ Connect directly to `mcp.purmemo.ai` without installing anything. Perfect for tr
 1. Sign up at [purmemo.ai/register](https://www.purmemo.ai/register) (if you don't have an account)
 2. Sign in to your account
 3. Go to [purmemo.ai/settings](https://www.purmemo.ai/settings)
-4. Click "Generate API Key" 
-5. Copy the key immediately (it won't be shown again)
+4. Click the "API Keys" tab
+5. Click "Create New Key"
+6. Name your key (e.g., "Claude Desktop")
+7. Click "Create Key"
+8. Copy the key immediately (it won't be shown again)
 
 ### Step 2: Configure Claude Desktop
 

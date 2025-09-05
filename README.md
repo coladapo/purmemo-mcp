@@ -52,7 +52,9 @@ This repository contains the **open-source MCP protocol wrapper** that connects 
 
 1. Sign up at [purmemo.ai/register](https://www.purmemo.ai/register)
 2. Sign in and go to [purmemo.ai/settings](https://www.purmemo.ai/settings)
-3. Click "Generate API Key" and copy it immediately
+3. Click "API Keys" tab → "Create New Key"
+4. Name it (e.g., "Claude Desktop") → "Create Key"
+5. Copy the key immediately (won't be shown again)
 
 ### 2. No Installation Needed!
 
