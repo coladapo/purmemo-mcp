@@ -8,34 +8,7 @@
 
 **Official Model Context Protocol (MCP) server for Purmemo** - Your AI-powered second brain with 94% memory retrieval accuracy.
 
-🚀 **Never lose a thought again - Purmemo remembers everything so you can focus on what matters.**
-
-## 🏗️ Architecture: Open Protocol, Protected Innovation
-
-This repository contains the **open-source MCP protocol wrapper** that connects to Purmemo's proprietary API:
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│  Claude/Client  │────▶│  MCP Server      │────▶│  Purmemo API    │────▶│  Proprietary     │
-│                 │ MCP │  (This Repo)     │ REST│  (Documented)   │     │  Core Engine     │
-└─────────────────┘     └──────────────────┘     └─────────────────┘     └──────────────────┘
-    Open Protocol           MIT Licensed           Terms of Service         Trade Secrets
-                               You Fork                You Use              Protected IP
-```
-
-### What's Open Source (This Repository)
-✅ MCP protocol implementation  
-✅ OAuth 2.1 authentication flow  
-✅ Tool interface definitions  
-✅ API client wrapper  
-✅ Documentation and examples  
-
-### What's Proprietary (Our Secret Sauce)
-🔒 94% accuracy memory algorithms  
-🔒 AI-powered entity extraction  
-🔒 <50ms retrieval optimization  
-🔒 Workflow intelligence engine  
-🔒 Consciousness gradient system  
+🚀 **Never lose a thought again - Purmemo remembers everything so you can focus on what matters.**  
 
 ## ✨ Features
 
@@ -239,22 +212,7 @@ Purmemo MCP is pursuing official recognition in the [Model Context Protocol serv
 
 ## 📄 License
 
-### Open Source Components (This Repository)
 **MIT License** - See [LICENSE](LICENSE) file
-
-You are free to:
-- Use this MCP server commercially
-- Modify and distribute
-- Create your own implementations
-
-### Proprietary Components (Purmemo Core)
-**Proprietary License** - Protected by trade secrets and pending patents
-
-The following remain proprietary:
-- Memory retrieval algorithms
-- Entity extraction engine
-- Workflow intelligence system
-- Performance optimization techniques
 
 ## 🆘 Support
 
