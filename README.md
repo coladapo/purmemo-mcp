@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/coladapo-purmemo-mcp-badge.png)](https://mseep.ai/app/coladapo-purmemo-mcp)
+
 # Purmemo MCP Server
 
 [![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
