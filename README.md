@@ -174,11 +174,10 @@ correction(memory_id: string, updates: object): Response
 
 ## 🔒 Security & Privacy
 
-- **OAuth 2.1 + PKCE**: Industry-standard secure authentication
-- **End-to-end encryption**: Your memories are encrypted in transit and at rest
-- **SOC 2 Type II**: Compliance in progress
-- **GDPR compliant**: Full data control and right to deletion
-- **Zero-knowledge option**: Available for enterprise customers
+- **API Key Authentication**: Secure token-based access control
+- **HTTPS/TLS Encryption**: All data encrypted in transit
+- **Data Privacy**: Your memories belong to you
+- **Account Control**: Delete your data anytime from settings
 
 ## 💰 Pricing
 
