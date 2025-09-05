@@ -50,13 +50,13 @@ This repository contains the **open-source MCP protocol wrapper** that connects 
 
 ### 1. Get Your API Key
 
-Sign up at [app.purmemo.ai](https://app.purmemo.ai) to get your free API key.
+1. Sign up at [purmemo.ai/register](https://www.purmemo.ai/register)
+2. Sign in and go to [purmemo.ai/settings](https://www.purmemo.ai/settings)
+3. Click "Generate API Key" and copy it immediately
 
-### 2. Install the MCP Server
+### 2. No Installation Needed!
 
-```bash
-npm install -g purmemo-mcp
-```
+Claude Desktop will automatically download the MCP server using `npx` (see configuration below).
 
 ### 3. Configure Claude Desktop
 
