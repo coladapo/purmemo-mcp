@@ -1,0 +1,172 @@
+{
+  "timestamp": "2025-09-05T16:26:59.513Z",
+  "server": "prompted-server.js",
+  "results": [
+    {
+      "tool": "save_full_conversation",
+      "test": "Minimal input (should fail)",
+      "success": true,
+      "elapsed": 2,
+      "request": {
+        "content": "save this conversation"
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "❌ INCOMPLETE CAPTURE DETECTED!\n\nYou sent only 22 characters.\nThis tool REQUIRES the complete conversation (1000+ chars minimum).\n\nWhat you sent: \"save this conversation...\"\n\nINSTRUCTION TO CLAUDE: When using this tool, you MUST:\n1. Include ALL user messages verbatim\n2. Include ALL your responses completely\n3. Include ENTIRE artifacts (not summaries)\n4. Include ALL code blocks\n\nPlease try again with the FULL conversation content."
+          }
+        ]
+      }
+    },
+    {
+      "tool": "save_full_conversation",
+      "test": "Full conversation simulation",
+      "elapsed": 3000,
+      "request": {
+        "content": "USER: Can you help me analyze the competitive landscape for AI memory systems?\n\nASSISTANT: I'll help you analyze the competitive landscape for AI memory systems. This is a rapidly evolving market with several key players.\n\n## Market Leaders\n\n**Zep.ai** - Leading with 94.8% accuracy in memory benchmarks, they've built a temporal knowledge graph architecture that's particularly impressive. They're Y Combinator-backed and charge $1.25 per 1,000 messages. Their key advantage is the 90% latency reduction they achieve.\n\n**Letta (formerly MemGPT)** - Backed by Google's Jeff Dean with $10M funding at a $70M valuation. They take an academic \"LLM Operating System\" approach with unprecedented transparency into agent reasoning.\n\n**Mem0** - Has achieved 50,000+ developer adoption and $1M revenue in 2024. They pivoted from EmbedChain and now offer a hybrid datastore combining graph, vector, and key-value stores. Their Pro tier is $249/month.\n\n## Infrastructure Providers\n\n**Pinecone** dominates the vector database market but at premium pricing ($50-500/month minimums). They're the enterprise default for stability.\n\n**LangChain Memory** provides framework-integrated memory but is still in beta, limiting production adoption.\n\n## Market Dynamics\n\nThe overall AI market is projected to reach $1.8 trillion by 2030, with memory systems becoming critical infrastructure. Enterprise AI spending averages 3.32% of revenue, with financial services leading at 20%+ of total AI investment.\n\nUSER: What about pricing strategies? How should we position ourselves?\n\nASSISTANT: Based on the competitive analysis, here's the optimal pricing strategy:\n\n## Tiered Pricing Model\n\n**Free Tier**: 10,000-100,000 operations/month\n- Essential for developer adoption\n- Matches market expectations set by Mem0 and Pinecone\n\n**Pro Tier**: $9-49/month\n- Individual developers\n- Transparent usage-based pricing\n- Similar to successful API products\n\n**Business Tier**: $99-249/month  \n- Teams and SMBs\n- This gap is underserved in the market\n- Position between free and enterprise\n\n**Enterprise**: Custom pricing\n- SSO, RBAC integration\n- SOC 2, HIPAA compliance  \n- Private cloud deployment\n- SLAs and dedicated support\n\n## Key Differentiation Points\n\nYour MCP protocol advantage gives you unique positioning:\n- Only solution with true cross-platform memory sync\n- Reduced vendor lock-in for enterprises\n- Native integration with Claude ecosystem\n\n## Batch Processing Discounts\n\nFollow Anthropic's model with 50%+ discounts for batch processing to attract high-volume users.\n\nThis positions you competitively while leveraging your unique technical advantages.",
+        "title": "Competitive Analysis Discussion",
+        "includeArtifacts": true,
+        "includeSystemMessages": false
+      },
+      "response": "Timeout"
+    },
+    {
+      "tool": "save_with_context",
+      "test": "With conversation history array",
+      "success": true,
+      "elapsed": 1899,
+      "request": {
+        "content": "Summary of our discussion about AI memory systems and pricing",
+        "conversationHistory": [
+          {
+            "role": "user",
+            "content": "What are the main competitors in AI memory?"
+          },
+          {
+            "role": "assistant",
+            "content": "The main competitors are Zep.ai, Letta, and Mem0..."
+          },
+          {
+            "role": "user",
+            "content": "How should we price our solution?"
+          },
+          {
+            "role": "assistant",
+            "content": "I recommend a tiered model from free to enterprise..."
+          }
+        ],
+        "artifacts": [
+          "# Competitive Analysis\n\nDetailed market analysis document with pricing tiers..."
+        ],
+        "metadata": {
+          "messageCount": 4,
+          "totalCharacters": 2500,
+          "hasCodeBlocks": false,
+          "hasArtifacts": true
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "✅ Saved with context!\n\n📝 Content: 61 chars\n💬 History: 4 messages\n📦 Artifacts: 1\n📏 Total: 427 characters\n🔗 ID: 8a9de0b1-5e19-48ac-b25d-44c4e9459e3a"
+          }
+        ]
+      }
+    },
+    {
+      "tool": "capture_everything",
+      "test": "Without validation (should fail)",
+      "success": true,
+      "elapsed": 1,
+      "request": {
+        "fullTranscript": "This is too short"
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "❌ CAPTURE VALIDATION FAILED!\n\nIssues detected:\n- Transcript length: 17 (minimum: 1000)\n- Confirmation: NO - You must confirm\n- Reported count: 0\n\nThe capture_everything tool REQUIRES:\n1. fullTranscript with 1000+ characters\n2. validation.confirmFullCapture = true\n3. All artifacts in separateArtifacts\n\nYou appear to have sent a summary or incomplete capture.\nPlease retry with the COMPLETE conversation."
+          }
+        ]
+      }
+    },
+    {
+      "tool": "capture_everything",
+      "test": "Under 1000 chars (should fail)",
+      "success": true,
+      "elapsed": 1,
+      "request": {
+        "fullTranscript": "This is a test transcript that is definitely under 1000 characters",
+        "validation": {
+          "confirmFullCapture": true,
+          "totalCharacterCount": 67
+        }
+      },
+      "response": {
+        "content": [
+          {
+            "type": "text",
+            "text": "❌ CAPTURE VALIDATION FAILED!\n\nIssues detected:\n- Transcript length: 66 (minimum: 1000)\n- Confirmation: Yes\n- Reported count: 67\n\nThe capture_everything tool REQUIRES:\n1. fullTranscript with 1000+ characters\n2. validation.confirmFullCapture = true\n3. All artifacts in separateArtifacts\n\nYou appear to have sent a summary or incomplete capture.\nPlease retry with the COMPLETE conversation."
+          }
+        ]
+      }
+    },
+    {
+      "tool": "capture_everything",
+      "test": "Complete capture with validation",
+      "elapsed": 3001,
+      "request": {
+        "fullTranscript": "=== CONVERSATION START ===\n[2025-01-05 10:00:00] USER: I need help understanding the AI memory systems market. Can you provide a comprehensive analysis?\n\n[2025-01-05 10:00:15] ASSISTANT: I'll provide you with a comprehensive analysis of the AI memory systems market. This is a rapidly evolving space with significant growth potential.\n\n## Market Overview\n\nThe AI memory systems market has exploded to $110 billion in 2024, with projections reaching $1.25 trillion by 2034. This represents one of the fastest-growing segments in the AI infrastructure space.\n\n## Key Players and Their Positioning\n\n### Technical Performance Leaders\n\n**Zep.ai** - Currently the technical leader with 94.8% accuracy in memory benchmarks. They've achieved 90% latency reduction through their temporal knowledge graph architecture using the Graphiti framework. Y Combinator-backed, they charge $1.25 per 1,000 messages, positioning themselves as the developer-friendly choice.\n\n**Letta (formerly MemGPT)** - Takes an academic approach with their \"LLM Operating System\" concept. Backed by Google's Jeff Dean with $10M funding at $70M valuation. They provide unprecedented transparency into agent reasoning, appealing to enterprises requiring auditability.\n\n**Mem0** - Successfully pivoted from a RAG framework to comprehensive memory platform. 50,000+ developer adoption, $1M revenue in 2024. Their hybrid datastore (graph + vector + key-value) delivers 26% better accuracy than OpenAI Memory.\n\n### Infrastructure Providers\n\n**Pinecone** - Dominates vector database market with production-grade reliability. Premium pricing ($50-500/month minimums) but remains the enterprise default.\n\n**LangChain Memory** - Framework-integrated but still beta, limiting production adoption.\n\n[2025-01-05 10:02:00] USER: This is really helpful. What about pricing strategies and market gaps?\n\n[2025-01-05 10:02:30] ASSISTANT: Let me break down the pricing strategies and identify key market gaps for you.\n\n## Pricing Patterns in the Market\n\n### Successful Pricing Models\n\nThe market has converged on consistent patterns:\n- **Free Tiers**: 10,000-100,000 API calls/month\n- **Usage-Based**: $0.014/hour to $1.25/1,000 messages  \n- **Enterprise**: 5-10x premium with custom negotiations\n\n### Recommended Pricing Strategy\n\n**Free Tier**: 10,000-100,000 operations/month\n**Pro**: $9-49/month (individual developers)\n**Business**: $99-249/month (teams/SMB)\n**Enterprise**: Custom (SSO, compliance, SLAs)\n\n## Critical Market Gaps\n\n### Underserved Segments\n1. **SMB Market**: The $99-299/month tier is notably underserved\n2. **Vertical-Specific**: Healthcare, legal, financial with compliance features  \n3. **Educational/Research**: Academic pricing for future advocates\n\n### Feature Gaps\n- No true cross-platform memory synchronization\n- Limited privacy-preserving local-first options\n- Poor memory lifecycle management\n- Lack of no-code integration options\n\nThis represents significant opportunity for differentiation.\n\n=== ARTIFACTS ===\nNone created in this conversation\n\n=== CODE BLOCKS ===\nNone in this conversation\n\n=== END ===",
+        "validation": {
+          "confirmFullCapture": true,
+          "totalCharacterCount": 2847
+        },
+        "separateArtifacts": {
+          "artifacts": [],
+          "codeBlocks": []
+        }
+      },
+      "response": "Timeout"
+    },
+    {
+      "tool": "recall",
+      "test": "Search for test memories",
+      "elapsed": 3000,
+      "request": {
+        "query": "competitive analysis",
+        "limit": 5
+      },
+      "response": "Timeout"
+    }
+  ],
+  "statistics": {
+    "save_full_conversation": {
+      "pass": 1,
+      "fail": 1,
+      "total": 2
+    },
+    "save_with_context": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1
+    },
+    "capture_everything": {
+      "pass": 2,
+      "fail": 1,
+      "total": 3
+    },
+    "recall": {
+      "pass": 0,
+      "fail": 1,
+      "total": 1
+    }
+  },
+  "findings": {
+    "validationWorking": false,
+    "captureWorking": false,
+    "totalTests": 7,
+    "passedTests": 4
+  }
+}

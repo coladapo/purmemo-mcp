@@ -1,0 +1,65 @@
+{
+  "server": "smart-server.js",
+  "timestamp": "2025-09-05T14:52:41.195Z",
+  "tests": [
+    {
+      "name": "List Tools",
+      "passed": true,
+      "message": "",
+      "expectError": false
+    },
+    {
+      "name": "Update Context",
+      "passed": true,
+      "message": "",
+      "expectError": false
+    },
+    {
+      "name": "Simple Memory Save",
+      "passed": false,
+      "message": "No response received",
+      "expectError": false
+    },
+    {
+      "name": "Auto-Extract Code",
+      "passed": false,
+      "message": "No response received",
+      "expectError": false
+    },
+    {
+      "name": "Auto-Extract Files",
+      "passed": false,
+      "message": "No response received",
+      "expectError": false
+    },
+    {
+      "name": "Full Conversation",
+      "passed": false,
+      "message": "No response received",
+      "expectError": false
+    },
+    {
+      "name": "Recall Memories",
+      "passed": false,
+      "message": "No response received",
+      "expectError": false
+    },
+    {
+      "name": "Memory Missing Content",
+      "passed": false,
+      "message": "Validation failed",
+      "expectError": true
+    },
+    {
+      "name": "Invalid Tool",
+      "passed": true,
+      "message": "",
+      "expectError": true
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 3,
+    "failed": 6
+  }
+}

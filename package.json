@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "3.3.1",
-  "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 5 complete tools",
+  "version": "8.0.0",
+  "description": "Ultimate MCP server for Purmemo - Complete conversation capture with auto-chunking for 100K+ characters",
   "main": "src/server.js",
   "type": "module",
   "bin": {
@@ -10,22 +10,27 @@
   },
   "files": [
     "src/server.js",
+    "src/ultimate-server.js",
     "src/setup.js",
     "src/index.js",
     "src/auth/",
     "src/diagnose.js",
     "src/diagnose-production.js",
     "src/setup-emergency.js",
+    "archive/README.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "COMPREHENSIVE_SOLUTION.md"
   ],
   "scripts": {
     "start": "node src/server.js",
     "setup": "node src/setup.js setup",
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
-    "test": "echo \"No tests yet\"",
-    "postinstall": "node -e \"console.log('\\n🧠 Purmemo MCP v3.2.0 installed with 5 complete tools!\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
+    "test": "node test-production.js",
+    "test:brutal": "node archive/tests/test-ultimate.js",
+    "test:archive": "echo \"Archived tests available in archive/tests/\"",
+    "postinstall": "node -e \"console.log('\\n🚀 Purmemo MCP Ultimate v8.0.0 installed!\\n\\n✅ Complete conversation capture with auto-chunking\\n✅ Handles 100K+ characters\\n✅ Preserves artifacts and code\\n✅ 4 comprehensive tools\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
   },
   "keywords": [
     "mcp",
@@ -53,12 +58,12 @@
   "support": "https://github.com/coladapo/purmemo-mcp/discussions",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
-    "node-fetch": "^3.3.2",
-    "express": "^4.18.2",
-    "open": "^10.0.0",
-    "commander": "^11.1.0",
     "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "express": "^4.18.2",
     "inquirer": "^9.2.12",
+    "node-fetch": "^3.3.2",
+    "open": "^10.0.0",
     "ora": "^7.0.1"
   },
   "engines": {
