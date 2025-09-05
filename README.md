@@ -262,17 +262,6 @@ The following remain proprietary:
 - 🐛 Issues: [GitHub Issues](https://github.com/coladapo/purmemo-mcp/issues)
 - 🌐 Website: [purmemo.ai](https://purmemo.ai)
 
-## 🗺️ Roadmap
-
-- [x] Core MCP implementation
-- [x] OAuth 2.1 authentication
-- [x] 5 essential tools
-- [ ] WebSocket support for real-time
-- [ ] Batch operations
-- [ ] Memory sharing between users
-- [ ] Voice memory capture
-- [ ] Official MCP recognition
-
 ---
 
 <div align="center">
