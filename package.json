@@ -1,11 +1,11 @@
 {
   "name": "purmemo-mcp",
-  "version": "2.1.1",
-  "description": "Official Model Context Protocol (MCP) server for Purmemo - Seamless OAuth authentication for your AI-powered second brain",
-  "main": "src/server-oauth.js",
+  "version": "3.2.0",
+  "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 5 complete tools",
+  "main": "src/server-final.js",
   "type": "module",
   "bin": {
-    "purmemo-mcp": "./src/server-oauth.js",
+    "purmemo-mcp": "./src/server-final.js",
     "purmemo-mcp-setup": "./src/setup.js"
   },
   "files": [
@@ -15,12 +15,12 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node src/server-oauth.js",
+    "start": "node src/server-final.js",
     "setup": "node src/setup.js setup",
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
     "test": "echo \"No tests yet\"",
-    "postinstall": "node -e \"console.log('\\n🧠 pūrmemo MCP v2.0.0 installed!\\n\\nNew users: Run \\'npx purmemo-mcp setup\\' to connect your account.\\nExisting users: Your API key still works (backwards compatible).\\n')\""
+    "postinstall": "node -e \"console.log('\\n🧠 Purmemo MCP v3.2.0 installed with 5 complete tools!\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
   },
   "keywords": [
     "mcp",
