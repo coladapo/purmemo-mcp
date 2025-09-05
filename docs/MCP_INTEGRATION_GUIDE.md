@@ -158,7 +158,7 @@ Once connected, Claude can use these 5 tools:
 - **Documentation**: [docs.purmemo.ai](https://docs.purmemo.ai)
 - **GitHub Issues**: [github.com/coladapo/purmemo-mcp/issues](https://github.com/coladapo/purmemo-mcp/issues)
 - **Email Support**: support@purmemo.ai
-- **Discord**: [discord.gg/purmemo](https://discord.gg/purmemo)
+- **Website**: [purmemo.ai](https://purmemo.ai)
 
 ## SDK vs MCP
 

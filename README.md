@@ -234,9 +234,8 @@ The following remain proprietary:
 ## 🆘 Support
 
 - 📧 Email: support@purmemo.ai
-- 💬 Discord: [discord.gg/purmemo](https://discord.gg/purmemo)
 - 🐛 Issues: [GitHub Issues](https://github.com/coladapo/purmemo-mcp/issues)
-- 🌐 Status: [status.purmemo.ai](https://status.purmemo.ai)
+- 🌐 Website: [purmemo.ai](https://purmemo.ai)
 
 ## 🗺️ Roadmap
 
