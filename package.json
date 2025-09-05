@@ -1,11 +1,11 @@
 {
   "name": "purmemo-mcp",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Official Model Context Protocol (MCP) server for Purmemo - Your AI-powered second brain with 5 complete tools",
-  "main": "src/server-final.js",
+  "main": "src/server.js",
   "type": "module",
   "bin": {
-    "purmemo-mcp": "./src/server-final.js",
+    "purmemo-mcp": "./src/server.js",
     "purmemo-mcp-setup": "./src/setup.js"
   },
   "files": [
@@ -15,7 +15,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node src/server-final.js",
+    "start": "node src/server.js",
     "setup": "node src/setup.js setup",
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
