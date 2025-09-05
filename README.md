@@ -44,12 +44,15 @@
 
 #### Option A: Remote Connection via Custom Connector (Beta)
 1. In Claude Desktop, scroll to bottom of connectors list
-2. Click "Add custom connector" 
-3. Enter URL: `https://mcp.purmemo.ai`
-4. You'll be redirected to Purmemo login in your browser
-5. Sign in with your Purmemo account
-6. Authorize Claude to access your memories
-7. Connection established automatically
+2. Click "Add custom connector (BETA)"
+3. Enter:
+   - **Name**: Purmemo
+   - **Remote MCP server URL**: `https://mcp.purmemo.ai`
+4. Click "Connect"
+5. You'll be redirected to Purmemo login in your browser
+6. Sign in with your Purmemo account
+7. Authorize Claude to access your memories
+8. Return to Claude Desktop - connection established
 
 #### Option B: Local Connection via Config File
 Add to your Claude Desktop configuration file:
