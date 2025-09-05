@@ -65,6 +65,7 @@ archive/
 backup/
 *.backup
 *.old
+src/archive-experimental/
 
 # Documentation source files (keep compiled docs)
 docs-src/

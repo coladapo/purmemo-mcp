@@ -9,8 +9,13 @@
     "purmemo-mcp-setup": "./src/setup.js"
   },
   "files": [
-    "src/",
-    "bin/",
+    "src/server.js",
+    "src/setup.js",
+    "src/index.js",
+    "src/auth/",
+    "src/diagnose.js",
+    "src/diagnose-production.js",
+    "src/setup-emergency.js",
     "README.md",
     "LICENSE"
   ],
