@@ -1,16 +1,15 @@
 {
   "name": "purmemo-mcp",
-  "version": "8.0.0",
-  "description": "Ultimate MCP server for Purmemo - Complete conversation capture with auto-chunking for 100K+ characters",
-  "main": "src/server.js",
+  "version": "9.0.0",
+  "description": "Official MCP server for Purmemo - Secure thin client layer for intelligent memory management",
+  "main": "src/thin-server.js",
   "type": "module",
   "bin": {
-    "purmemo-mcp": "./src/server.js",
+    "purmemo-mcp": "./src/thin-server.js",
     "purmemo-mcp-setup": "./src/setup.js"
   },
   "files": [
-    "src/server.js",
-    "src/ultimate-server.js",
+    "src/thin-server.js",
     "src/setup.js",
     "src/index.js",
     "src/auth/",
