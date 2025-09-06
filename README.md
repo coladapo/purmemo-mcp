@@ -37,8 +37,9 @@
 | **Auth** | OAuth flow in browser | API Key in config |
 | **Install** | Nothing to install | Auto-downloads via npx |
 | **Platforms** | Works across all Claude platforms | Claude Desktop only |
+| **Tools** | v8.0.0 tools (being deployed) | v8.0.0 tools (save_conversation, etc.) |
 | **Updates** | Automatic | Manual (via npm) |
-| **Best For** | Most users - no API key needed | Advanced users who prefer local control |
+| **Best For** | Quick setup without API key | Advanced features & local control |
 
 ### 3. Configure Claude Desktop
 
@@ -87,35 +88,35 @@ Claude: "Based on your memories: Tomorrow at 3pm - API redesign discussion"
 
 ## 🛠️ Available MCP Tools
 
-### `memory`
-Store new memories with automatic enhancement
+### v8.0.0 Tools (Local Connection)
+
+#### `save_conversation`
+Save complete conversations with full context (handles 100K+ characters)
 ```typescript
-memory(content: string, metadata?: object): MemoryResponse
+save_conversation(content: string): MemoryResponse
 ```
 
-### `recall`
-Retrieve memories using natural language
+#### `save_with_artifacts`
+Save content with code artifacts and attachments preserved
 ```typescript
-recall(query: string, limit?: number): Memory[]
+save_with_artifacts(content: string, artifacts: object[]): MemoryResponse
 ```
 
-### `entities`
-Explore your automatically extracted knowledge graph
+#### `recall_memories`
+Search and retrieve memories using natural language
 ```typescript
-entities(type?: string, memory_id?: string): Entity[]
+recall_memories(query: string, limit?: number): Memory[]
 ```
 
-### `attach`
-Add rich media attachments to memories
+#### `get_memory_details`
+Get detailed information about a specific memory
 ```typescript
-attach(memory_id: string, attachment: Attachment): Response
+get_memory_details(memory_id: string): Memory
 ```
 
-### `correction`
-Update or refine existing memories
-```typescript
-correction(memory_id: string, updates: object): Response
-```
+### Tools Available in Both Connections
+
+Once the remote server update is complete, both connection methods will provide the same v8.0.0 tools with complete conversation capture, auto-chunking for 100K+ characters, and artifact preservation.
 
 ## 🎯 Real-World Use Cases
 
