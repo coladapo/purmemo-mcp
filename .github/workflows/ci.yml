@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+        env:
+          PURMEMO_API_KEY: ${{ secrets.PURMEMO_API_KEY || 'test-key' }}
+          PURMEMO_API_URL: https://api.purmemo.ai
+      
+      - name: Verify thin layer
+        run: |
+          echo "Verifying v9.0.0 thin layer architecture..."
+          # Check file size is minimal
+          FILE_SIZE=$(stat -c%s "src/thin-server.js" 2>/dev/null || stat -f%z "src/thin-server.js")
+          if [ $FILE_SIZE -gt 10000 ]; then
+            echo "❌ thin-server.js is too large ($FILE_SIZE bytes)"
+            exit 1
+          fi
+          echo "✅ thin-server.js is minimal ($FILE_SIZE bytes)"
+          
+          # Check no secret sauce exposed
+          if grep -q "CRITICAL INSTRUCTION\|chunk_content\|validate_conversation" src/thin-server.js; then
+            echo "❌ Secret sauce detected in public code!"
+            exit 1
+          fi
+          echo "✅ No secret sauce exposed"

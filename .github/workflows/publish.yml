@@ -12,14 +12,10 @@ on:
           - patch
           - minor
           - major
-          - prepatch
-          - preminor
-          - premajor
-          - prerelease
 
 jobs:
   publish:
-    name: Publish Package
+    name: Publish
     runs-on: ubuntu-latest
     
     steps:
@@ -27,7 +23,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,39 +41,21 @@ jobs:
       - name: Run tests
         run: npm test
         env:
-          PURMEMO_API_KEY: ${{ secrets.PURMEMO_API_KEY }}
+          PURMEMO_API_KEY: ${{ secrets.PURMEMO_API_KEY || 'test-key' }}
       
       - name: Bump version
         id: version
         run: |
           NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "Bumped to version: ${NEW_VERSION}"
       
-      - name: Update changelog
+      - name: Commit version bump
         run: |
-          echo "## ${{ steps.version.outputs.new_version }} - $(date +'%Y-%m-%d')" > CHANGELOG_ENTRY.md
-          echo "" >> CHANGELOG_ENTRY.md
-          git log --pretty=format:"- %s" -n 10 >> CHANGELOG_ENTRY.md
-          echo "" >> CHANGELOG_ENTRY.md
-          
-          if [ -f CHANGELOG.md ]; then
-            cat CHANGELOG.md >> CHANGELOG_ENTRY.md
-            mv CHANGELOG_ENTRY.md CHANGELOG.md
-          else
-            mv CHANGELOG_ENTRY.md CHANGELOG.md
-          fi
-      
-      - name: Commit changes
-        run: |
-          git add package.json package-lock.json CHANGELOG.md
+          git add package.json package-lock.json
           git commit -m "chore: release ${{ steps.version.outputs.new_version }}"
-      
-      - name: Push changes
-        run: |
           git push origin main
       
-      - name: Create and push tag
+      - name: Create tag
         run: |
           git tag ${{ steps.version.outputs.new_version }}
           git push origin ${{ steps.version.outputs.new_version }}
@@ -94,15 +71,13 @@ jobs:
           tag_name: ${{ steps.version.outputs.new_version }}
           name: ${{ steps.version.outputs.new_version }}
           body: |
-            ## Changes in this release
-            
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-            
             ## Installation
             ```bash
             npm install purmemo-mcp@latest
             ```
+            
+            ## Thin Layer Architecture
+            This version uses a minimal public MCP layer with all intelligence in the private API.
           draft: false
-          prerelease: ${{ contains(github.event.inputs.release_type, 'pre') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
