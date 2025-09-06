@@ -129,6 +129,15 @@ test-*.js
 # Archive folder contains API keys in test files
 archive/
 
+# Archived/outdated documentation
+docs/archive/
+docs/SOLUTION_SUMMARY.md
+docs/SOLUTION-SUMMARY.md
+docs/WORKING-SOLUTION.md
+docs/README-OAUTH.md
+docs/OAUTH_IMPLEMENTATION_GUIDE.md
+docs/UNIFIED_OAUTH_ARCHITECTURE.md
+
 # Test reports that might contain sensitive data
 test-report*.json
 

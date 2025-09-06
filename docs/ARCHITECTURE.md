@@ -1,68 +1,14 @@
 # Purmemo MCP Server Architecture
-**Created**: 2025-08-21  
-**Version**: v2.0  
-**Purpose**: Document the multi-server architecture for Living Codebase awareness
+
+**Version**: 8.0.0  
+**Last Updated**: 2025-09-06  
+**Status**: Production Ready
 
 ## Overview
 
-This document explains how the Purmemo MCP server (this repository) interfaces with the Purmemo platform AND documents the intentional multi-server architecture strategy.
+Purmemo MCP is an official Model Context Protocol server that enables Claude Desktop to store and retrieve memories through the Purmemo platform. This repository provides the open-source MCP layer while the core memory engine remains proprietary.
 
-## 🏗️ Multi-Server Architecture Strategy
-
-### Why Multiple Server Versions?
-
-Purmemo MCP uses a **progressive enhancement** architecture with multiple server versions. This is NOT fragmentation - it's intentional staged deployment for:
-- **Risk mitigation** - Keep working versions as fallbacks
-- **Testing stages** - Test new features without breaking stable ones  
-- **Different use cases** - Some users need basic tools, others need advanced
-- **Solo founder reality** - Rapid iteration without team coordination
-
-### Server Versions & Their Purposes
-
-| Server File | Tools | Status | Purpose | Risk |
-|------------|-------|---------|---------|------|
-| **server-working.js** ⭐ | 3 | Production | Current stable default | Low |
-| server-minimal.js | 3 | Stable | Debugging/testing | Low |
-| server.js | 5 | Stable | Attachments support | Low |
-| server-complete.js | 7 | Stable | Power user features | Medium |
-| server-graph-enhanced.js | 15 | Experimental | Graph intelligence | High |
-| server-oauth.js | 3 | Deprecated | OAuth experiments | High |
-| server-ai-enhanced.js | 3 | Experimental | AI features | High |
-
-### Evolution Path
-```
-server-minimal.js (baseline)
-    ↓
-server.js (add attachments)
-    ↓
-server-working.js (production stable) ← WE ARE HERE
-    ↓
-server-complete.js (power features)
-    ↓
-server-graph-enhanced.js (experimental)
-```
-
-### Tool Distribution
-
-**Basic Tools (All servers):**
-- `memory` - Save memories
-- `recall` - Search memories
-- `entities` - Extract entities
-
-**Extended Tools (server.js+):**
-- `attach` - File attachments
-- `correction` - Memory corrections
-
-**Advanced Tools (server-complete.js):**
-- `entity_graph` - Explore relationships
-- `entity_search` - Advanced search
-
-**Experimental Tools (server-graph-enhanced.js):**
-- 8 additional graph intelligence tools
-- Knowledge graph visualization
-- Relationship analysis
-
-## Component Separation
+## Architecture Components
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -80,9 +26,10 @@ server-graph-enhanced.js (experimental)
                                         │
                     ┌───────────────────▼────────────────────┐
                     │          Purmemo Cloud API             │
+                    │         (api.purmemo.ai)               │
                     │                                         │
                     │  ┌──────────────────────────────────┐ │
-                    │  │   Authentication (OAuth 2.1)      │ │
+                    │  │   Authentication (API Keys)       │ │
                     │  └──────────────┬───────────────────┘ │
                     │                 │                      │
                     │  ┌──────────────▼───────────────────┐ │
@@ -91,162 +38,174 @@ server-graph-enhanced.js (experimental)
                     │                 │                      │
                     │  ┌──────────────▼───────────────────┐ │
                     │  │     Proprietary Memory Engine     │ │
-                    │  │   • 94% accuracy algorithms       │ │
+                    │  │   • Semantic search               │ │
                     │  │   • Entity extraction             │ │
-                    │  │   • <50ms retrieval               │ │
-                    │  │   • Workflow intelligence         │ │
+                    │  │   • Context preservation          │ │
+                    │  │   • Auto-chunking for large data │ │
                     │  └──────────────────────────────────┘ │
                     │                                         │
                     └─────────────────────────────────────────┘
 ```
 
-## How It Works
+## Current Implementation
 
-### 1. Local MCP Server (Open Source)
+### Server Files
 
-The MCP server runs locally on your machine and:
-- Implements the Model Context Protocol
-- Handles communication with Claude Desktop
-- Manages OAuth authentication flow
-- Forwards requests to Purmemo API
-- Returns responses to Claude
+| File | Purpose | Status |
+|------|---------|--------|
+| `src/server.js` | Main production server | **Active** |
+| `src/ultimate-server.js` | Advanced chunking support | Available |
+| `src/setup.js` | Interactive setup utility | Active |
+| `src/diagnose.js` | Diagnostic tool | Active |
 
-**Key Files:**
-- `src/server.js` - Main server implementation
-- `src/tools/` - MCP tool definitions
-- `src/auth/` - OAuth client implementation
+### Available Tools
 
-### 2. Purmemo API (Documented)
+The current v8.0.0 server provides 4 comprehensive tools:
 
-The API provides:
-- RESTful endpoints
-- Authentication & authorization
-- Rate limiting per tier
-- Request validation
-- Response formatting
+| Tool | Description | Input |
+|------|-------------|-------|
+| `save_conversation` | Save complete conversations with full context | `content` (string) |
+| `save_with_artifacts` | Save content with code artifacts preserved | `content`, `artifacts` |
+| `recall_memories` | Search and retrieve memories | `query`, `limit` |
+| `get_memory_details` | Get detailed information about a specific memory | `memory_id` |
 
-**Documentation:** https://api.purmemo.ai/docs
+### Key Features
 
-### 3. Proprietary Engine (Trade Secret)
+- **Complete Context Capture**: Saves entire conversations, not summaries
+- **Auto-Chunking**: Handles conversations up to 100K+ characters
+- **Artifact Preservation**: Maintains code blocks and attachments
+- **Smart Validation**: Rejects insufficient content with helpful messages
+- **Session Linking**: Groups related memories together
 
-The core engine handles:
-- Advanced memory algorithms
-- AI processing
-- Performance optimization
-- Data persistence
-- Security
+## Installation Methods
 
-**Note:** This component is not open source and runs on Purmemo's infrastructure.
+### 1. NPM Package (Recommended)
+```bash
+npx purmemo-mcp@latest
+```
+
+### 2. Local Development
+```bash
+git clone https://github.com/coladapo/purmemo-mcp.git
+cd purmemo-mcp
+npm install
+node src/server.js
+```
+
+### 3. Claude Desktop Config
+```json
+{
+  "mcpServers": {
+    "purmemo": {
+      "command": "npx",
+      "args": ["-y", "purmemo-mcp@latest"],
+      "env": {
+        "PURMEMO_API_KEY": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+## Authentication
+
+### API Key Authentication
+- Get your API key from: https://app.purmemo.ai/settings/api-keys
+- Keys start with `pk_live_` prefix
+- Set via environment variable: `PURMEMO_API_KEY`
+
+### Security Best Practices
+- Never commit API keys to git
+- Rotate keys regularly
+- Use environment variables for storage
+- Keys provide full account access
+
+## Performance Specifications
+
+### Response Times
+- Memory storage: <500ms
+- Memory retrieval: <200ms
+- Large conversation chunking: <2s per 15K chars
+- Entity extraction: <300ms
+
+### Size Limits
+- Single memory: 15K characters
+- Auto-chunked conversations: 100K+ characters
+- Artifacts: No limit
+- Search results: 50 per query
 
 ## Data Flow Examples
 
-### Storing a Memory
-
+### Saving a Conversation
 ```mermaid
 sequenceDiagram
     participant User
     participant Claude
     participant MCP Server
     participant API
-    participant Engine
     
-    User->>Claude: "Remember the meeting is at 3pm"
-    Claude->>MCP Server: memory.store()
-    MCP Server->>API: POST /memories
-    API->>Engine: Process & Extract Entities
-    Engine-->>API: Memory ID + Entities
-    API-->>MCP Server: Success Response
-    MCP Server-->>Claude: Confirmation
-    Claude-->>User: "Saved with entities: time, event"
+    User->>Claude: "Save this conversation"
+    Claude->>MCP Server: save_conversation(content)
+    MCP Server->>MCP Server: Validate content
+    MCP Server->>MCP Server: Check size & chunk if needed
+    MCP Server->>API: POST /api/v5/memories/
+    API-->>MCP Server: Memory ID
+    MCP Server-->>Claude: Success with ID
+    Claude-->>User: "Saved as memory ID: xxx"
 ```
 
-### Retrieving Memories
-
+### Searching Memories
 ```mermaid
 sequenceDiagram
     participant User
     participant Claude
     participant MCP Server
     participant API
-    participant Engine
     
-    User->>Claude: "What meetings do I have?"
-    Claude->>MCP Server: recall.search()
-    MCP Server->>API: POST /search
-    API->>Engine: Semantic Search
-    Engine-->>API: Ranked Results
-    API-->>MCP Server: Memories Array
-    MCP Server-->>Claude: Formatted Results
-    Claude-->>User: "You have a meeting at 3pm"
+    User->>Claude: "Find my notes about React"
+    Claude->>MCP Server: recall_memories(query)
+    MCP Server->>API: GET /api/v5/memories/?query=React
+    API-->>MCP Server: Matching memories
+    MCP Server-->>Claude: Formatted results
+    Claude-->>User: "Found 3 memories about React..."
 ```
 
-## Security Model
+## Repository Structure
 
-### Authentication Flow
-
-1. **Initial Setup**: User gets API key from dashboard
-2. **Configuration**: API key added to Claude config
-3. **Runtime**: MCP server includes key in API requests
-4. **Validation**: API validates key and enforces quotas
-
-### Data Security
-
-- **In Transit**: TLS 1.3 encryption
-- **At Rest**: AES-256 encryption
-- **Access Control**: OAuth 2.1 + API keys
-- **Audit Logs**: All API access logged
-
-## Performance Considerations
-
-### Local MCP Server
-- Minimal overhead (<5ms)
-- Stateless operation
-- Async/await patterns
-- Connection pooling
-
-### API Communication
-- HTTPS keep-alive
-- Request batching where possible
-- Gzip compression
-- CDN for static assets
-
-### Response Times
-- Memory storage: <100ms
-- Memory retrieval: <50ms
-- Entity extraction: <200ms
-- Batch operations: <500ms
-
-## Development Setup
-
-### Prerequisites
-
-```bash
-# Node.js 18+ required
-node --version
-
-# Install dependencies
-npm install
-
-# Set environment variable
-export PURMEMO_API_KEY="your-api-key"
+```
+purmemo-mcp/
+├── src/
+│   ├── server.js           # Main MCP server
+│   ├── ultimate-server.js  # Advanced features
+│   ├── setup.js           # Setup utility
+│   └── diagnose.js        # Diagnostic tool
+├── docs/
+│   ├── ARCHITECTURE.md    # This file
+│   ├── QUICKSTART.md      # Getting started guide
+│   └── TROUBLESHOOTING.md # Common issues
+├── package.json           # v8.0.0 configuration
+└── README.md             # Main documentation
 ```
 
-### Local Testing
+## IP Protection Model
 
-```bash
-# Run tests
-npm test
+### Open Source (This Repository)
+- MCP protocol implementation
+- Tool definitions
+- Client-side validation
+- Setup utilities
+- Documentation
 
-# Start development server
-npm run dev
-
-# Test with Claude Desktop
-npm run test:mcp
-```
+### Proprietary (Purmemo Core)
+- Memory algorithms
+- Entity extraction engine
+- Semantic search implementation
+- Performance optimizations
+- Data persistence layer
 
 ## Contributing
 
-We welcome contributions to the MCP server! Areas where you can help:
+We welcome contributions to the MCP server:
 
 - 🐛 Bug fixes
 - 📝 Documentation improvements
@@ -254,15 +213,15 @@ We welcome contributions to the MCP server! Areas where you can help:
 - 🧪 Test coverage
 - 🌍 Internationalization
 
-**Note:** Core algorithm improvements should be suggested via support@purmemo.ai as they involve proprietary code.
+Note: Core algorithm improvements should be suggested via support@purmemo.ai
 
 ## Support
 
 - **Documentation**: https://docs.purmemo.ai
 - **API Reference**: https://api.purmemo.ai/docs
-- **Discord**: https://discord.gg/purmemo
+- **GitHub Issues**: https://github.com/coladapo/purmemo-mcp/issues
 - **Email**: support@purmemo.ai
 
 ---
 
-*This architecture ensures Purmemo can maintain its innovative edge while fostering an open ecosystem around the MCP protocol.*
+*This architecture ensures Purmemo maintains its innovative edge while fostering an open ecosystem around the MCP protocol.*
