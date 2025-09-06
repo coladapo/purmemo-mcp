@@ -114,3 +114,70 @@ find_*.py
 
 # Test outputs
 test_results.json
+
+# ==================================
+# SECURITY - FILES WITH API KEYS
+# ==================================
+
+# Test files with hardcoded credentials
+test-smart-final.cjs
+test-production.js
+test-*.cjs
+test-*.js
+*.test.js
+
+# Archive folder contains API keys in test files
+archive/
+
+# Test reports that might contain sensitive data
+test-report*.json
+
+# ==================================
+# INTERNAL DOCUMENTATION
+# ==================================
+
+# Deployment and architecture docs (internal only)
+BRUTAL_TRUTH_*.md
+DEPLOYMENT_*.md
+*_DEPLOYMENT_*.md
+*_AUDIT_*.md
+RENDER_*.md
+UNIFIED_*.md
+COMPREHENSIVE_*.md
+COMPLETE_*.md
+*_SYNC_*.md
+*_STRATEGY_*.md
+
+# Internal guides
+ENHANCED_*.md
+IP_PROTECTION.md
+TESTING.md
+README_DEPLOYMENT.md
+PRODUCTION_*.md
+
+# ==================================
+# SENSITIVE FILES
+# ==================================
+
+# OAuth implementation (consider keeping private)
+src/auth/unified-oauth-server.js
+
+# Save context scripts (might contain conversation data)
+save-complete-context.js
+
+# Logs that might contain user data
+logs/
+*.log
+
+# ==================================
+# DEVELOPMENT FILES
+# ==================================
+
+# Scripts folder (internal tools)
+scripts/
+
+# Utils (check if needed publicly)
+utils/
+
+# Cursor IDE
+.cursor/
