@@ -20,7 +20,7 @@ Update your Claude Desktop config (`claude_desktop_config.json`):
       "command": "node",
       "args": ["/Users/wivak/puo-jects/active/purmemo/purmemo-mcp/src/enhanced-server.js"],
       "env": {
-        "PURMEMO_API_KEY": "***REMOVED***"
+        "PURMEMO_API_KEY": "YOUR_API_KEY_HERE"
       }
     }
   }
