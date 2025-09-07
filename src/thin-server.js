@@ -54,28 +54,30 @@ const TOOLS = [
   },
   {
     name: 'save_with_artifacts',
-    description: 'Save content with associated code artifacts',
+    description: 'Save conversation with files, images, or URLs attached',
     inputSchema: {
       type: 'object',
       properties: {
         content: { 
           type: 'string',
-          description: 'Main content to save'
+          description: 'Complete conversation to save (minimum 500 characters)'
+        },
+        title: { 
+          type: 'string', 
+          description: 'Optional title for the memory'
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional tags for categorization'
         },
         artifacts: {
           type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              filename: { type: 'string' },
-              content: { type: 'string' },
-              language: { type: 'string' }
-            }
-          },
-          description: 'Code artifacts to preserve'
+          items: { type: 'string' },
+          description: 'File paths, URLs, or images to attach'
         }
       },
-      required: ['content']
+      required: ['content', 'artifacts']
     }
   },
   {
