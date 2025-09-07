@@ -1,6 +1,6 @@
 {
   "name": "purmemo-mcp",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "description": "Official MCP server for Purmemo - Secure thin client layer for intelligent memory management",
   "main": "src/thin-server.js",
   "type": "module",
