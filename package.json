@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "9.0.1",
-  "description": "Official MCP server for Purmemo - Secure thin client layer for intelligent memory management",
+  "version": "9.1.0",
+  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms",
   "main": "src/thin-server.js",
   "type": "module",
   "bin": {
@@ -33,10 +33,17 @@
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "memory",
     "ai",
     "claude",
+    "cursor",
+    "chatgpt",
+    "windsurf",
+    "zed",
     "purmemo",
+    "universal",
+    "second-brain",
     "oauth",
     "authentication"
   ],

@@ -20,7 +20,10 @@ import {
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
-const PLATFORM = 'claude';  // MCP is Claude-specific
+// Platform detection: user specifies via MCP_PLATFORM env var
+// Supported: 'claude', 'cursor', 'chatgpt', 'windsurf', 'zed'
+// MCP is a universal protocol - same server works across all platforms
+const PLATFORM = process.env.MCP_PLATFORM || 'claude';
 
 // Session management for chunked captures
 const sessions = {
@@ -337,7 +340,7 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         content: chunk,
         title: `${title} - Part ${partNumber}/${totalParts}`,
         tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
-        platform: PLATFORM,  // 'claude' - MCP is Claude-specific
+        platform: PLATFORM,  // Auto-detected from MCP_PLATFORM env var
         conversation_id: metadata.conversationId || null,  // For living document pattern
         metadata: {
           ...metadata,

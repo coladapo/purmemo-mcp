@@ -41,7 +41,12 @@
 | **Updates** | Automatic | Manual (via npm) |
 | **Best For** | Quick setup without API key | Advanced features & local control |
 
-### 3. Configure Claude Desktop
+### 3. Configure Your AI Platform
+
+Purmemo MCP server works across **all platforms** that support Model Context Protocol. Choose your platform below:
+
+<details>
+<summary><b>📘 Claude Desktop</b></summary>
 
 #### Option A: Remote Connection via Custom Connector (Beta)
 1. In Claude Desktop, scroll to bottom of connectors list
@@ -56,25 +61,131 @@
 8. Return to Claude Desktop - connection established
 
 #### Option B: Local Connection via Config File
-Add to your Claude Desktop configuration file:
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
-**Linux**: `~/.config/Claude/claude_desktop_config.json`
+**Config Location**:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "purmemo": {
       "command": "npx",
-      "args": ["purmemo-mcp"],
+      "args": ["-y", "purmemo-mcp"],
       "env": {
-        "PURMEMO_API_KEY": "your-api-key-here"
+        "PURMEMO_API_KEY": "your-api-key-here",
+        "MCP_PLATFORM": "claude"
       }
     }
   }
 }
 ```
+
+</details>
+
+<details>
+<summary><b>💻 Cursor IDE</b></summary>
+
+#### Local Connection via Config File
+
+**Config Location**:
+- **macOS**: `~/.cursor/mcp.json`
+- **Windows**: `%USERPROFILE%\.cursor\mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "purmemo": {
+      "command": "npx",
+      "args": ["-y", "purmemo-mcp"],
+      "env": {
+        "PURMEMO_API_KEY": "your-api-key-here",
+        "MCP_PLATFORM": "cursor"
+      }
+    }
+  }
+}
+```
+
+**Or via Cursor UI**:
+1. Press `Cmd/Ctrl + Shift + P`
+2. Search for "Cursor Settings"
+3. Click "Tools & Integrations" → "Add Custom MCP"
+4. Paste the configuration above
+
+</details>
+
+<details>
+<summary><b>💬 ChatGPT (Web)</b></summary>
+
+#### Remote Connection via Developer Mode (Beta)
+
+**Prerequisites**:
+- ChatGPT Plus, Pro, Business, Enterprise, or Education account
+- Requires remote MCP server deployment (coming soon)
+
+**Setup**:
+1. Go to ChatGPT Settings → Connectors → Advanced → Developer Mode
+2. Enable Developer Mode
+3. Add MCP connector URL: `https://mcp.purmemo.ai` (when available)
+4. Authenticate with your Purmemo account via OAuth
+
+**Note**: ChatGPT requires remote MCP servers (SSE/HTTP). Local stdio connections are not supported.
+
+</details>
+
+<details>
+<summary><b>🌊 Windsurf IDE</b></summary>
+
+#### Local Connection via Config File
+
+**Config Location**:
+- **macOS**: `~/.windsurf/mcp.json`
+- **Windows**: `%USERPROFILE%\.windsurf\mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "purmemo": {
+      "command": "npx",
+      "args": ["-y", "purmemo-mcp"],
+      "env": {
+        "PURMEMO_API_KEY": "your-api-key-here",
+        "MCP_PLATFORM": "windsurf"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>⚡ Zed Editor</b></summary>
+
+#### Local Connection via Config File
+
+**Config Location**:
+- **macOS**: `~/.config/zed/mcp.json`
+- **Linux**: `~/.config/zed/mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "purmemo": {
+      "command": "npx",
+      "args": ["-y", "purmemo-mcp"],
+      "env": {
+        "PURMEMO_API_KEY": "your-api-key-here",
+        "MCP_PLATFORM": "zed"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ### 4. Start Using in Claude
 

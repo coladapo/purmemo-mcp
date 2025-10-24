@@ -99,6 +99,7 @@ railway.toml
 test_*.py
 node_modules/
 docker-logs.txt
+src/server-fixed.js
 
 # API Keys and sensitive data
 *api_key*.txt
