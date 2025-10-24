@@ -351,7 +351,7 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
     const partNumber = i + 1;
     const chunk = chunks[i];
     
-    const partData = await makeApiCall('/api/v5/memories/', {
+    const partData = await makeApiCall('/api/v1/memories/', {
       method: 'POST',
       body: JSON.stringify({
         content: chunk,
@@ -396,7 +396,7 @@ ${JSON.stringify(metadata, null, 2)}
 ## Full Content Access
 Use recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
 
-  const indexData = await makeApiCall('/api/v5/memories/', {
+  const indexData = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content: indexContent,
@@ -428,7 +428,7 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
 async function saveSingleContent(content, title, tags = [], metadata = {}) {
   console.error(`[SINGLE] Saving ${content.length} chars directly`);
 
-  const data = await makeApiCall('/api/v5/memories/', {
+  const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content,
@@ -508,7 +508,7 @@ async function handleSaveConversation(args) {
           page_size: '1'
         });
 
-        const searchResponse = await makeApiCall(`/api/v5/memories/?${params}`, {
+        const searchResponse = await makeApiCall(`/api/v1/memories/?${params}`, {
           method: 'GET'
         });
 
@@ -521,7 +521,7 @@ async function handleSaveConversation(args) {
 
           console.error(`[LIVING DOC] Updating existing memory: ${memoryId}`);
 
-          const updateResponse = await makeApiCall(`/api/v5/memories/${memoryId}/`, {
+          const updateResponse = await makeApiCall(`/api/v1/memories/${memoryId}/`, {
             method: 'PATCH',
             body: JSON.stringify({
               content: content,
@@ -720,7 +720,7 @@ async function handleRecallMemories(args) {
       page_size: String(args.limit || 10)
     });
     
-    const data = await makeApiCall(`/api/v5/memories/?${params}`, {
+    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
       method: 'GET'
     });
 
@@ -819,7 +819,7 @@ async function handleRecallMemories(args) {
 async function handleGetMemoryDetails(args) {
   try {
     // Get the main memory
-    const memory = await makeApiCall(`/api/v5/memories/${args.memoryId}/`, {
+    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
       method: 'GET'
     });
     
@@ -835,7 +835,7 @@ async function handleGetMemoryDetails(args) {
     // If this is a chunked memory, get all related parts
     if (meta.sessionId && args.includeLinkedParts) {
       try {
-        const sessionMemories = await makeApiCall(`/api/v5/memories/?query=session:${meta.sessionId}&page_size=50`, {
+        const sessionMemories = await makeApiCall(`/api/v1/memories/?query=session:${meta.sessionId}&page_size=50`, {
           method: 'GET'
         });
         

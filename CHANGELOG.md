@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 💡 Enhanced tool description with living document usage examples
 
 ### Changed
-- 🔄 Updated API endpoints from `/api/v1/` to `/api/v5/`
 - 🎨 Improved success messages to show conversationId when used
 - 📖 Added "Living Document Pattern" section to README with examples
 
@@ -27,9 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **New Feature**: Living Document Support
 - `conversationId` is optional parameter in `save_conversation` tool
-- If conversationId provided, searches for existing memory via `GET /api/v5/memories/?conversation_id=X`
-- If found, updates via `PATCH /api/v5/memories/{id}/`
-- If not found or no conversationId, creates new via `POST /api/v5/memories/`
+- If conversationId provided, searches for existing memory via `GET /api/v1/memories/?conversation_id=X`
+- If found, updates via `PATCH /api/v1/memories/{id}/`
+- If not found or no conversationId, creates new via `POST /api/v1/memories/`
 - Works with both single saves and chunked saves (100K+ characters)
 
 **Example Usage**:
