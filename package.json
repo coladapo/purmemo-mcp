@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "9.1.0",
-  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms",
+  "version": "9.2.0",
+  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms. Now with living document support!",
   "main": "src/thin-server.js",
   "type": "module",
   "bin": {

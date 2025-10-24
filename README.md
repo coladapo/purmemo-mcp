@@ -229,6 +229,56 @@ get_memory_details(memory_id: string): Memory
 
 Once the remote server update is complete, both connection methods will provide the same v8.0.0 tools with complete conversation capture, auto-chunking for 100K+ characters, and artifact preservation.
 
+## 📝 Living Document Pattern
+
+**NEW in v9.2.0** - purmemo-mcp supports **living documents**: maintaining a single memory per conversation that updates over time, instead of creating duplicates.
+
+### How It Works
+
+**First Save** (creates new memory):
+```
+You: "Save this as conversation react-hooks-guide"
+Claude: ✅ CONVERSATION SAVED!
+        📝 Conversation ID: react-hooks-guide
+        ✓ Use conversation ID "react-hooks-guide" to update this later!
+```
+
+**Update Save** (updates existing memory):
+```
+[... conversation continues with 10 more exchanges ...]
+
+You: "Update conversation react-hooks-guide"
+Claude: ✅ CONVERSATION UPDATED (Living Document)!
+        📝 Conversation ID: react-hooks-guide
+        📏 New size: 15,234 characters
+        ✓ Updated existing memory (not duplicated)!
+```
+
+### Benefits
+
+- ✅ **No duplicates**: Single memory per conversation
+- ✅ **Always current**: Latest version of conversation maintained
+- ✅ **Parity with Chrome extension**: Same living document pattern as web platforms
+- ✅ **User control**: You choose the conversation ID
+
+### Usage Tips
+
+**Simple naming**:
+```
+"Save as conversation project-planning"
+"Save as conversation api-design-2025-10-24"
+"Save as conversation debugging-auth-issue"
+```
+
+**Update anytime**:
+```
+"Update conversation project-planning"
+"Update project-planning"
+"Update the project-planning conversation"
+```
+
+**Optional**: If you don't specify a conversation ID, each save creates a new memory (original behavior).
+
 ## 🎯 Real-World Use Cases
 
 ### For Developers

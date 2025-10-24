@@ -5,6 +5,68 @@ All notable changes to purmemo-mcp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.2.0] - 2025-10-24
+
+### Added
+- 📝 **Living Document Pattern**: Optional `conversationId` support in `save_conversation` tool
+  - First save with conversationId creates new memory
+  - Subsequent saves with same conversationId UPDATE existing memory
+  - Enables single memory per conversation (no duplicates)
+  - Parity with Chrome extension's living document behavior
+- 📚 Comprehensive living document documentation in README
+- 💡 Enhanced tool description with living document usage examples
+
+### Changed
+- 🔄 Updated API endpoints from `/api/v1/` to `/api/v5/`
+- 🎨 Improved success messages to show conversationId when used
+- 📖 Added "Living Document Pattern" section to README with examples
+
+### Technical Details
+
+**Breaking Changes**: None - `conversationId` is optional parameter (backward compatible)
+
+**New Feature**: Living Document Support
+- `conversationId` is optional parameter in `save_conversation` tool
+- If conversationId provided, searches for existing memory via `GET /api/v5/memories/?conversation_id=X`
+- If found, updates via `PATCH /api/v5/memories/{id}/`
+- If not found or no conversationId, creates new via `POST /api/v5/memories/`
+- Works with both single saves and chunked saves (100K+ characters)
+
+**Example Usage**:
+```
+User: "Save this as conversation react-hooks-guide"
+→ Creates memory with conversationId="react-hooks-guide"
+
+User: "Update conversation react-hooks-guide"
+→ Updates existing memory (no duplicate created)
+```
+
+**Database Behavior**:
+```sql
+-- First save (creates new)
+INSERT INTO memories (conversation_id, content, ...)
+VALUES ('react-hooks-guide', 'Initial conversation...', ...);
+
+-- Later save (updates existing)
+UPDATE memories
+SET content = 'Extended conversation...', updated_at = NOW()
+WHERE conversation_id = 'react-hooks-guide';
+```
+
+### Migration
+
+**No action required** - existing behavior unchanged when conversationId not provided.
+
+New feature is opt-in via explicit conversationId parameter when user says:
+- "Save this as conversation [id]"
+- "Update conversation [id]"
+
+### References
+- Implementation Guide: `/backend/MCP_LIVING_DOCUMENT_IMPLEMENTATION.md`
+- Architecture Analysis: `/backend/MCP_ARCHITECTURE_GUIDANCE.md`
+
+---
+
 ## [9.1.0] - 2025-10-24
 
 ### Added

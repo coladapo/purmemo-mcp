@@ -37,6 +37,19 @@ const TOOLS = [
     name: 'save_conversation',
     description: `🚨 CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
 
+    💡 LIVING DOCUMENT PATTERN (NEW):
+    - If user says "save this as conversation [unique-id]" → use that ID in conversationId parameter
+    - If user says "update conversation [unique-id]" → use same ID to UPDATE existing memory
+    - Same conversationId = updates existing memory (living document, no duplicates)
+    - No conversationId = creates new memory each time (original behavior)
+
+    EXAMPLES:
+    User: "Save this as conversation react-hooks-guide"
+    → You call save_conversation with conversationId="react-hooks-guide"
+
+    User: "Update conversation react-hooks-guide"
+    → You call save_conversation with conversationId="react-hooks-guide" (updates existing)
+
     WHAT TO INCLUDE:
     - EVERY user message (verbatim, not paraphrased)
     - EVERY assistant response (complete, not summarized)
@@ -62,20 +75,24 @@ const TOOLS = [
     ⚠️ DO NOT send just "save this conversation" or summaries.
     ⚠️ The content should be THOUSANDS of characters.
     ⚠️ If you send less than 500 chars, you're doing it wrong.
-    
+
     The server will auto-chunk if needed (>15K chars) or save directly (<15K chars).`,
     inputSchema: {
       type: 'object',
       properties: {
-        conversationContent: { 
-          type: 'string', 
+        conversationContent: {
+          type: 'string',
           description: 'COMPLETE conversation transcript - minimum 500 characters expected. Include EVERYTHING discussed.',
           minLength: 100
         },
-        title: { 
-          type: 'string', 
+        title: {
+          type: 'string',
           description: 'Title for this conversation memory',
           default: `Conversation ${new Date().toISOString()}`
+        },
+        conversationId: {
+          type: 'string',
+          description: 'Optional unique identifier for living document pattern. If provided and memory exists with this conversationId, UPDATES that memory instead of creating new one. Use for maintaining single memory per conversation that updates over time.'
         },
         tags: {
           type: 'array',
@@ -334,7 +351,7 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
     const partNumber = i + 1;
     const chunk = chunks[i];
     
-    const partData = await makeApiCall('/api/v1/memories/', {
+    const partData = await makeApiCall('/api/v5/memories/', {
       method: 'POST',
       body: JSON.stringify({
         content: chunk,
@@ -379,7 +396,7 @@ ${JSON.stringify(metadata, null, 2)}
 ## Full Content Access
 Use recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
 
-  const indexData = await makeApiCall('/api/v1/memories/', {
+  const indexData = await makeApiCall('/api/v5/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content: indexContent,
@@ -411,7 +428,7 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
 async function saveSingleContent(content, title, tags = [], metadata = {}) {
   console.error(`[SINGLE] Saving ${content.length} chars directly`);
 
-  const data = await makeApiCall('/api/v1/memories/', {
+  const data = await makeApiCall('/api/v5/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content,
@@ -439,7 +456,8 @@ async function handleSaveConversation(args) {
   const contentLength = content.length;
   const title = args.title || `Conversation ${new Date().toISOString()}`;
   const tags = args.tags || ['complete-conversation'];
-  
+  const conversationId = args.conversationId || null;  // NEW: Extract conversation_id
+
   // Validate content quality
   if (contentLength < 100) {
     return {
@@ -474,18 +492,90 @@ async function handleSaveConversation(args) {
       }]
     };
   }
-  
+
   try {
     const metadata = extractContentMetadata(content);
-    
+
+    // ==========================================
+    // NEW: Check for existing memory (living document)
+    // ==========================================
+    if (conversationId) {
+      try {
+        // Search for existing memory with this conversation_id
+        const params = new URLSearchParams({
+          conversation_id: conversationId,
+          platform: PLATFORM,
+          page_size: '1'
+        });
+
+        const searchResponse = await makeApiCall(`/api/v5/memories/?${params}`, {
+          method: 'GET'
+        });
+
+        const existingMemories = searchResponse.results || [];
+
+        if (existingMemories.length > 0) {
+          // FOUND existing memory - UPDATE it
+          const existingMemory = existingMemories[0];
+          const memoryId = existingMemory.id;
+
+          console.error(`[LIVING DOC] Updating existing memory: ${memoryId}`);
+
+          const updateResponse = await makeApiCall(`/api/v5/memories/${memoryId}/`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              content: content,
+              title: title,
+              tags: tags,
+              metadata: {
+                ...metadata,
+                captureType: shouldChunk(content) ? 'chunked' : 'single',
+                isComplete: true,
+                lastUpdated: new Date().toISOString()
+              }
+            })
+          });
+
+          // Success response for UPDATE
+          return {
+            content: [{
+              type: 'text',
+              text: `✅ CONVERSATION UPDATED (Living Document)!\n\n` +
+                    `📝 Conversation ID: ${conversationId}\n` +
+                    `📏 New size: ${content.length} characters\n` +
+                    `🔗 Memory ID: ${memoryId}\n\n` +
+                    `📊 Content Analysis:\n` +
+                    `- Conversation turns: ${metadata.conversationTurns}\n` +
+                    `- Code blocks: ${metadata.codeBlockCount}\n` +
+                    `- Artifacts: ${metadata.artifactCount}\n` +
+                    `- URLs: ${metadata.urlCount}\n\n` +
+                    `✓ Updated existing memory (not duplicated)!`
+            }]
+          };
+        } else {
+          console.error(`[LIVING DOC] No existing memory found for conversation_id=${conversationId}, will create new`);
+        }
+      } catch (error) {
+        console.error(`[LIVING DOC] Error checking for existing memory:`, error);
+        // Fall through to create new memory
+      }
+    }
+    // ==========================================
+    // End of living document check
+    // ==========================================
+
+    // No conversation_id or no existing memory found - CREATE new memory
+    metadata.conversationId = conversationId;  // Store in metadata
+
     // Decide whether to chunk or save directly
     if (shouldChunk(content)) {
       const result = await saveChunkedContent(content, title, tags, metadata);
-      
+
       return {
         content: [{
           type: 'text',
           text: `✅ LARGE CONVERSATION SAVED (Auto-chunked)!\n\n` +
+                (conversationId ? `📝 Conversation ID: ${conversationId}\n` : '') +
                 `📏 Total size: ${result.totalSize} characters\n` +
                 `📦 Saved as: ${result.totalParts} linked parts\n` +
                 `🔗 Session ID: ${result.sessionId}\n` +
@@ -496,16 +586,18 @@ async function handleSaveConversation(args) {
                 `- Artifacts: ${metadata.artifactCount}\n` +
                 `- URLs: ${metadata.urlCount}\n` +
                 `- File paths: ${metadata.filePathCount}\n\n` +
+                (conversationId ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved with all context!`
         }]
       };
     } else {
       const result = await saveSingleContent(content, title, tags, metadata);
-      
+
       return {
         content: [{
           type: 'text',
           text: `✅ CONVERSATION SAVED!\n\n` +
+                (conversationId ? `📝 Conversation ID: ${conversationId}\n` : '') +
                 `📏 Size: ${result.size} characters\n` +
                 `🔗 Memory ID: ${result.memoryId}\n\n` +
                 `📊 Content Analysis:\n` +
@@ -514,6 +606,7 @@ async function handleSaveConversation(args) {
                 `- Artifacts: ${metadata.artifactCount}\n` +
                 `- URLs: ${metadata.urlCount}\n` +
                 `- File paths: ${metadata.filePathCount}\n\n` +
+                (conversationId ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved!`
         }]
       };
@@ -627,7 +720,7 @@ async function handleRecallMemories(args) {
       page_size: String(args.limit || 10)
     });
     
-    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
+    const data = await makeApiCall(`/api/v5/memories/?${params}`, {
       method: 'GET'
     });
 
@@ -726,7 +819,7 @@ async function handleRecallMemories(args) {
 async function handleGetMemoryDetails(args) {
   try {
     // Get the main memory
-    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
+    const memory = await makeApiCall(`/api/v5/memories/${args.memoryId}/`, {
       method: 'GET'
     });
     
@@ -742,7 +835,7 @@ async function handleGetMemoryDetails(args) {
     // If this is a chunked memory, get all related parts
     if (meta.sessionId && args.includeLinkedParts) {
       try {
-        const sessionMemories = await makeApiCall(`/api/v1/memories/?query=session:${meta.sessionId}&page_size=50`, {
+        const sessionMemories = await makeApiCall(`/api/v5/memories/?query=session:${meta.sessionId}&page_size=50`, {
           method: 'GET'
         });
         
