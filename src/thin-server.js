@@ -31,17 +31,21 @@ const API_KEY = process.env.PURMEMO_API_KEY;
 const TOOLS = [
   {
     name: 'save_conversation',
-    description: 'Save a conversation to your Purmemo memory',
+    description: 'Save a conversation to your Purmemo memory. Use conversationId for living document pattern (updates existing memory instead of creating duplicates).',
     inputSchema: {
       type: 'object',
       properties: {
-        content: { 
-          type: 'string', 
+        content: {
+          type: 'string',
           description: 'The conversation content to save'
         },
-        title: { 
-          type: 'string', 
+        title: {
+          type: 'string',
           description: 'Optional title for the memory'
+        },
+        conversationId: {
+          type: 'string',
+          description: 'Optional unique ID for living document pattern. If provided, updates existing memory with this ID instead of creating new one.'
         },
         tags: {
           type: 'array',
