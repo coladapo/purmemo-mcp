@@ -20,6 +20,7 @@ import {
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
+const PLATFORM = 'claude';  // MCP is Claude-specific
 
 // Session management for chunked captures
 const sessions = {
@@ -330,12 +331,14 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
     const partNumber = i + 1;
     const chunk = chunks[i];
     
-    const partData = await makeApiCall('/api/v5/memories/', {
+    const partData = await makeApiCall('/api/v1/memories/', {
       method: 'POST',
       body: JSON.stringify({
         content: chunk,
         title: `${title} - Part ${partNumber}/${totalParts}`,
         tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
+        platform: PLATFORM,  // 'claude' - MCP is Claude-specific
+        conversation_id: metadata.conversationId || null,  // For living document pattern
         metadata: {
           ...metadata,
           captureType: 'chunked',
@@ -373,12 +376,14 @@ ${JSON.stringify(metadata, null, 2)}
 ## Full Content Access
 Use recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
 
-  const indexData = await makeApiCall('/api/v5/memories/', {
+  const indexData = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content: indexContent,
       title: `${title} - Index`,
       tags: [...tags, 'chunked-index', `session:${sessionId}`],
+      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
+      conversation_id: metadata.conversationId || null,  // For living document pattern
       metadata: {
         ...metadata,
         captureType: 'chunked-index',
@@ -402,13 +407,15 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
 
 async function saveSingleContent(content, title, tags = [], metadata = {}) {
   console.error(`[SINGLE] Saving ${content.length} chars directly`);
-  
-  const data = await makeApiCall('/api/v5/memories/', {
+
+  const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify({
       content,
       title,
       tags: [...tags, 'complete-conversation'],
+      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
+      conversation_id: metadata.conversationId || null,  // For living document pattern
       metadata: {
         ...metadata,
         captureType: 'single',
@@ -617,7 +624,7 @@ async function handleRecallMemories(args) {
       page_size: String(args.limit || 10)
     });
     
-    const data = await makeApiCall(`/api/v5/memories/?${params}`, {
+    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
       method: 'GET'
     });
 
@@ -716,7 +723,7 @@ async function handleRecallMemories(args) {
 async function handleGetMemoryDetails(args) {
   try {
     // Get the main memory
-    const memory = await makeApiCall(`/api/v5/memories/${args.memoryId}`, {
+    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
       method: 'GET'
     });
     
@@ -732,7 +739,7 @@ async function handleGetMemoryDetails(args) {
     // If this is a chunked memory, get all related parts
     if (meta.sessionId && args.includeLinkedParts) {
       try {
-        const sessionMemories = await makeApiCall(`/api/v5/memories/?query=session:${meta.sessionId}&page_size=50`, {
+        const sessionMemories = await makeApiCall(`/api/v1/memories/?query=session:${meta.sessionId}&page_size=50`, {
           method: 'GET'
         });
         
