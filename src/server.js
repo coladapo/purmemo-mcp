@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * Ultimate Purmemo MCP Server v8.0
- * 
+ * Ultimate Purmemo MCP Server v9.3.0 (Phase 13D)
+ *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
  * - Aggressive prompting for complete capture
  * - Automatic chunking for large content
  * - Artifact and code block extraction
  * - Session management for multi-part saves
- * - Simple UX: user just says "save this conversation"
+ * - Living document pattern with auto-ID from title
+ * - 🌍 NEW: Cross-platform discovery via semantic clusters
+ * - 🔗 NEW: Find related conversations across ChatGPT, Claude, Gemini
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -20,10 +22,33 @@ import {
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
+
 // Platform detection: user specifies via MCP_PLATFORM env var
-// Supported: 'claude', 'cursor', 'chatgpt', 'windsurf', 'zed'
+// Supported: 'claude', 'claude-code', 'cursor', 'chatgpt', 'windsurf', 'zed'
 // MCP is a universal protocol - same server works across all platforms
-const PLATFORM = process.env.MCP_PLATFORM || 'claude';
+// Auto-detect Claude Code vs Claude Desktop
+const detectPlatform = () => {
+  // 1. Explicit override (highest priority)
+  if (process.env.MCP_PLATFORM) {
+    return process.env.MCP_PLATFORM;
+  }
+
+  // 2. Auto-detect Claude Code via env vars set by Claude Code CLI
+  // Claude Code sets CLAUDECODE=1 and CLAUDE_CODE_ENTRYPOINT=cli
+  if (process.env.CLAUDECODE === '1' || process.env.CLAUDE_CODE_ENTRYPOINT === 'cli') {
+    return 'claude-code';
+  }
+
+  // 3. Default to claude for Claude Desktop
+  return 'claude';
+};
+
+const PLATFORM = detectPlatform();
+
+// Log detected platform for debugging (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  console.error(`[Purmemo MCP] Detected platform: ${PLATFORM}`);
+}
 
 // Session management for chunked captures
 const sessions = {
@@ -37,11 +62,12 @@ const TOOLS = [
     name: 'save_conversation',
     description: `🚨 CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
 
-    💡 LIVING DOCUMENT PATTERN (NEW):
-    - If user says "save this as conversation [unique-id]" → use that ID in conversationId parameter
-    - If user says "update conversation [unique-id]" → use same ID to UPDATE existing memory
-    - Same conversationId = updates existing memory (living document, no duplicates)
-    - No conversationId = creates new memory each time (original behavior)
+    💡 LIVING DOCUMENT PATTERN (AUTO-ENABLED):
+    - Conversation ID automatically generated from title (e.g., "Brandon and Wivak Business" → "brandon-and-wivak-business")
+    - Subsequent saves with SAME title will UPDATE existing memory (not create duplicates)
+    - Example: Saving "Project X Planning" twice = ONE memory updated twice
+    - To force new memory: Change title or provide explicit conversationId parameter
+    - Manual conversationId still supported for advanced use cases
 
     EXAMPLES:
     User: "Save this as conversation react-hooks-guide"
@@ -210,11 +236,58 @@ const TOOLS = [
       },
       required: ['memoryId']
     }
+  },
+  {
+    name: 'discover_related_conversations',
+    description: `🌍 CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
+
+    Uses Purmemo's semantic clustering to automatically discover conversations about similar topics,
+    regardless of which AI platform was used (ChatGPT, Claude Desktop, Gemini, etc).
+
+    WHAT THIS DOES:
+    - Searches for memories matching your query
+    - Uses AI-organized semantic clusters to find related conversations
+    - Groups results by topic cluster with platform indicators
+    - Shows conversations you may have forgotten about on other platforms
+
+    EXAMPLES:
+    User: "Show me all conversations about Brandon and Wivak business"
+    → Finds conversations across ChatGPT, Claude, Gemini automatically
+
+    User: "What have I discussed about licensing requirements?"
+    → Discovers related discussions from all platforms, grouped by semantic similarity
+
+    User: "Find everything about React hooks"
+    → Returns conversations from any platform where you discussed React hooks
+
+    RESPONSE FORMAT:
+    Shows memories grouped by semantic cluster with platform badges (ChatGPT, Claude, Gemini)
+    Each cluster represents conversations about similar topics across all platforms`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Natural language query for discovering related conversations across platforms'
+        },
+        limit: {
+          type: 'integer',
+          default: 10,
+          description: 'Maximum number of initial search results (will find related for each)'
+        },
+        relatedPerMemory: {
+          type: 'integer',
+          default: 5,
+          description: 'Maximum related conversations to find per result'
+        }
+      },
+      required: ['query']
+    }
   }
 ];
 
 const server = new Server(
-  { name: 'purmemo-ultimate', version: '8.0.0' },
+  { name: 'purmemo-ultimate', version: '9.3.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -456,7 +529,20 @@ async function handleSaveConversation(args) {
   const contentLength = content.length;
   const title = args.title || `Conversation ${new Date().toISOString()}`;
   const tags = args.tags || ['complete-conversation'];
-  const conversationId = args.conversationId || null;  // NEW: Extract conversation_id
+
+  // AUTO-GENERATE conversation_id from title if not provided
+  // This enables automatic living document pattern (like Chrome extension)
+  let conversationId = args.conversationId;
+  if (!conversationId && title && !title.startsWith('Conversation 202')) {
+    // Generate stable ID from title (normalize to slug)
+    conversationId = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+      .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
+      .substring(0, 100);             // Limit length
+
+    console.error(`[AUTO-ID] Generated conversation_id from title: "${conversationId}"`);
+  }
 
   // Validate content quality
   if (contentLength < 100) {
@@ -537,11 +623,12 @@ async function handleSaveConversation(args) {
           });
 
           // Success response for UPDATE
+          const isAutoGenerated = !args.conversationId && conversationId;
           return {
             content: [{
               type: 'text',
               text: `✅ CONVERSATION UPDATED (Living Document)!\n\n` +
-                    `📝 Conversation ID: ${conversationId}\n` +
+                    `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') +
                     `📏 New size: ${content.length} characters\n` +
                     `🔗 Memory ID: ${memoryId}\n\n` +
                     `📊 Content Analysis:\n` +
@@ -549,6 +636,7 @@ async function handleSaveConversation(args) {
                     `- Code blocks: ${metadata.codeBlockCount}\n` +
                     `- Artifacts: ${metadata.artifactCount}\n` +
                     `- URLs: ${metadata.urlCount}\n\n` +
+                    (isAutoGenerated ? `💡 Auto-living document: Saves with title "${title}" will update this memory\n` : '') +
                     `✓ Updated existing memory (not duplicated)!`
             }]
           };
@@ -570,12 +658,13 @@ async function handleSaveConversation(args) {
     // Decide whether to chunk or save directly
     if (shouldChunk(content)) {
       const result = await saveChunkedContent(content, title, tags, metadata);
+      const isAutoGenerated = !args.conversationId && conversationId;
 
       return {
         content: [{
           type: 'text',
           text: `✅ LARGE CONVERSATION SAVED (Auto-chunked)!\n\n` +
-                (conversationId ? `📝 Conversation ID: ${conversationId}\n` : '') +
+                (conversationId ? `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') : '') +
                 `📏 Total size: ${result.totalSize} characters\n` +
                 `📦 Saved as: ${result.totalParts} linked parts\n` +
                 `🔗 Session ID: ${result.sessionId}\n` +
@@ -586,18 +675,20 @@ async function handleSaveConversation(args) {
                 `- Artifacts: ${metadata.artifactCount}\n` +
                 `- URLs: ${metadata.urlCount}\n` +
                 `- File paths: ${metadata.filePathCount}\n\n` +
-                (conversationId ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
+                (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
+                (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved with all context!`
         }]
       };
     } else {
       const result = await saveSingleContent(content, title, tags, metadata);
+      const isAutoGenerated = !args.conversationId && conversationId;
 
       return {
         content: [{
           type: 'text',
           text: `✅ CONVERSATION SAVED!\n\n` +
-                (conversationId ? `📝 Conversation ID: ${conversationId}\n` : '') +
+                (conversationId ? `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') : '') +
                 `📏 Size: ${result.size} characters\n` +
                 `🔗 Memory ID: ${result.memoryId}\n\n` +
                 `📊 Content Analysis:\n` +
@@ -606,7 +697,8 @@ async function handleSaveConversation(args) {
                 `- Artifacts: ${metadata.artifactCount}\n` +
                 `- URLs: ${metadata.urlCount}\n` +
                 `- File paths: ${metadata.filePathCount}\n\n` +
-                (conversationId ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
+                (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
+                (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved!`
         }]
       };
@@ -713,13 +805,181 @@ async function handleSaveWithArtifacts(args) {
   }
 }
 
+async function handleDiscoverRelated(args) {
+  try {
+    const limit = args.limit || 10;
+    const relatedLimit = args.relatedPerMemory || 5;
+
+    // Step 1: Search for memories matching the query
+    const params = new URLSearchParams({
+      query: args.query,
+      page_size: String(limit)
+    });
+
+    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
+      method: 'GET'
+    });
+
+    const initialMemories = data.results || data.memories || data;
+
+    if (!initialMemories || initialMemories.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `🔍 No memories found for "${args.query}"\n\nTry different keywords or check if conversations were saved.`
+        }]
+      };
+    }
+
+    // Step 2: For each memory, get related conversations via clusters
+    const clusterMap = new Map(); // cluster_id -> {cluster_info, memories}
+    const processedMemoryIds = new Set();
+    let totalRelatedFound = 0;
+
+    for (const memory of initialMemories) {
+      const memoryId = memory.id || memory.memory_id;
+
+      if (processedMemoryIds.has(memoryId)) continue;
+      processedMemoryIds.add(memoryId);
+
+      try {
+        // Get related memories in same cluster
+        const relatedData = await makeApiCall(
+          `/api/v1/clusters/memory/${memoryId}/related?limit=${relatedLimit}`,
+          { method: 'GET' }
+        );
+
+        const relatedMemories = relatedData.related_memories || [];
+        totalRelatedFound += relatedMemories.length;
+
+        // Get cluster info by fetching one of the related memories
+        if (relatedMemories.length > 0) {
+          // Group by cluster (we'll use a synthetic cluster ID based on the set of related memories)
+          const clusterId = `cluster_${memoryId}`; // Use first memory as cluster anchor
+
+          if (!clusterMap.has(clusterId)) {
+            clusterMap.set(clusterId, {
+              anchorMemory: memory,
+              memories: [memory, ...relatedMemories.map(r => ({
+                id: r.id,
+                title: r.title,
+                content: r.content_preview || '',
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+                platform: 'unknown', // Will be populated if available
+                similarity: r.similarity
+              }))]
+            });
+          }
+        } else {
+          // No related memories found, still show this memory
+          const clusterId = `single_${memoryId}`;
+          clusterMap.set(clusterId, {
+            anchorMemory: memory,
+            memories: [memory]
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching related for memory ${memoryId}:`, error.message);
+        // Still include the original memory even if related fetch fails
+        const clusterId = `single_${memoryId}`;
+        if (!clusterMap.has(clusterId)) {
+          clusterMap.set(clusterId, {
+            anchorMemory: memory,
+            memories: [memory]
+          });
+        }
+      }
+    }
+
+    // Step 3: Format results grouped by cluster with platform indicators
+    let resultText = `🌍 **Cross-Platform Discovery Results**\n`;
+    resultText += `🔍 Query: "${args.query}"\n`;
+    resultText += `📊 Found ${initialMemories.length} direct matches, ${totalRelatedFound} related conversations\n`;
+    resultText += `🎯 Organized into ${clusterMap.size} topic clusters\n\n`;
+    resultText += `${'─'.repeat(60)}\n\n`;
+
+    let clusterIndex = 1;
+    for (const [clusterId, clusterData] of clusterMap) {
+      const { anchorMemory, memories } = clusterData;
+
+      // Count platforms
+      const platformCounts = {};
+      memories.forEach(m => {
+        const platform = m.platform || 'unknown';
+        platformCounts[platform] = (platformCounts[platform] || 0) + 1;
+      });
+
+      const platformBadges = Object.entries(platformCounts)
+        .map(([platform, count]) => {
+          const emoji = platform === 'chatgpt' ? '🤖' :
+                       platform === 'claude' ? '🟣' :
+                       platform === 'gemini' ? '💎' : '❓';
+          return `${emoji} ${platform}: ${count}`;
+        })
+        .join(' | ');
+
+      resultText += `## Cluster ${clusterIndex}: ${anchorMemory.title}\n`;
+      if (memories.length > 1) {
+        resultText += `🔗 ${memories.length} related conversations | ${platformBadges}\n\n`;
+      } else {
+        resultText += `📝 Single conversation | ${platformBadges}\n\n`;
+      }
+
+      // Show memories in this cluster
+      memories.forEach((mem, idx) => {
+        const memId = mem.id || mem.memory_id;
+        const platform = mem.platform || 'unknown';
+        const emoji = platform === 'chatgpt' ? '🤖' :
+                     platform === 'claude' ? '🟣' :
+                     platform === 'gemini' ? '💎' : '❓';
+
+        resultText += `  ${idx + 1}. ${emoji} **${mem.title}**\n`;
+        resultText += `     Platform: ${platform} | ${mem.content?.length || 0} chars\n`;
+        resultText += `     Created: ${mem.created_at ? new Date(mem.created_at).toLocaleString() : 'Unknown'}\n`;
+        if (mem.similarity) {
+          resultText += `     Similarity: ${(mem.similarity * 100).toFixed(1)}%\n`;
+        }
+        resultText += `     ID: ${memId}\n`;
+
+        if (mem.content && mem.content.length > 0) {
+          const preview = mem.content.substring(0, 100).replace(/\n/g, ' ');
+          resultText += `     Preview: ${preview}...\n`;
+        }
+        resultText += `\n`;
+      });
+
+      resultText += `\n`;
+      clusterIndex++;
+    }
+
+    resultText += `${'─'.repeat(60)}\n\n`;
+    resultText += `💡 **Tips:**\n`;
+    resultText += `- Use 'get_memory_details' with any memory ID to read full content\n`;
+    resultText += `- Related conversations are grouped by semantic similarity\n`;
+    resultText += `- Platform badges show which AI tool was used for each conversation\n`;
+
+    return {
+      content: [{ type: 'text', text: resultText }]
+    };
+
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Discovery Error: ${error.message}\n\nThis could be due to:\n- Network connectivity issues\n- API endpoint changes\n- Clustering system not yet initialized\n\nTry using 'recall_memories' for basic search.`
+      }]
+    };
+  }
+}
+
 async function handleRecallMemories(args) {
   try {
     const params = new URLSearchParams({
       query: args.query,
       page_size: String(args.limit || 10)
     });
-    
+
     const data = await makeApiCall(`/api/v1/memories/?${params}`, {
       method: 'GET'
     });
@@ -781,9 +1041,14 @@ async function handleRecallMemories(args) {
     // Display single memories
     singleMemories.forEach(memory => {
       const meta = memory.metadata || {};
-      resultText += `${index}. **${memory.title}**\n`;
+      const platform = memory.platform || 'unknown';
+      const emoji = platform === 'chatgpt' ? '🤖' :
+                   platform === 'claude' ? '🟣' :
+                   platform === 'gemini' ? '💎' : '❓';
+
+      resultText += `${index}. ${emoji} **${memory.title}**\n`;
       resultText += `   📏 ${memory.content.length} chars`;
-      
+
       if (meta.conversationTurns > 0) {
         resultText += ` (${meta.conversationTurns} turns)`;
       }
@@ -794,13 +1059,21 @@ async function handleRecallMemories(args) {
         resultText += ` [${meta.codeBlockCount} code blocks]`;
       }
       resultText += `\n`;
-      
+      resultText += `   🌍 Platform: ${platform}\n`;
+
       if (args.contentPreview) {
         resultText += `   📝 Preview: ${memory.content.substring(0, 150)}...\n`;
       }
       resultText += `   🔗 ID: ${memory.id || memory.memory_id}\n\n`;
       index++;
     });
+
+    // Add cluster discovery hint at the end
+    resultText += `${'─'.repeat(60)}\n\n`;
+    resultText += `💡 **Discover More:**\n`;
+    resultText += `Use 'discover_related_conversations' with your query to find related\n`;
+    resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
+    resultText += `Automatically grouped by AI-organized semantic clusters!\n`;
 
     return {
       content: [{ type: 'text', text: resultText }]
@@ -902,7 +1175,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  
+
   switch (name) {
     case 'save_conversation':
       return await handleSaveConversation(args);
@@ -912,6 +1185,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return await handleRecallMemories(args);
     case 'get_memory_details':
       return await handleGetMemoryDetails(args);
+    case 'discover_related_conversations':
+      return await handleDiscoverRelated(args);
     default:
       return {
         content: [{
@@ -924,4 +1199,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start server
 const transport = new StdioServerTransport();
-server.connect(transport).catch(() => process.exit(1));
+server.connect(transport)
+  .then(() => {
+    console.error('✅ Purmemo MCP Server v9.3.0 (Phase 13D) started successfully');
+    console.error(`   API URL: ${API_URL}`);
+    console.error(`   API Key: ${API_KEY ? 'Configured ✓' : 'NOT CONFIGURED ✗'}`);
+    console.error(`   Platform: ${PLATFORM}`);
+    console.error(`   Tools: ${TOOLS.length} available (including cross-platform discovery)`);
+    console.error(`   🌍 New: Cluster-powered discovery across ChatGPT, Claude, Gemini`);
+  })
+  .catch((error) => {
+    console.error('❌ Failed to start MCP server:', error.message);
+    process.exit(1);
+  });

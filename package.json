@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "9.2.0",
-  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms. Now with living document support!",
+  "version": "9.3.0",
+  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms. Now with cross-platform discovery via semantic clusters!",
   "main": "src/thin-server.js",
   "type": "module",
   "bin": {
@@ -29,7 +29,7 @@
     "test": "node test.js",
     "test:brutal": "node archive/tests/test-ultimate.js",
     "test:archive": "echo \"Archived tests available in archive/tests/\"",
-    "postinstall": "node -e \"console.log('\\n🚀 Purmemo MCP Ultimate v8.0.0 installed!\\n\\n✅ Complete conversation capture with auto-chunking\\n✅ Handles 100K+ characters\\n✅ Preserves artifacts and code\\n✅ 4 comprehensive tools\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
+    "postinstall": "node -e \"console.log('\\n🚀 Purmemo MCP v9.3.0 (Phase 13D) installed!\\n\\n✅ Complete conversation capture with auto-chunking\\n✅ Handles 100K+ characters\\n✅ Preserves artifacts and code\\n✅ Living document pattern with auto-ID\\n🌍 NEW: Cross-platform discovery via semantic clusters\\n🔗 NEW: Find related conversations across ChatGPT, Claude, Gemini\\n✅ 5 comprehensive tools\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
   },
   "keywords": [
     "mcp",
