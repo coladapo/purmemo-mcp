@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "9.3.0",
-  "description": "Universal MCP server for Purmemo - Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms. Now with cross-platform discovery via semantic clusters!",
+  "version": "10.0.0",
+  "description": "Universal MCP server for Purmemo with intelligent memory saving! Auto-detects project context, generates smart titles, tracks roadmaps across AI tools. Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms.",
   "main": "src/thin-server.js",
   "type": "module",
   "bin": {
@@ -10,6 +10,8 @@
   },
   "files": [
     "src/thin-server.js",
+    "src/server.js",
+    "src/intelligent-memory.js",
     "src/setup.js",
     "src/index.js",
     "src/auth/",
@@ -29,7 +31,7 @@
     "test": "node test.js",
     "test:brutal": "node archive/tests/test-ultimate.js",
     "test:archive": "echo \"Archived tests available in archive/tests/\"",
-    "postinstall": "node -e \"console.log('\\n🚀 Purmemo MCP v9.3.0 (Phase 13D) installed!\\n\\n✅ Complete conversation capture with auto-chunking\\n✅ Handles 100K+ characters\\n✅ Preserves artifacts and code\\n✅ Living document pattern with auto-ID\\n🌍 NEW: Cross-platform discovery via semantic clusters\\n🔗 NEW: Find related conversations across ChatGPT, Claude, Gemini\\n✅ 5 comprehensive tools\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
+    "postinstall": "node -e \"console.log('\\n🚀 Purmemo MCP v10.0.0 installed! (Phase 15)\\n\\n🧠 NEW: Intelligent memory saving with auto-context extraction\\n🎯 NEW: Smart title generation (no more timestamps!)\\n📊 NEW: Automatic project/component/feature detection\\n🗺️ NEW: Roadmap tracking across AI tools\\n\\n✅ Complete conversation capture with auto-chunking\\n✅ Handles 100K+ characters\\n✅ Preserves artifacts and code\\n✅ Living document pattern with auto-ID\\n🌍 Cross-platform discovery via semantic clusters\\n🔗 Find related conversations across ChatGPT, Claude, Gemini\\n\\nJust say \"save progress\" and the system understands your context!\\n\\nQuick setup: Set PURMEMO_API_KEY environment variable\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\n\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\n')\""
   },
   "keywords": [
     "mcp",
