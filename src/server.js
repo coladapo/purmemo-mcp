@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ultimate Purmemo MCP Server v9.3.0 (Phase 13D)
+ * Ultimate Purmemo MCP Server v10.0.0 (Phase 15)
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -9,16 +9,26 @@
  * - Artifact and code block extraction
  * - Session management for multi-part saves
  * - Living document pattern with auto-ID from title
- * - 🌍 NEW: Cross-platform discovery via semantic clusters
- * - 🔗 NEW: Find related conversations across ChatGPT, Claude, Gemini
+ * - 🌍 Cross-platform discovery via semantic clusters
+ * - 🔗 Find related conversations across ChatGPT, Claude, Gemini
+ * - 🧠 NEW: Intelligent memory saving with auto-context extraction
+ * - 📊 NEW: Automatic project/component/feature detection
+ * - 🎯 NEW: Smart title generation (no more timestamps!)
+ * - 🗺️ NEW: Roadmap tracking across AI tools
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { 
-  CallToolRequestSchema, 
-  ListToolsRequestSchema 
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
+import {
+  extractProjectContext,
+  generateIntelligentTitle,
+  extractProgressIndicators,
+  extractRelationships
+} from './intelligent-memory.js';
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
@@ -62,6 +72,14 @@ const TOOLS = [
     name: 'save_conversation',
     description: `🚨 CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
 
+    🧠 INTELLIGENT MEMORY SAVING (Phase 15):
+    - Automatically extracts project context (name, component, feature)
+    - Detects phase/iteration and status (planning/in_progress/completed/blocked)
+    - Generates smart titles like "Purmemo - Timeline View - Phase 14.10"
+    - Tracks technologies and tools used
+    - Identifies relationships and dependencies
+    - NO MORE TIMESTAMP TITLES! System understands your project context.
+
     💡 LIVING DOCUMENT PATTERN (AUTO-ENABLED):
     - Conversation ID automatically generated from title (e.g., "Brandon and Wivak Business" → "brandon-and-wivak-business")
     - Subsequent saves with SAME title will UPDATE existing memory (not create duplicates)
@@ -70,11 +88,14 @@ const TOOLS = [
     - Manual conversationId still supported for advanced use cases
 
     EXAMPLES:
-    User: "Save this as conversation react-hooks-guide"
-    → You call save_conversation with conversationId="react-hooks-guide"
+    User: "Save progress" (working on Purmemo timeline feature, Phase 14.10)
+    → System auto-generates: "Purmemo - Timeline View - Phase 14.10"
 
-    User: "Update conversation react-hooks-guide"
-    → You call save_conversation with conversationId="react-hooks-guide" (updates existing)
+    User: "Save this conversation" (discussing React hooks implementation)
+    → System auto-generates: "Frontend - React Hooks - Implementation"
+
+    User: "Save as conversation react-hooks-guide"
+    → You call save_conversation with conversationId="react-hooks-guide"
 
     WHAT TO INCLUDE:
     - EVERY user message (verbatim, not paraphrased)
@@ -287,7 +308,7 @@ const TOOLS = [
 ];
 
 const server = new Server(
-  { name: 'purmemo-ultimate', version: '9.3.0' },
+  { name: 'purmemo-ultimate', version: '10.0.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -423,7 +444,7 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
   for (let i = 0; i < chunks.length; i++) {
     const partNumber = i + 1;
     const chunk = chunks[i];
-    
+
     const partData = await makeApiCall('/api/v1/memories/', {
       method: 'POST',
       body: JSON.stringify({
@@ -431,7 +452,7 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         title: `${title} - Part ${partNumber}/${totalParts}`,
         tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
         platform: PLATFORM,  // Auto-detected from MCP_PLATFORM env var
-        conversation_id: metadata.conversationId || null,  // For living document pattern
+        conversation_id: `${sessionId}-part-${partNumber}`,  // Unique ID per part (prevents living document update)
         metadata: {
           ...metadata,
           captureType: 'chunked',
@@ -476,7 +497,7 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
       title: `${title} - Index`,
       tags: [...tags, 'chunked-index', `session:${sessionId}`],
       platform: PLATFORM,  // 'claude' - MCP is Claude-specific
-      conversation_id: metadata.conversationId || null,  // For living document pattern
+      conversation_id: `${sessionId}-index`,  // Unique ID for index (prevents living document update)
       metadata: {
         ...metadata,
         captureType: 'chunked-index',
@@ -527,7 +548,24 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
 async function handleSaveConversation(args) {
   const content = args.conversationContent || '';
   const contentLength = content.length;
-  const title = args.title || `Conversation ${new Date().toISOString()}`;
+
+  // ============================================================================
+  // PHASE 15: INTELLIGENT CONTEXT EXTRACTION
+  // ============================================================================
+  console.error('[Phase 15] Extracting intelligent context...');
+  const intelligentContext = extractProjectContext(content);
+
+  // Generate intelligent title (unless explicitly provided)
+  let title = args.title;
+  if (!title || title.startsWith('Conversation 202')) {
+    title = generateIntelligentTitle(intelligentContext, content);
+    console.error(`[Phase 15] Generated intelligent title: "${title}"`);
+  }
+
+  // Extract progress indicators and relationships
+  const progressIndicators = extractProgressIndicators(content);
+  const relationships = extractRelationships(content);
+
   const tags = args.tags || ['complete-conversation'];
 
   // AUTO-GENERATE conversation_id from title if not provided
@@ -607,18 +645,34 @@ async function handleSaveConversation(args) {
 
           console.error(`[LIVING DOC] Updating existing memory: ${memoryId}`);
 
+          // ============================================================================
+          // PHASE 15: ENRICH UPDATE WITH INTELLIGENT CONTEXT
+          // ============================================================================
+          const updateMetadata = {
+            ...metadata,
+            captureType: shouldChunk(content) ? 'chunked' : 'single',
+            isComplete: true,
+            lastUpdated: new Date().toISOString(),
+            intelligent: {
+              ...intelligentContext,
+              progress_indicators: progressIndicators,
+              ...relationships
+            }
+          };
+
+          console.error(`[Phase 15] Updating with intelligent metadata:`, JSON.stringify({
+            project: intelligentContext.project_name,
+            phase: intelligentContext.phase,
+            status: intelligentContext.status
+          }));
+
           const updateResponse = await makeApiCall(`/api/v1/memories/${memoryId}/`, {
             method: 'PATCH',
             body: JSON.stringify({
               content: content,
               title: title,
               tags: tags,
-              metadata: {
-                ...metadata,
-                captureType: shouldChunk(content) ? 'chunked' : 'single',
-                isComplete: true,
-                lastUpdated: new Date().toISOString()
-              }
+              metadata: updateMetadata
             })
           });
 
@@ -654,6 +708,23 @@ async function handleSaveConversation(args) {
 
     // No conversation_id or no existing memory found - CREATE new memory
     metadata.conversationId = conversationId;  // Store in metadata
+
+    // ============================================================================
+    // PHASE 15: ENRICH METADATA WITH INTELLIGENT CONTEXT
+    // ============================================================================
+    metadata.intelligent = {
+      ...intelligentContext,
+      progress_indicators: progressIndicators,
+      ...relationships
+    };
+
+    console.error(`[Phase 15] Enriched metadata:`, JSON.stringify({
+      project: intelligentContext.project_name,
+      component: intelligentContext.project_component,
+      feature: intelligentContext.feature_name,
+      phase: intelligentContext.phase,
+      status: intelligentContext.status
+    }, null, 2));
 
     // Decide whether to chunk or save directly
     if (shouldChunk(content)) {
@@ -1201,12 +1272,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
-    console.error('✅ Purmemo MCP Server v9.3.0 (Phase 13D) started successfully');
+    console.error('✅ Purmemo MCP Server v10.0.0 (Phase 15) started successfully');
     console.error(`   API URL: ${API_URL}`);
     console.error(`   API Key: ${API_KEY ? 'Configured ✓' : 'NOT CONFIGURED ✗'}`);
     console.error(`   Platform: ${PLATFORM}`);
-    console.error(`   Tools: ${TOOLS.length} available (including cross-platform discovery)`);
-    console.error(`   🌍 New: Cluster-powered discovery across ChatGPT, Claude, Gemini`);
+    console.error(`   Tools: ${TOOLS.length} available`);
+    console.error(`   🧠 NEW: Intelligent memory saving with auto-context extraction`);
+    console.error(`   🎯 NEW: Smart title generation (no more timestamps!)`);
+    console.error(`   📊 NEW: Automatic project/component/feature detection`);
+    console.error(`   🗺️ NEW: Roadmap tracking across AI tools`);
+    console.error(`   🌍 Cluster-powered discovery across ChatGPT, Claude, Gemini`);
   })
   .catch((error) => {
     console.error('❌ Failed to start MCP server:', error.message);
