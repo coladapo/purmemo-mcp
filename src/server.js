@@ -15,6 +15,10 @@
  * - 📊 NEW: Automatic project/component/feature detection
  * - 🎯 NEW: Smart title generation (no more timestamps!)
  * - 🗺️ NEW: Roadmap tracking across AI tools
+ * - 🛡️ PHASE 16.4: Unicode sanitization to prevent JSON encoding errors
+ *   - Fixes "no low surrogate" errors from corrupted Unicode in memories
+ *   - Automatically cleans all text before sending to Claude API
+ *   - Prevents 400 errors caused by unpaired surrogate characters
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -308,14 +312,44 @@ const TOOLS = [
 ];
 
 const server = new Server(
-  { name: 'purmemo-ultimate', version: '10.0.0' },
+  { name: 'purmemo-ultimate', version: '10.0.2-phase16.4-fix' },
   { capabilities: { tools: {} } }
 );
 
 // Utility functions
+
+/**
+ * Sanitize text to remove invalid Unicode characters that would break JSON encoding.
+ * Fixes "no low surrogate" errors by removing unpaired surrogates and other invalid chars.
+ *
+ * @param {string} text - Text to sanitize
+ * @returns {string} - Sanitized text safe for JSON encoding
+ */
+function sanitizeUnicode(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  try {
+    // Method 1: Replace unpaired surrogates with replacement character
+    // High surrogates: 0xD800-0xDBFF, Low surrogates: 0xDC00-0xDFFF
+    return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '\uFFFD')
+               // Also remove other problematic characters
+               .replace(/\uFFFE|\uFFFF/g, '') // Non-characters
+               .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Control characters except \n, \r, \t
+  } catch (error) {
+    console.error('[SANITIZE] Error sanitizing text:', error.message);
+    // Fallback: try to encode/decode to fix encoding issues
+    try {
+      return Buffer.from(text, 'utf8').toString('utf8');
+    } catch (fallbackError) {
+      console.error('[SANITIZE] Fallback failed, returning empty string');
+      return '';
+    }
+  }
+}
+
 async function makeApiCall(endpoint, options = {}) {
   if (!API_KEY) throw new Error('PURMEMO_API_KEY not configured');
-  
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
@@ -324,12 +358,12 @@ async function makeApiCall(endpoint, options = {}) {
       ...options.headers
     }
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`API Error ${response.status}: ${errorText}`);
   }
-  
+
   return await response.json();
 }
 
@@ -568,7 +602,9 @@ function formatWisdomSuggestion(wisdomSuggestion) {
 
 // Tool handlers
 async function handleSaveConversation(args) {
-  const content = args.conversationContent || '';
+  // ⚠️ PHASE 16.4: Sanitize content IMMEDIATELY to prevent JSON encoding errors
+  const rawContent = args.conversationContent || '';
+  const content = sanitizeUnicode(rawContent);
   const contentLength = content.length;
 
   // ============================================================================
@@ -812,24 +848,25 @@ async function handleSaveConversation(args) {
 }
 
 async function handleSaveWithArtifacts(args) {
-  let fullContent = args.conversationSummary || '';
+  // ⚠️ PHASE 16.4: Sanitize all input text to prevent JSON encoding errors
+  let fullContent = sanitizeUnicode(args.conversationSummary || '');
   const metadata = {
     hasArtifacts: false,
     hasCode: false,
     artifactCount: 0,
     codeBlockCount: 0
   };
-  
+
   // Add artifacts section
   if (args.artifacts && args.artifacts.length > 0) {
     fullContent += '\n\n=== ARTIFACTS ===\n';
     args.artifacts.forEach((artifact, index) => {
-      fullContent += `\n## Artifact ${index + 1}: ${artifact.title}\n`;
+      fullContent += `\n## Artifact ${index + 1}: ${sanitizeUnicode(artifact.title || 'Untitled')}\n`;
       fullContent += `Type: ${artifact.type}\n`;
       if (artifact.language) {
         fullContent += `Language: ${artifact.language}\n`;
       }
-      fullContent += `\nContent:\n\`\`\`${artifact.language || ''}\n${artifact.content}\n\`\`\`\n`;
+      fullContent += `\nContent:\n\`\`\`${artifact.language || ''}\n${sanitizeUnicode(artifact.content || '')}\n\`\`\`\n`;
     });
     metadata.hasArtifacts = true;
     metadata.artifactCount = args.artifacts.length;
@@ -840,18 +877,18 @@ async function handleSaveWithArtifacts(args) {
     fullContent += '\n\n=== CODE BLOCKS ===\n';
     args.codeBlocks.forEach((block, index) => {
       fullContent += `\n## Code Block ${index + 1}\n`;
-      fullContent += `Language: ${block.language}\n`;
-      fullContent += `Context: ${block.context}\n`;
-      fullContent += `\n\`\`\`${block.language}\n${block.code}\n\`\`\`\n`;
+      fullContent += `Language: ${block.language || 'unknown'}\n`;
+      fullContent += `Context: ${sanitizeUnicode(block.context || '')}\n`;
+      fullContent += `\n\`\`\`${block.language || ''}\n${sanitizeUnicode(block.code || '')}\n\`\`\`\n`;
     });
     metadata.hasCode = true;
     metadata.codeBlockCount = args.codeBlocks.length;
   }
-  
+
   // Add full context if provided
   if (args.fullContext) {
     fullContent += '\n\n=== FULL CONVERSATION CONTEXT ===\n';
-    fullContent += args.fullContext;
+    fullContent += sanitizeUnicode(args.fullContext);
   }
   
   const title = `Conversation with Artifacts - ${new Date().toISOString()}`;
@@ -990,8 +1027,9 @@ async function handleDiscoverRelated(args) {
     }
 
     // Step 3: Format results grouped by cluster with platform indicators
+    const safeQuery = sanitizeUnicode(args.query || '');
     let resultText = `🌍 **Cross-Platform Discovery Results**\n`;
-    resultText += `🔍 Query: "${args.query}"\n`;
+    resultText += `🔍 Query: "${safeQuery}"\n`;
     resultText += `📊 Found ${initialMemories.length} direct matches, ${totalRelatedFound} related conversations\n`;
     resultText += `🎯 Organized into ${clusterMap.size} topic clusters\n\n`;
     resultText += `${'─'.repeat(60)}\n\n`;
@@ -1016,7 +1054,9 @@ async function handleDiscoverRelated(args) {
         })
         .join(' | ');
 
-      resultText += `## Cluster ${clusterIndex}: ${anchorMemory.title}\n`;
+      // Sanitize cluster anchor title (THIS WAS THE BUG!)
+      const safeClusterTitle = sanitizeUnicode(anchorMemory.title || 'Untitled');
+      resultText += `## Cluster ${clusterIndex}: ${safeClusterTitle}\n`;
       if (memories.length > 1) {
         resultText += `🔗 ${memories.length} related conversations | ${platformBadges}\n\n`;
       } else {
@@ -1031,16 +1071,20 @@ async function handleDiscoverRelated(args) {
                      platform === 'claude' ? '🟣' :
                      platform === 'gemini' ? '💎' : '❓';
 
-        resultText += `  ${idx + 1}. ${emoji} **${mem.title}**\n`;
-        resultText += `     Platform: ${platform} | ${mem.content?.length || 0} chars\n`;
+        // Sanitize all text fields to prevent Unicode errors
+        const safeTitle = sanitizeUnicode(mem.title || 'Untitled');
+        const safeContent = mem.content ? sanitizeUnicode(mem.content) : '';
+
+        resultText += `  ${idx + 1}. ${emoji} **${safeTitle}**\n`;
+        resultText += `     Platform: ${platform} | ${safeContent.length || 0} chars\n`;
         resultText += `     Created: ${mem.created_at ? new Date(mem.created_at).toLocaleString() : 'Unknown'}\n`;
         if (mem.similarity) {
           resultText += `     Similarity: ${(mem.similarity * 100).toFixed(1)}%\n`;
         }
         resultText += `     ID: ${memId}\n`;
 
-        if (mem.content && mem.content.length > 0) {
-          const preview = mem.content.substring(0, 100).replace(/\n/g, ' ');
+        if (safeContent && safeContent.length > 0) {
+          const preview = safeContent.substring(0, 100).replace(/\n/g, ' ');
           resultText += `     Preview: ${preview}...\n`;
         }
         resultText += `\n`;
@@ -1056,8 +1100,12 @@ async function handleDiscoverRelated(args) {
     resultText += `- Related conversations are grouped by semantic similarity\n`;
     resultText += `- Platform badges show which AI tool was used for each conversation\n`;
 
+    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
+    // Even though individual fields are sanitized, the concatenated result needs sanitization
+    const finalSanitizedText = sanitizeUnicode(resultText);
+
     return {
-      content: [{ type: 'text', text: resultText }]
+      content: [{ type: 'text', text: finalSanitizedText }]
     };
 
   } catch (error) {
@@ -1072,6 +1120,7 @@ async function handleDiscoverRelated(args) {
 
 async function handleRecallMemories(args) {
   try {
+    const safeQuery = sanitizeUnicode(args.query || '');
     const params = new URLSearchParams({
       query: args.query,
       page_size: String(args.limit || 10)
@@ -1082,17 +1131,17 @@ async function handleRecallMemories(args) {
     });
 
     const memories = data.results || data.memories || data;
-    
+
     if (!memories || memories.length === 0) {
       return {
         content: [{
           type: 'text',
-          text: `🔍 No memories found for "${args.query}"\n\nTry different keywords or check if the conversation was saved successfully.`
+          text: `🔍 No memories found for "${safeQuery}"\n\nTry different keywords or check if the conversation was saved successfully.`
         }]
       };
     }
 
-    let resultText = `🔍 Found ${memories.length} memories for "${args.query}"\n\n`;
+    let resultText = `🔍 Found ${memories.length} memories for "${safeQuery}"\n\n`;
     
     // Group chunked memories by session
     const chunkedSessions = new Map();
@@ -1120,14 +1169,16 @@ async function handleRecallMemories(args) {
       
       if (indexMemory) {
         const totalSize = contentParts.reduce((sum, p) => sum + p.content.length, 0);
-        resultText += `${index}. **${indexMemory.title.replace(' - Index', '')}** [CHUNKED]\n`;
+        const safeIndexTitle = sanitizeUnicode(indexMemory.title || 'Untitled').replace(' - Index', '');
+        resultText += `${index}. **${safeIndexTitle}** [CHUNKED]\n`;
         resultText += `   📦 ${contentParts.length} parts, ${totalSize} total chars\n`;
         resultText += `   🔗 Session: ${sessionId.substring(0, 12)}...\n`;
-        
+
         if (args.contentPreview) {
           const firstPart = contentParts[0];
           if (firstPart) {
-            resultText += `   📝 Preview: ${firstPart.content.substring(0, 150)}...\n`;
+            const safeFirstPartContent = sanitizeUnicode(firstPart.content || '');
+            resultText += `   📝 Preview: ${safeFirstPartContent.substring(0, 150)}...\n`;
           }
         }
         resultText += `   📋 Index ID: ${indexMemory.id || indexMemory.memory_id}\n\n`;
@@ -1143,8 +1194,12 @@ async function handleRecallMemories(args) {
                    platform === 'claude' ? '🟣' :
                    platform === 'gemini' ? '💎' : '❓';
 
-      resultText += `${index}. ${emoji} **${memory.title}**\n`;
-      resultText += `   📏 ${memory.content.length} chars`;
+      // Sanitize text fields
+      const safeTitle = sanitizeUnicode(memory.title || 'Untitled');
+      const safeContent = sanitizeUnicode(memory.content || '');
+
+      resultText += `${index}. ${emoji} **${safeTitle}**\n`;
+      resultText += `   📏 ${safeContent.length} chars`;
 
       if (meta.conversationTurns > 0) {
         resultText += ` (${meta.conversationTurns} turns)`;
@@ -1159,7 +1214,7 @@ async function handleRecallMemories(args) {
       resultText += `   🌍 Platform: ${platform}\n`;
 
       if (args.contentPreview) {
-        resultText += `   📝 Preview: ${memory.content.substring(0, 150)}...\n`;
+        resultText += `   📝 Preview: ${safeContent.substring(0, 150)}...\n`;
       }
       resultText += `   🔗 ID: ${memory.id || memory.memory_id}\n\n`;
       index++;
@@ -1172,8 +1227,11 @@ async function handleRecallMemories(args) {
     resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
     resultText += `Automatically grouped by AI-organized semantic clusters!\n`;
 
+    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
+    const finalSanitizedText = sanitizeUnicode(resultText);
+
     return {
-      content: [{ type: 'text', text: resultText }]
+      content: [{ type: 'text', text: finalSanitizedText }]
     };
     
   } catch (error) {
@@ -1192,10 +1250,14 @@ async function handleGetMemoryDetails(args) {
     const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
       method: 'GET'
     });
-    
+
+    // Sanitize text fields immediately
+    const safeTitle = sanitizeUnicode(memory.title || 'Untitled');
+    const safeContent = sanitizeUnicode(memory.content || '');
+
     const meta = memory.metadata || {};
-    let result = `📋 **${memory.title}**\n\n`;
-    result += `📏 Size: ${memory.content.length} characters\n`;
+    let result = `📋 **${safeTitle}**\n\n`;
+    result += `📏 Size: ${safeContent.length} characters\n`;
     result += `📅 Created: ${memory.created_at || 'Unknown'}\n`;
     
     if (meta.captureType) {
@@ -1251,10 +1313,13 @@ async function handleGetMemoryDetails(args) {
     }
     
     result += `\n**Content Preview:**\n`;
-    result += `${memory.content.substring(0, 500)}${memory.content.length > 500 ? '...' : ''}\n`;
-    
+    result += `${safeContent.substring(0, 500)}${safeContent.length > 500 ? '...' : ''}\n`;
+
+    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
+    const finalSanitizedResult = sanitizeUnicode(result);
+
     return {
-      content: [{ type: 'text', text: result }]
+      content: [{ type: 'text', text: finalSanitizedResult }]
     };
     
   } catch (error) {
@@ -1298,7 +1363,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
-    console.error('✅ Purmemo MCP Server v10.1.0 (Phase 16.3) started successfully');
+    console.error('✅ Purmemo MCP Server v10.0.2-phase16.4-fix started successfully');
     console.error(`   API URL: ${API_URL}`);
     console.error(`   API Key: ${API_KEY ? 'Configured ✓' : 'NOT CONFIGURED ✗'}`);
     console.error(`   Platform: ${PLATFORM}`);
@@ -1310,6 +1375,7 @@ server.connect(transport)
     console.error(`   🌟 Phase 16.3: Wisdom Layer - AI-powered tool orchestration`);
     console.error(`   🔮 Phase 16.3: Proactive next-tool suggestions with context`);
     console.error(`   🌍 Cluster-powered discovery across ChatGPT, Claude, Gemini`);
+    console.error(`   🛡️ Phase 16.4: Unicode sanitization - fixes "no low surrogate" errors`);
   })
   .catch((error) => {
     console.error('❌ Failed to start MCP server:', error.message);
