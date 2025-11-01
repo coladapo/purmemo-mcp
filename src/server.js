@@ -1120,19 +1120,25 @@ async function handleDiscoverRelated(args) {
 
 async function handleRecallMemories(args) {
   try {
+    // Phase 4: Use v10 MCP endpoint with intelligent scoring
     const safeQuery = sanitizeUnicode(args.query || '');
-    const params = new URLSearchParams({
-      query: args.query,
-      page_size: String(args.limit || 10)
+
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tool: 'recall_memories',
+        arguments: {
+          query: args.query,
+          limit: args.limit || 10
+        }
+      })
     });
 
-    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
-      method: 'GET'
-    });
-
-    const memories = data.results || data.memories || data;
-
-    if (!memories || memories.length === 0) {
+    // Extract text from MCP response
+    if (!data.content || !data.content[0] || !data.content[0].text) {
       return {
         content: [{
           type: 'text',
@@ -1141,83 +1147,55 @@ async function handleRecallMemories(args) {
       };
     }
 
-    let resultText = `🔍 Found ${memories.length} memories for "${safeQuery}"\n\n`;
-    
-    // Group chunked memories by session
-    const chunkedSessions = new Map();
-    const singleMemories = [];
-    
-    memories.forEach(memory => {
-      const meta = memory.metadata || {};
-      if (meta.sessionId && args.includeChunked) {
-        if (!chunkedSessions.has(meta.sessionId)) {
-          chunkedSessions.set(meta.sessionId, []);
-        }
-        chunkedSessions.get(meta.sessionId).push(memory);
-      } else {
-        singleMemories.push(memory);
-      }
-    });
-    
-    // Display chunked memories
-    let index = 1;
-    for (const [sessionId, parts] of chunkedSessions) {
-      const indexMemory = parts.find(p => p.metadata?.captureType === 'chunked-index');
-      const contentParts = parts.filter(p => p.metadata?.captureType === 'chunked').sort(
-        (a, b) => (a.metadata?.partNumber || 0) - (b.metadata?.partNumber || 0)
-      );
-      
-      if (indexMemory) {
-        const totalSize = contentParts.reduce((sum, p) => sum + p.content.length, 0);
-        const safeIndexTitle = sanitizeUnicode(indexMemory.title || 'Untitled').replace(' - Index', '');
-        resultText += `${index}. **${safeIndexTitle}** [CHUNKED]\n`;
-        resultText += `   📦 ${contentParts.length} parts, ${totalSize} total chars\n`;
-        resultText += `   🔗 Session: ${sessionId.substring(0, 12)}...\n`;
+    const responseText = data.content[0].text;
 
-        if (args.contentPreview) {
-          const firstPart = contentParts[0];
-          if (firstPart) {
-            const safeFirstPartContent = sanitizeUnicode(firstPart.content || '');
-            resultText += `   📝 Preview: ${safeFirstPartContent.substring(0, 150)}...\n`;
-          }
-        }
-        resultText += `   📋 Index ID: ${indexMemory.id || indexMemory.memory_id}\n\n`;
-        index++;
-      }
+    // Parse the response to extract memories and format with emojis
+    // The backend returns text like:
+    // **Title**
+    // ID: xxx
+    // Relevance: 95.1%
+    // Created: ...
+    // Platform: chatgpt
+    // Preview: ...
+
+    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**'));
+
+    if (memoryBlocks.length === 0) {
+      // No memories in response, return the backend's message
+      return {
+        content: [{ type: 'text', text: sanitizeUnicode(responseText) }]
+      };
     }
-    
-    // Display single memories
-    singleMemories.forEach(memory => {
-      const meta = memory.metadata || {};
-      const platform = memory.platform || 'unknown';
+
+    let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
+
+    memoryBlocks.forEach((block, index) => {
+      // Extract fields from the block
+      const titleMatch = block.match(/\*\*(.+?)\*\*/);
+      const relevanceMatch = block.match(/Relevance: ([\d.]+)%/);
+      const idMatch = block.match(/ID: (.+)/);
+      const platformMatch = block.match(/Platform: (\w+)/);
+      const previewMatch = block.match(/Preview: (.+)/);
+
+      const title = titleMatch ? titleMatch[1] : 'Untitled';
+      const relevance = relevanceMatch ? relevanceMatch[1] : '?';
+      const memoryId = idMatch ? idMatch[1].trim() : 'unknown';
+      const platform = platformMatch ? platformMatch[1] : 'unknown';
+      const preview = previewMatch ? previewMatch[1] : '';
+
       const emoji = platform === 'chatgpt' ? '🤖' :
                    platform === 'claude' ? '🟣' :
                    platform === 'gemini' ? '💎' : '❓';
 
-      // Sanitize text fields
-      const safeTitle = sanitizeUnicode(memory.title || 'Untitled');
-      const safeContent = sanitizeUnicode(memory.content || '');
-
-      resultText += `${index}. ${emoji} **${safeTitle}**\n`;
-      resultText += `   📏 ${safeContent.length} chars`;
-
-      if (meta.conversationTurns > 0) {
-        resultText += ` (${meta.conversationTurns} turns)`;
-      }
-      if (meta.hasArtifacts) {
-        resultText += ` [${meta.artifactCount} artifacts]`;
-      }
-      if (meta.hasCodeBlocks) {
-        resultText += ` [${meta.codeBlockCount} code blocks]`;
-      }
-      resultText += `\n`;
+      // Format with emojis and relevance score
+      resultText += `${index + 1}. ${emoji} **${sanitizeUnicode(title)}**\n`;
+      resultText += `   🎯 Relevance: ${relevance}%\n`; // PHASE 4: Show relevance score!
       resultText += `   🌍 Platform: ${platform}\n`;
 
-      if (args.contentPreview) {
-        resultText += `   📝 Preview: ${safeContent.substring(0, 150)}...\n`;
+      if (preview) {
+        resultText += `   📝 Preview: ${sanitizeUnicode(preview.substring(0, 150))}...\n`;
       }
-      resultText += `   🔗 ID: ${memory.id || memory.memory_id}\n\n`;
-      index++;
+      resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
 
     // Add cluster discovery hint at the end
@@ -1233,7 +1211,7 @@ async function handleRecallMemories(args) {
     return {
       content: [{ type: 'text', text: finalSanitizedText }]
     };
-    
+
   } catch (error) {
     return {
       content: [{
