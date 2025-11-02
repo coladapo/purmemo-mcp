@@ -348,23 +348,46 @@ function sanitizeUnicode(text) {
 }
 
 async function makeApiCall(endpoint, options = {}) {
-  if (!API_KEY) throw new Error('PURMEMO_API_KEY not configured');
+  const method = options.method || 'GET';
+  console.error(`[API_CALL] ${method} ${API_URL}${endpoint}`);
+  console.error(`[API_CALL] API_KEY configured: ${API_KEY ? 'Yes (length: ' + API_KEY.length + ')' : 'NO'}`);
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error ${response.status}: ${errorText}`);
+  if (!API_KEY) {
+    console.error(`[API_CALL] FATAL: PURMEMO_API_KEY not configured`);
+    throw new Error('PURMEMO_API_KEY not configured');
   }
 
-  return await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    });
+
+    console.error(`[API_CALL] Response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API_CALL] ERROR RESPONSE (${response.status}):`, errorText.substring(0, 500));
+      throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.error(`[API_CALL] Success - Response has ${Object.keys(data).length} top-level keys`);
+    console.error(`[API_CALL] Success - Response size: ${JSON.stringify(data).length} bytes`);
+
+    return data;
+
+  } catch (error) {
+    console.error(`[API_CALL] EXCEPTION CAUGHT:`, error);
+    console.error(`[API_CALL] Exception type: ${error.constructor.name}`);
+    console.error(`[API_CALL] Exception message: ${error.message}`);
+    if (error.stack) console.error(`[API_CALL] Exception stack:`, error.stack);
+    throw error;
+  }
 }
 
 function extractContentMetadata(content) {
@@ -1223,11 +1246,18 @@ async function handleRecallMemories(args) {
 }
 
 async function handleGetMemoryDetails(args) {
+  console.error(`[GET_MEMORY_DETAILS] Called with memoryId: ${args.memoryId}, includeLinkedParts: ${args.includeLinkedParts}`);
+
   try {
-    // Get the main memory
-    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
+    console.error(`[GET_MEMORY_DETAILS] Making API call to GET /api/v1/memories/${args.memoryId}`);
+
+    // Get the main memory (remove trailing slash for FastAPI compatibility)
+    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}`, {
       method: 'GET'
     });
+
+    console.error(`[GET_MEMORY_DETAILS] API call succeeded`);
+    console.error(`[GET_MEMORY_DETAILS] Memory data - title: ${memory.title?.substring(0, 50)}, content length: ${memory.content?.length}, has metadata: ${!!memory.metadata}`);
 
     // Sanitize text fields immediately
     const safeTitle = sanitizeUnicode(memory.title || 'Untitled');
@@ -1296,15 +1326,22 @@ async function handleGetMemoryDetails(args) {
     // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
     const finalSanitizedResult = sanitizeUnicode(result);
 
+    console.error(`[GET_MEMORY_DETAILS] Successfully built response, size: ${finalSanitizedResult.length} chars`);
+
     return {
       content: [{ type: 'text', text: finalSanitizedResult }]
     };
-    
+
   } catch (error) {
+    console.error(`[GET_MEMORY_DETAILS] ERROR CAUGHT:`, error);
+    console.error(`[GET_MEMORY_DETAILS] Error type: ${error.constructor.name}`);
+    console.error(`[GET_MEMORY_DETAILS] Error message: ${error.message}`);
+    console.error(`[GET_MEMORY_DETAILS] Error stack:`, error.stack);
+
     return {
       content: [{
         type: 'text',
-        text: `❌ Error retrieving memory: ${error.message}`
+        text: `❌ Error retrieving memory: ${error.message}\n\nMemory ID: ${args.memoryId}\nError Type: ${error.constructor.name}\n\nCheck logs for full details.`
       }]
     };
   }
