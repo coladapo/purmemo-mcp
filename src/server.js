@@ -1249,87 +1249,44 @@ async function handleGetMemoryDetails(args) {
   console.error(`[GET_MEMORY_DETAILS] Called with memoryId: ${args.memoryId}, includeLinkedParts: ${args.includeLinkedParts}`);
 
   try {
-    console.error(`[GET_MEMORY_DETAILS] Making API call to GET /api/v1/memories/${args.memoryId}`);
+    console.error(`[GET_MEMORY_DETAILS] Calling MCP endpoint POST /api/v10/mcp/tools/execute`);
 
-    // Get the main memory (remove trailing slash for FastAPI compatibility)
-    const memory = await makeApiCall(`/api/v1/memories/${args.memoryId}`, {
-      method: 'GET'
+    // Call the MCP endpoint (same as recall_memories, save_conversation, etc.)
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tool: 'get_memory_details',
+        arguments: {
+          memoryId: args.memoryId,
+          includeLinkedParts: args.includeLinkedParts !== false  // Default to true
+        }
+      })
     });
 
-    console.error(`[GET_MEMORY_DETAILS] API call succeeded`);
-    console.error(`[GET_MEMORY_DETAILS] Memory data - title: ${memory.title?.substring(0, 50)}, content length: ${memory.content?.length}, has metadata: ${!!memory.metadata}`);
+    console.error(`[GET_MEMORY_DETAILS] MCP endpoint call succeeded`);
 
-    // Sanitize text fields immediately
-    const safeTitle = sanitizeUnicode(memory.title || 'Untitled');
-    const safeContent = sanitizeUnicode(memory.content || '');
+    // Extract text from MCP response
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      console.error(`[GET_MEMORY_DETAILS] WARNING: MCP response has no content`);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Memory not found or invalid response\n\nMemory ID: ${args.memoryId}`
+        }]
+      };
+    }
 
-    const meta = memory.metadata || {};
-    let result = `📋 **${safeTitle}**\n\n`;
-    result += `📏 Size: ${safeContent.length} characters\n`;
-    result += `📅 Created: ${memory.created_at || 'Unknown'}\n`;
-    
-    if (meta.captureType) {
-      result += `🔧 Type: ${meta.captureType}\n`;
-    }
-    
-    // If this is a chunked memory, get all related parts
-    if (meta.sessionId && args.includeLinkedParts) {
-      try {
-        const sessionMemories = await makeApiCall(`/api/v1/memories/?query=session:${meta.sessionId}&page_size=50`, {
-          method: 'GET'
-        });
-        
-        const memories = sessionMemories.results || sessionMemories.memories || [];
-        const parts = memories.filter(m => m.metadata?.captureType === 'chunked').sort(
-          (a, b) => (a.metadata?.partNumber || 0) - (b.metadata?.partNumber || 0)
-        );
-        
-        if (parts.length > 0) {
-          const totalSize = parts.reduce((sum, p) => sum + p.content.length, 0);
-          result += `\n🔗 **Chunked Memory Details:**\n`;
-          result += `   📦 Total parts: ${parts.length}\n`;
-          result += `   📏 Combined size: ${totalSize} characters\n`;
-          result += `   🆔 Session: ${meta.sessionId}\n\n`;
-          
-          result += `**All Parts:**\n`;
-          parts.forEach(part => {
-            const partMeta = part.metadata || {};
-            result += `• Part ${partMeta.partNumber}: ${part.content.length} chars [${part.id}]\n`;
-          });
-          result += `\n`;
-        }
-      } catch (e) {
-        result += `⚠️ Could not load linked parts: ${e.message}\n`;
-      }
-    }
-    
-    // Content analysis
-    if (meta.conversationTurns > 0) {
-      result += `💬 Conversation turns: ${meta.conversationTurns}\n`;
-    }
-    if (meta.hasCodeBlocks) {
-      result += `💻 Code blocks: ${meta.codeBlockCount}\n`;
-    }
-    if (meta.hasArtifacts) {
-      result += `📦 Artifacts: ${meta.artifactCount}\n`;
-    }
-    if (meta.hasUrls) {
-      result += `🔗 URLs: ${meta.urlCount}\n`;
-    }
-    if (meta.hasFilePaths) {
-      result += `📁 File paths: ${meta.filePathCount}\n`;
-    }
-    
-    result += `\n**Content Preview:**\n`;
-    result += `${safeContent.substring(0, 500)}${safeContent.length > 500 ? '...' : ''}\n`;
+    const responseText = data.content[0].text;
+    console.error(`[GET_MEMORY_DETAILS] Successfully retrieved memory, response size: ${responseText.length} chars`);
 
-    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
-    const finalSanitizedResult = sanitizeUnicode(result);
-
-    console.error(`[GET_MEMORY_DETAILS] Successfully built response, size: ${finalSanitizedResult.length} chars`);
+    // Sanitize the response before returning
+    const sanitizedText = sanitizeUnicode(responseText);
 
     return {
-      content: [{ type: 'text', text: finalSanitizedResult }]
+      content: [{ type: 'text', text: sanitizedText }]
     };
 
   } catch (error) {
