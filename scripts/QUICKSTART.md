@@ -44,10 +44,12 @@ After this, the sync happens **automatically** whenever you commit changes to `s
 
 ## What the Script Does
 
-1. ✅ Reads your JavaScript tool definitions
+1. ✅ Reads your JavaScript tool definitions (schemas only)
 2. ✅ Converts them to Python format
 3. ✅ Updates the remote MCP server file
 4. ✅ Verifies the Python is valid
+
+**Important:** This only syncs tool **schemas** (names, descriptions, parameters), NOT the actual implementation code. Tool features must be implemented in the backend API separately.
 
 ## Files You Care About
 

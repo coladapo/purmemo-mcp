@@ -22,6 +22,45 @@ This script **auto-generates** Python code from JavaScript:
 - ✅ Zero manual copying
 - ✅ Impossible to drift
 
+### ⚠️ Important: Schema Sync Only
+
+**What this script syncs:**
+- ✅ Tool names
+- ✅ Tool descriptions
+- ✅ Input schemas (parameters, types, required fields)
+- ✅ JSON schema definitions
+
+**What this script does NOT sync:**
+- ❌ Tool implementations (actual code)
+- ❌ Business logic
+- ❌ Database queries
+- ❌ API integrations
+
+**Why this matters:**
+- Remote MCP (`main.py`) is a **thin proxy** - it forwards all requests to the backend API
+- The actual tool implementation lives in `/v1-mvp/backend/app/routers/mcp_v10.py`
+- Changing a tool description in `server.js` → syncs to `main.py` automatically ✅
+- Adding a new tool feature → requires updating backend API manually ❌
+
+**Example:**
+```javascript
+// In server.js - synced automatically
+{
+  name: 'discover_related_conversations',
+  description: 'Find related conversations',  // ← This syncs
+  inputSchema: { ... }  // ← This syncs
+}
+```
+
+```python
+# In v1-mvp/backend/app/routers/mcp_v10.py - manual update required
+elif tool_name == "discover_related_conversations":
+    # This implementation code is NOT auto-synced
+    # You must manually implement the feature here
+    query = args.get("query", "")
+    # ... actual semantic clustering logic ...
+```
+
 ## Usage
 
 ### Manual Sync (After Editing server.js)
