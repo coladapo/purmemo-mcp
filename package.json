@@ -1,11 +1,11 @@
 {
   "name": "purmemo-mcp",
-  "version": "10.1.2",
+  "version": "10.2.0",
   "description": "Universal MCP server for Purmemo with intelligent memory saving! Auto-detects project context across ALL domains (business, creative, education, research, personal, legal, healthcare, tech), generates smart titles, tracks roadmaps. Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms.",
-  "main": "src/thin-server.js",
+  "main": "src/server.js",
   "type": "module",
   "bin": {
-    "purmemo-mcp": "./src/thin-server.js",
+    "purmemo-mcp": "./src/server.js",
     "purmemo-mcp-setup": "./src/setup.js"
   },
   "files": [

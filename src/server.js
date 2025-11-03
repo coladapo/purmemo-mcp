@@ -74,17 +74,17 @@ const sessions = {
 const TOOLS = [
   {
     name: 'save_conversation',
-    description: `🚨 CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
+    description: `CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
 
-    🧠 INTELLIGENT MEMORY SAVING (Phase 15):
+    INTELLIGENT MEMORY SAVING:
     - Automatically extracts project context (name, component, feature)
-    - Detects phase/iteration and status (planning/in_progress/completed/blocked)
-    - Generates smart titles like "Purmemo - Timeline View - Phase 14.10"
+    - Detects iteration and status (planning/in_progress/completed/blocked)
+    - Generates smart titles like "Purmemo - Timeline View - Implementation"
     - Tracks technologies and tools used
     - Identifies relationships and dependencies
     - NO MORE TIMESTAMP TITLES! System understands your project context.
 
-    💡 LIVING DOCUMENT PATTERN (AUTO-ENABLED):
+    LIVING DOCUMENT PATTERN (AUTO-ENABLED):
     - Conversation ID automatically generated from title (e.g., "Brandon and Wivak Business" → "brandon-and-wivak-business")
     - Subsequent saves with SAME title will UPDATE existing memory (not create duplicates)
     - Example: Saving "Project X Planning" twice = ONE memory updated twice
@@ -92,8 +92,8 @@ const TOOLS = [
     - Manual conversationId still supported for advanced use cases
 
     EXAMPLES:
-    User: "Save progress" (working on Purmemo timeline feature, Phase 14.10)
-    → System auto-generates: "Purmemo - Timeline View - Phase 14.10"
+    User: "Save progress" (working on Purmemo timeline feature)
+    → System auto-generates: "Purmemo - Timeline View - Implementation"
 
     User: "Save this conversation" (discussing React hooks implementation)
     → System auto-generates: "Frontend - React Hooks - Implementation"
@@ -123,9 +123,9 @@ const TOOLS = [
     [Include ALL code with syntax highlighting]
     === END ===
 
-    ⚠️ DO NOT send just "save this conversation" or summaries.
-    ⚠️ The content should be THOUSANDS of characters.
-    ⚠️ If you send less than 500 chars, you're doing it wrong.
+    DO NOT send just "save this conversation" or summaries.
+    The content should be THOUSANDS of characters.
+    If you send less than 500 chars, you're doing it wrong.
 
     The server will auto-chunk if needed (>15K chars) or save directly (<15K chars).`,
     inputSchema: {
@@ -264,7 +264,7 @@ const TOOLS = [
   },
   {
     name: 'discover_related_conversations',
-    description: `🌍 CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
+    description: `CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
 
     Uses Purmemo's semantic clustering to automatically discover conversations about similar topics,
     regardless of which AI platform was used (ChatGPT, Claude Desktop, Gemini, etc).
