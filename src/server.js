@@ -74,34 +74,45 @@ const sessions = {
 const TOOLS = [
   {
     name: 'save_conversation',
-    description: `CRITICAL INSTRUCTION TO CLAUDE: When this tool is called, you MUST provide the COMPLETE conversation.
+    description: `Save complete conversations as living documents. REQUIRED: Send COMPLETE conversation in 'conversationContent' parameter (minimum 100 chars, should be thousands). Include EVERY message verbatim - NO summaries or partial content.
 
-    INTELLIGENT MEMORY SAVING:
-    - Automatically extracts project context (name, component, feature)
-    - Detects iteration and status (planning/in_progress/completed/blocked)
-    - Generates smart titles like "Purmemo - Timeline View - Implementation"
-    - Tracks technologies and tools used
-    - Identifies relationships and dependencies
-    - NO MORE TIMESTAMP TITLES! System understands your project context.
+    Intelligently tracks context, extracts project details, and maintains a single memory per conversation topic.
 
-    LIVING DOCUMENT PATTERN (AUTO-ENABLED):
-    - Conversation ID automatically generated from title (e.g., "Brandon and Wivak Business" → "brandon-and-wivak-business")
-    - Subsequent saves with SAME title will UPDATE existing memory (not create duplicates)
-    - Example: Saving "Project X Planning" twice = ONE memory updated twice
-    - To force new memory: Change title or provide explicit conversationId parameter
-    - Manual conversationId still supported for advanced use cases
+    LIVING DOCUMENT + INTELLIGENT PROJECT TRACKING:
+    - Each conversation becomes a living document that grows over time
+    - Automatically extracts project context (name, component, feature being discussed)
+    - Detects work iteration and status (planning/in_progress/completed/blocked)
+    - Generates smart titles like "Purmemo - Timeline View - Implementation" (no more timestamp titles!)
+    - Tracks technologies, tools used, and identifies relationships/dependencies
+    - Works like Chrome extension: intelligent memory that grows with each save
+
+    How memory updating works:
+    - Conversation ID auto-generated from title (e.g., "MCP Tools" → "mcp-tools")
+    - Same title → UPDATES existing memory (not create duplicate)
+    - "Save progress" → Updates most recent memory for current project context
+    - Explicit conversationId → Always updates that specific memory
+    - Example: Saving "Project X Planning" three times = ONE memory updated three times
+    - To force new memory: Change title or use different conversationId
+
+    SERVER AUTO-CHUNKING:
+    - Large conversations (>15K chars) automatically split into linked chunks
+    - Small conversations (<15K chars) saved directly as single memory
+    - You always send complete content - server handles chunking intelligently
+    - All chunks linked together for seamless retrieval
 
     EXAMPLES:
     User: "Save progress" (working on Purmemo timeline feature)
     → System auto-generates: "Purmemo - Timeline View - Implementation"
+    → Updates existing memory if this title was used before
 
     User: "Save this conversation" (discussing React hooks implementation)
     → System auto-generates: "Frontend - React Hooks - Implementation"
 
     User: "Save as conversation react-hooks-guide"
     → You call save_conversation with conversationId="react-hooks-guide"
+    → Creates or updates memory with this specific ID
 
-    WHAT TO INCLUDE:
+    WHAT TO INCLUDE (COMPLETE CONVERSATION REQUIRED):
     - EVERY user message (verbatim, not paraphrased)
     - EVERY assistant response (complete, not summarized)
     - ALL code blocks with full syntax
@@ -109,6 +120,7 @@ const TOOLS = [
     - ALL file paths, URLs, and references mentioned
     - ALL system messages and tool outputs
     - EXACT conversation flow and context
+    - Minimum 500 characters expected - should be THOUSANDS of characters
 
     FORMAT REQUIRED:
     === CONVERSATION START ===
@@ -123,11 +135,7 @@ const TOOLS = [
     [Include ALL code with syntax highlighting]
     === END ===
 
-    DO NOT send just "save this conversation" or summaries.
-    The content should be THOUSANDS of characters.
-    If you send less than 500 chars, you're doing it wrong.
-
-    The server will auto-chunk if needed (>15K chars) or save directly (<15K chars).`,
+    IMPORTANT: Do NOT send just "save this conversation" or summaries. If you send less than 500 chars, you're doing it wrong. Include the COMPLETE conversation with all details.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -159,59 +167,6 @@ const TOOLS = [
         }
       },
       required: ['conversationContent']
-    }
-  },
-  {
-    name: 'save_with_artifacts', 
-    description: `Save conversation content along with any artifacts, code, or files created.
-
-    INSTRUCTION TO CLAUDE: When artifacts or code was created during our conversation, 
-    you MUST include the COMPLETE content of those artifacts, not just references or summaries.
-    
-    Expected format:
-    - conversationSummary: Key points discussed
-    - artifacts: Array of complete artifact content
-    - codeBlocks: Array of complete code blocks
-    - context: Full conversation context`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        conversationSummary: {
-          type: 'string',
-          description: 'Summary of the conversation context'
-        },
-        artifacts: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              type: { type: 'string', enum: ['code', 'document', 'config', 'data', 'other'] },
-              content: { type: 'string', description: 'COMPLETE artifact content, not summary' },
-              language: { type: 'string', description: 'Programming language if applicable' }
-            },
-            required: ['title', 'content']
-          },
-          description: 'Complete artifacts created during conversation'
-        },
-        codeBlocks: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              language: { type: 'string' },
-              code: { type: 'string' },
-              context: { type: 'string', description: 'What this code does/why it was created' }
-            }
-          },
-          description: 'All code blocks discussed'
-        },
-        fullContext: {
-          type: 'string',
-          description: 'Complete conversation if artifacts are part of larger discussion'
-        }
-      },
-      required: ['conversationSummary']
     }
   },
   {
@@ -870,98 +825,6 @@ async function handleSaveConversation(args) {
   }
 }
 
-async function handleSaveWithArtifacts(args) {
-  // ⚠️ PHASE 16.4: Sanitize all input text to prevent JSON encoding errors
-  let fullContent = sanitizeUnicode(args.conversationSummary || '');
-  const metadata = {
-    hasArtifacts: false,
-    hasCode: false,
-    artifactCount: 0,
-    codeBlockCount: 0
-  };
-
-  // Add artifacts section
-  if (args.artifacts && args.artifacts.length > 0) {
-    fullContent += '\n\n=== ARTIFACTS ===\n';
-    args.artifacts.forEach((artifact, index) => {
-      fullContent += `\n## Artifact ${index + 1}: ${sanitizeUnicode(artifact.title || 'Untitled')}\n`;
-      fullContent += `Type: ${artifact.type}\n`;
-      if (artifact.language) {
-        fullContent += `Language: ${artifact.language}\n`;
-      }
-      fullContent += `\nContent:\n\`\`\`${artifact.language || ''}\n${sanitizeUnicode(artifact.content || '')}\n\`\`\`\n`;
-    });
-    metadata.hasArtifacts = true;
-    metadata.artifactCount = args.artifacts.length;
-  }
-  
-  // Add code blocks section
-  if (args.codeBlocks && args.codeBlocks.length > 0) {
-    fullContent += '\n\n=== CODE BLOCKS ===\n';
-    args.codeBlocks.forEach((block, index) => {
-      fullContent += `\n## Code Block ${index + 1}\n`;
-      fullContent += `Language: ${block.language || 'unknown'}\n`;
-      fullContent += `Context: ${sanitizeUnicode(block.context || '')}\n`;
-      fullContent += `\n\`\`\`${block.language || ''}\n${sanitizeUnicode(block.code || '')}\n\`\`\`\n`;
-    });
-    metadata.hasCode = true;
-    metadata.codeBlockCount = args.codeBlocks.length;
-  }
-
-  // Add full context if provided
-  if (args.fullContext) {
-    fullContent += '\n\n=== FULL CONVERSATION CONTEXT ===\n';
-    fullContent += sanitizeUnicode(args.fullContext);
-  }
-  
-  const title = `Conversation with Artifacts - ${new Date().toISOString()}`;
-  const tags = ['conversation-with-artifacts', 'complete-capture'];
-  
-  try {
-    const extractedMetadata = extractContentMetadata(fullContent);
-    const combinedMetadata = { ...extractedMetadata, ...metadata };
-    
-    if (shouldChunk(fullContent)) {
-      const result = await saveChunkedContent(fullContent, title, tags, combinedMetadata);
-      
-      return {
-        content: [{
-          type: 'text',
-          text: `✅ CONVERSATION WITH ARTIFACTS SAVED!\n\n` +
-                `📏 Total size: ${result.totalSize} characters\n` +
-                `📦 Artifacts: ${metadata.artifactCount}\n` +
-                `💻 Code blocks: ${metadata.codeBlockCount}\n` +
-                `🔗 Session: ${result.sessionId}\n` +
-                `📋 Index: ${result.indexId}\n\n` +
-                `✓ All artifacts and code preserved in full!`
-        }]
-      };
-    } else {
-      const result = await saveSingleContent(fullContent, title, tags, combinedMetadata);
-      
-      return {
-        content: [{
-          type: 'text',
-          text: `✅ CONVERSATION WITH ARTIFACTS SAVED!\n\n` +
-                `📏 Size: ${result.size} characters\n` +
-                `📦 Artifacts: ${metadata.artifactCount}\n` +
-                `💻 Code blocks: ${metadata.codeBlockCount}\n` +
-                `🔗 Memory: ${result.memoryId}\n\n` +
-                `✓ All artifacts and code preserved!`
-        }]
-      };
-    }
-    
-  } catch (error) {
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ Save Error: ${error.message}`
-      }]
-    };
-  }
-}
-
 async function handleDiscoverRelated(args) {
   try {
     const limit = args.limit || 10;
@@ -1313,8 +1176,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (name) {
     case 'save_conversation':
       return await handleSaveConversation(args);
-    case 'save_with_artifacts':
-      return await handleSaveWithArtifacts(args);
     case 'recall_memories':
       return await handleRecallMemories(args);
     case 'get_memory_details':

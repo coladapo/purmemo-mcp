@@ -12,12 +12,16 @@
  * This ensures Local/NPM MCP (JS) and Remote MCP (Python) stay in sync.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Paths
-const SERVER_JS_PATH = path.join(__dirname, '../purmemo-mcp/src/server.js');
-const MAIN_PY_PATH = path.join(__dirname, '../purmemo-core/platform/external/integrations/universal/remote-mcp/main.py');
+const SERVER_JS_PATH = path.join(__dirname, '../src/server.js');
+const MAIN_PY_PATH = path.join(__dirname, '../../purmemo-core/platform/external/integrations/universal/remote-mcp/main.py');
 
 console.log('🔄 MCP Tools Sync Script');
 console.log('========================\n');
