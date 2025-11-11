@@ -1043,7 +1043,14 @@ async function handleRecallMemories(args) {
         tool: 'recall_memories',
         arguments: {
           query: args.query,
-          limit: args.limit || 10
+          limit: args.limit || 10,
+          // Phase 2: Knowledge Graph Intelligence filters
+          entity: args.entity,
+          initiative: args.initiative,
+          stakeholder: args.stakeholder,
+          deadline: args.deadline,
+          intent: args.intent,
+          has_observations: args.has_observations
         }
       })
     });
