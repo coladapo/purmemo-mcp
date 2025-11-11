@@ -193,6 +193,31 @@ const TOOLS = [
           type: 'boolean',
           default: true,
           description: 'Include content preview in results'
+        },
+        // Phase 2: Knowledge Graph Intelligence - Entity & Context Filters
+        entity: {
+          type: 'string',
+          description: 'Filter by entity name (e.g., "Alice", "React", "Q1 Initiative")'
+        },
+        initiative: {
+          type: 'string',
+          description: 'Filter by context.initiative (e.g., "Q1 OKRs", "Migration Project")'
+        },
+        stakeholder: {
+          type: 'string',
+          description: 'Filter by context.stakeholder (e.g., "CEO", "Engineering Team")'
+        },
+        deadline: {
+          type: 'string',
+          description: 'Filter by context.deadline (e.g., "2025-03-31")'
+        },
+        intent: {
+          type: 'string',
+          description: 'Filter by intent type (e.g., "decision", "learning", "question", "blocker")'
+        },
+        has_observations: {
+          type: 'boolean',
+          description: 'Only return memories with observations (atomic facts)'
         }
       },
       required: ['query']
