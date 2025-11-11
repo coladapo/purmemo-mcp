@@ -171,7 +171,40 @@ const TOOLS = [
   },
   {
     name: 'recall_memories',
-    description: 'Search and retrieve saved memories with support for chunked conversations',
+    description: `Search and retrieve saved memories with intelligent semantic ranking.
+
+🎯 BASIC SEARCH:
+  recall_memories(query="authentication")
+  → Returns all memories about authentication, ranked by semantic relevance
+
+🔍 FILTERED SEARCH (Phase 2 Knowledge Graph Intelligence):
+  Use filters when you need PRECISION over semantic similarity:
+
+  ✓ entity="name" - Find memories mentioning specific people/projects/technologies
+    Example: entity="purmemo" → Only memories discussing purmemo
+
+  ✓ has_observations=true - Find substantial, fact-dense conversations
+    Example: has_observations=true → Only high-quality technical discussions
+
+  ✓ initiative="project" - Scope to specific initiatives/goals
+    Example: initiative="Q1 OKRs" → Only Q1-related memories
+
+  ✓ intent="type" - Filter by conversation purpose
+    Options: decision, learning, question, blocker
+    Example: intent="blocker" → Only conversations about blockers
+
+💡 WHEN TO FILTER:
+  - Use entity when user asks about specific person/project by name
+  - Use has_observations for "detailed" or "substantial" requests
+  - Use initiative/stakeholder for project-specific searches
+  - Use intent when user asks for decisions, learnings, or blockers
+
+📝 COMBINED EXAMPLES:
+  recall_memories(query="auth", entity="purmemo", has_observations=true)
+  → Find detailed technical discussions about purmemo authentication
+
+  recall_memories(query="blockers", intent="blocker", stakeholder="Engineering")
+  → Find engineering team blockers`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -197,27 +230,27 @@ const TOOLS = [
         // Phase 2: Knowledge Graph Intelligence - Entity & Context Filters
         entity: {
           type: 'string',
-          description: 'Filter by entity name (e.g., "Alice", "React", "Q1 Initiative")'
+          description: 'Filter by entity name (people, projects, technologies). Use when user asks about a specific person, project, or technology by name. Example: entity="Alice" finds only memories mentioning Alice. More precise than semantic search. Supports partial matching.'
         },
         initiative: {
           type: 'string',
-          description: 'Filter by context.initiative (e.g., "Q1 OKRs", "Migration Project")'
+          description: 'Filter by initiative/project name from conversation context. Use when user scopes search to specific project or goal. Example: initiative="Q1 OKRs" finds only Q1-related memories. Supports partial matching (ILIKE).'
         },
         stakeholder: {
           type: 'string',
-          description: 'Filter by context.stakeholder (e.g., "CEO", "Engineering Team")'
+          description: 'Filter by stakeholder (person or team) from conversation context. Use when user asks about specific person\'s or team\'s involvement. Example: stakeholder="Engineering Team" finds memories where Engineering Team was mentioned as stakeholder. Supports partial matching (ILIKE).'
         },
         deadline: {
           type: 'string',
-          description: 'Filter by context.deadline (e.g., "2025-03-31")'
+          description: 'Filter by deadline date from conversation context (YYYY-MM-DD format). Use when user asks about time-sensitive memories or specific deadlines. Example: deadline="2025-03-31" finds memories with March 31, 2025 deadline. Exact match only.'
         },
         intent: {
           type: 'string',
-          description: 'Filter by intent type (e.g., "decision", "learning", "question", "blocker")'
+          description: 'Filter by conversation intent/purpose. Options: "decision" (decisions made), "learning" (knowledge gained), "question" (open questions), "blocker" (obstacles/issues). Use when user asks specifically for one of these types. Example: intent="decision" finds only conversations where decisions were made. Exact match only.'
         },
         has_observations: {
           type: 'boolean',
-          description: 'Only return memories with observations (atomic facts)'
+          description: 'Filter by conversation quality based on extracted observations (atomic facts). Set to true to find substantial, structured conversations with extracted knowledge (high-quality technical discussions, detailed planning). Set to false for lightweight chats. Omit to return all memories regardless of observation count. Use when user asks for "detailed", "substantial", or "in-depth" information.'
         }
       },
       required: ['query']
