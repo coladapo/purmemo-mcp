@@ -1,10 +1,10 @@
-# Purmemo MCP Server
+# pūrmemo MCP Server
 
 [![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**MCP server for Purmemo** — AI conversation memory for Claude Desktop, Cursor, and other MCP-compatible platforms.
+**MCP server for pūrmemo** — AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, Windsurf, and other MCP-compatible platforms.
 
 > **Using ChatGPT, Claude.ai, or Gemini in browser?** Get the [Chrome Extension](https://purmemo.ai/extension) instead.
 
@@ -19,7 +19,33 @@
 ### 2. Add to Your Platform
 
 <details open>
-<summary><b>Claude Desktop</b></summary>
+<summary><b>Claude Desktop (Remote MCP — Recommended)</b></summary>
+
+The easiest way! Use pūrmemo's hosted MCP server:
+
+1. Open Claude Desktop → Settings → Developer → Edit Config
+2. Add this configuration:
+
+```json
+{
+  "mcpServers": {
+    "purmemo": {
+      "url": "https://mcp.purmemo.ai/mcp/messages",
+      "transport": "streamable-http"
+    }
+  }
+}
+```
+
+3. Restart Claude Desktop
+4. You'll be prompted to authenticate via OAuth
+
+</details>
+
+<details>
+<summary><b>Claude Desktop (Local NPX)</b></summary>
+
+Run pūrmemo locally via NPX:
 
 Edit your config file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -151,7 +177,17 @@ Claude: ✅ Updated! (not duplicated)
 
 - [Dashboard](https://app.purmemo.ai) — View and manage memories
 - [Chrome Extension](https://purmemo.ai/extension) — For ChatGPT, Claude.ai, Gemini
-- [Support](https://app.purmemo.ai/support)
+- [Documentation](https://github.com/coladapo/purmemo-mcp/tree/main/docs)
+- [Support](https://github.com/coladapo/purmemo-mcp/issues)
+
+## 🔐 Privacy
+
+pūrmemo stores your conversation memories securely. Your data is:
+- Encrypted in transit (HTTPS) and at rest
+- Never shared with third parties
+- Accessible only to you via your API key
+
+See our [Privacy Policy](https://purmemo.ai/privacy) for details.
 
 ## 📄 License
 

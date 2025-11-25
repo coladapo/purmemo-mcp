@@ -76,9 +76,22 @@ const sessions = {
 };
 
 // ULTIMATE TOOL DEFINITIONS
+// MCP Tool Annotations (Anthropic Connector Directory Requirement #17)
+// - readOnlyHint: true for tools that only read data, false for write operations
+// - destructiveHint: true for tools that delete/modify existing data destructively
+// - idempotentHint: true for tools that produce same result when called multiple times
+// - openWorldHint: true for tools that interact with external world beyond local data
+// - title: Human-readable title for display in UIs
 const TOOLS = [
   {
     name: 'save_conversation',
+    annotations: {
+      title: 'Save Conversation',
+      readOnlyHint: false,      // This tool WRITES data to storage
+      destructiveHint: false,   // Updates existing memories, doesn't delete
+      idempotentHint: false,    // Same content may create different IDs
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
     description: `Save complete conversations as living documents. REQUIRED: Send COMPLETE conversation in 'conversationContent' parameter (minimum 100 chars, should be thousands). Include EVERY message verbatim - NO summaries or partial content.
 
     Intelligently tracks context, extracts project details, and maintains a single memory per conversation topic.
@@ -176,6 +189,13 @@ const TOOLS = [
   },
   {
     name: 'recall_memories',
+    annotations: {
+      title: 'Recall Memories',
+      readOnlyHint: true,       // This tool only READS data, never writes
+      destructiveHint: false,   // No data modification
+      idempotentHint: true,     // Same query returns same results
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
     description: `Search and retrieve saved memories with intelligent semantic ranking.
 
 🎯 BASIC SEARCH:
@@ -263,6 +283,13 @@ const TOOLS = [
   },
   {
     name: 'get_memory_details',
+    annotations: {
+      title: 'Get Memory Details',
+      readOnlyHint: true,       // This tool only READS data, never writes
+      destructiveHint: false,   // No data modification
+      idempotentHint: true,     // Same memoryId returns same result
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
     description: 'Get complete details of a specific memory, including all linked parts if chunked',
     inputSchema: {
       type: 'object',
@@ -282,6 +309,13 @@ const TOOLS = [
   },
   {
     name: 'discover_related_conversations',
+    annotations: {
+      title: 'Discover Related Conversations',
+      readOnlyHint: true,       // This tool only READS data, never writes
+      destructiveHint: false,   // No data modification
+      idempotentHint: true,     // Same query returns same clustered results
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
     description: `CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
 
     Uses Purmemo's semantic clustering to automatically discover conversations about similar topics,
