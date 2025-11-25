@@ -9,19 +9,30 @@
  * Usage: node scripts/audit-parity.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Paths
-const SERVER_JS_PATH = path.join(__dirname, '../purmemo-mcp/src/server.js');
-const MAIN_PY_PATH = path.join(__dirname, '../purmemo-core/platform/external/integrations/universal/remote-mcp/main.py');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Paths (same as sync-mcp-tools.js)
+const SERVER_JS_PATH = path.join(__dirname, '../src/server.js');
+const MAIN_PY_PATH = path.join(__dirname, '../../purmemo-core/platform/external/integrations/universal/remote-mcp/main.py');
 
 console.log('🔍 MCP Tools Parity Audit');
 console.log('=========================\n');
 
 // Extract JavaScript tools
 console.log('📖 Reading JavaScript tools from server.js...');
-const serverJsContent = fs.readFileSync(SERVER_JS_PATH, 'utf8');
+let serverJsContent;
+try {
+  serverJsContent = fs.readFileSync(SERVER_JS_PATH, 'utf8');
+} catch (error) {
+  console.error('❌ Could not read server.js:', error.message);
+  process.exit(1);
+}
+
 const jsToolsMatch = serverJsContent.match(/const TOOLS = \[([\s\S]*?)\n\];/);
 
 if (!jsToolsMatch) {
@@ -34,7 +45,13 @@ console.log(`✓ Found ${jsTools.length} JavaScript tools\n`);
 
 // Extract Python tools
 console.log('📖 Reading Python tools from main.py...');
-const mainPyContent = fs.readFileSync(MAIN_PY_PATH, 'utf8');
+let mainPyContent;
+try {
+  mainPyContent = fs.readFileSync(MAIN_PY_PATH, 'utf8');
+} catch (error) {
+  console.error('❌ Could not read main.py:', error.message);
+  process.exit(1);
+}
 
 // Find TOOLS array in Python
 const pyToolsMatch = mainPyContent.match(/TOOLS = \[([\s\S]*?)\n\]/);
