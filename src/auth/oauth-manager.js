@@ -12,7 +12,7 @@ import TokenStore from './token-store.js';
 
 class OAuthManager {
   constructor(config = {}) {
-    this.apiUrl = config.apiUrl || process.env.PUO_MEMO_API_URL || 'https://api.purmemo.ai';
+    this.apiUrl = config.apiUrl || process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
     // Using chatgpt-purmemo as it's the only OAuth client configured in production
     // TODO: Switch to 'claude-purmemo' once unified OAuth is deployed
     this.clientId = config.clientId || 'chatgpt-purmemo';
@@ -49,7 +49,7 @@ class OAuthManager {
     }
 
     // Fallback to environment variable for backwards compatibility
-    const envApiKey = process.env.PUO_MEMO_API_KEY;
+    const envApiKey = process.env.PURMEMO_API_KEY;
     if (envApiKey) {
       console.log('📔 Using API key from environment variable');
       return envApiKey;

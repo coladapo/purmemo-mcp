@@ -23,10 +23,10 @@ async function diagnose() {
   log('🔬 Starting Purmemo MCP Diagnosis');
   
   // Check environment variables
-  const apiKey = process.env.PUO_MEMO_API_KEY || process.env.PURMEMO_API_KEY;
+  const apiKey = process.env.PURMEMO_API_KEY;
   if (!apiKey) {
     log('❌ No API key found in environment variables');
-    log('   Expected: PUO_MEMO_API_KEY or PURMEMO_API_KEY');
+    log('   Expected: PURMEMO_API_KEY');
     return false;
   }
   

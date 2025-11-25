@@ -234,7 +234,7 @@ class UniversalAuthManager {
     const sources = [
       { name: 'Claude MCP', path: path.join(os.homedir(), '.purmemo/auth.json') },
       { name: 'NPM Global', path: path.join(os.homedir(), '.npmrc') },
-      { name: 'Environment', env: 'PUO_MEMO_API_KEY' },
+      { name: 'Environment', env: 'PURMEMO_API_KEY' },
       { name: 'VS Code', path: path.join(os.homedir(), '.vscode/purmemo.json') }
     ];
 
@@ -293,8 +293,8 @@ class UniversalAuthManager {
    */
   async nonInteractiveAuth(client, purpose) {
     // Try environment variable
-    if (process.env.PURMEMO_TOKEN || process.env.PUO_MEMO_API_KEY) {
-      return process.env.PURMEMO_TOKEN || process.env.PUO_MEMO_API_KEY;
+    if (process.env.PURMEMO_TOKEN || process.env.PURMEMO_API_KEY) {
+      return process.env.PURMEMO_TOKEN || process.env.PURMEMO_API_KEY;
     }
 
     // Try stored auth
@@ -366,11 +366,11 @@ class UniversalAuthManager {
         // Add to bashrc/zshrc
         const shellConfig = process.env.SHELL?.includes('zsh') ? '.zshrc' : '.bashrc';
         const configPath = path.join(os.homedir(), shellConfig);
-        const exportLine = `\nexport PUO_MEMO_API_KEY="${token}"\n`;
-        
+        const exportLine = `\nexport PURMEMO_API_KEY="${token}"\n`;
+
         if (fs.existsSync(configPath)) {
           const content = fs.readFileSync(configPath, 'utf8');
-          if (!content.includes('PUO_MEMO_API_KEY')) {
+          if (!content.includes('PURMEMO_API_KEY')) {
             fs.appendFileSync(configPath, exportLine);
           }
         }
@@ -428,7 +428,7 @@ class UniversalAuthManager {
 
       case 'npm':
         console.log('NPM Packages:');
-        console.log('✅ Added PUO_MEMO_API_KEY to shell config');
+        console.log('✅ Added PURMEMO_API_KEY to shell config');
         console.log('Restart your terminal or run: source ~/.bashrc');
         break;
 
@@ -473,7 +473,7 @@ class UniversalAuthManager {
     const locations = [
       { name: 'MCP', path: path.join(this.configDir, 'auth.json') },
       { name: 'VS Code', path: path.join(os.homedir(), '.vscode/purmemo.json') },
-      { name: 'Environment', env: 'PUO_MEMO_API_KEY' }
+      { name: 'Environment', env: 'PURMEMO_API_KEY' }
     ];
 
     for (const loc of locations) {

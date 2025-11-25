@@ -75,7 +75,7 @@ program
     console.log(chalk.gray('Using API key authentication as fallback\n'));
     
     // Check for environment variable first
-    if (process.env.PUO_MEMO_API_KEY) {
+    if (process.env.PURMEMO_API_KEY) {
         console.log(chalk.green('✅ API key found in environment variable'));
         console.log(chalk.gray('Your Purmemo MCP is ready to use!'));
         process.exit(0);
