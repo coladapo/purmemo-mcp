@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "11.1.1",
-  "description": "Universal MCP server for Purmemo with intelligent memory saving! Auto-detects project context across ALL domains (business, creative, education, research, personal, legal, healthcare, tech), generates smart titles, tracks roadmaps. Works with Claude, Cursor, ChatGPT, and all MCP-compatible platforms.",
+  "version": "11.2.3",
+  "description": "MCP server for Purmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, ChatGPT, and Gemini. Intelligent context extraction, smart titles, living documents. Pairs with Chrome extension for complete coverage.",
   "main": "src/server.js",
   "type": "module",
   "bin": {
@@ -31,7 +31,7 @@
     "test": "node test.js",
     "test:brutal": "node archive/tests/test-ultimate.js",
     "test:archive": "echo \"Archived tests available in archive/tests/\"",
-    "postinstall": "node -e \"console.log('\\\\n🚀 Purmemo MCP v10.0.0 installed! (Phase 15)\\\\n\\\\n🧠 NEW: Intelligent memory saving with auto-context extraction\\\\n🎯 NEW: Smart title generation (no more timestamps!)\\\\n📊 NEW: Automatic project/component/feature detection\\\\n🗺️ NEW: Roadmap tracking across AI tools\\\\n\\\\n✅ Complete conversation capture with auto-chunking\\\\n✅ Handles 100K+ characters\\\\n✅ Preserves artifacts and code\\\\n✅ Living document pattern with auto-ID\\\\n🌍 Cross-platform discovery via semantic clusters\\\\n🔗 Find related conversations across ChatGPT, Claude, Gemini\\\\n\\\\nJust say save progress and the system understands your context!\\\\n\\\\nQuick setup: Set PURMEMO_API_KEY environment variable\\\\nGet your API key at: https://app.purmemo.ai/settings/api-keys\\\\n\\\\nFull instructions: https://github.com/coladapo/purmemo-mcp#quick-start\\\\n')\""
+    "postinstall": "node -e \"console.log('\\\\n🚀 Purmemo MCP v11.2.3 installed!\\\\n\\\\nSave and recall AI conversations across Claude Desktop, Cursor, and more.\\\\n\\\\n📋 Quick Setup:\\\\n   1. Get your free API key at https://app.purmemo.ai\\\\n   2. Add PURMEMO_API_KEY to your MCP config\\\\n   3. Docs: https://github.com/coladapo/purmemo-mcp#quick-start\\\\n\\\\n🌐 Using ChatGPT, Claude.ai, or Gemini in browser?\\\\n   Get the Chrome Extension at https://purmemo.ai/extension\\\\n')\""
   },
   "keywords": [
     "mcp",
@@ -41,13 +41,14 @@
     "claude",
     "cursor",
     "chatgpt",
+    "gemini",
     "windsurf",
     "zed",
     "purmemo",
-    "universal",
     "second-brain",
-    "oauth",
-    "authentication"
+    "conversation-memory",
+    "chrome-extension",
+    "ai-memory"
   ],
   "author": "Purmemo Team <support@purmemo.ai>",
   "license": "MIT",

@@ -2,70 +2,28 @@
 
 [![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
-[![GitHub stars](https://img.shields.io/github/stars/coladapo/purmemo-mcp.svg)](https://github.com/coladapo/purmemo-mcp/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Compatible](https://img.shields.io/badge/MCP-Official-green.svg)](https://modelcontextprotocol.io)
 
-**Official Model Context Protocol (MCP) server for Purmemo** - Your AI-powered second brain with 94% memory retrieval accuracy.
+**MCP server for Purmemo** — AI conversation memory for Claude Desktop, Cursor, and other MCP-compatible platforms.
 
-🚀 **Never lose a thought again - Purmemo remembers everything so you can focus on what matters.**  
-
-## ✨ Features
-
-- 🧠 **Smart Memory Storage** - AI understands context, not just keywords
-- 🔍 **Natural Language Search** - "What did I learn about React hooks last month?"
-- 📎 **Rich Attachments** - Files, images, links with automatic metadata
-- 🏷️ **Automatic Entity Extraction** - People, places, topics, dates without manual tagging
-- ⚡ **Lightning Fast** - <50ms average retrieval time
-- 🔐 **Enterprise Security** - OAuth 2.1 + PKCE, end-to-end encryption
+> **Using ChatGPT, Claude.ai, or Gemini in browser?** Get the [Chrome Extension](https://purmemo.ai/extension) instead.
 
 ## 🚀 Quick Start
 
-### 1. Create Your Purmemo Account
+### 1. Get Your API Key
 
-1. Sign up at [purmemo.ai/register](https://www.purmemo.ai/register)
-2. Verify your email
-3. Sign in to your account
+1. Sign up for free at [app.purmemo.ai](https://app.purmemo.ai)
+2. Go to Settings → API Keys
+3. Create a new API key
 
-**For Option B (Local) only**: Get an API key from [purmemo.ai/settings](https://www.purmemo.ai/settings) → API Keys tab
+### 2. Add to Your Platform
 
-### 2. Choose Your Connection Method
+<details open>
+<summary><b>Claude Desktop</b></summary>
 
-| Method | Remote Connection (Beta) | Local Connection |
-|--------|--------------------------|------------------|
-| **Setup** | Add Custom Connector | Edit Config File |
-| **Auth** | OAuth flow in browser | API Key in config |
-| **Install** | Nothing to install | Auto-downloads via npx |
-| **Platforms** | Works across all Claude platforms | Claude Desktop only |
-| **Tools** | v8.0.0 tools (being deployed) | v8.0.0 tools (save_conversation, etc.) |
-| **Updates** | Automatic | Manual (via npm) |
-| **Best For** | Quick setup without API key | Advanced features & local control |
-
-### 3. Configure Your AI Platform
-
-Purmemo MCP server works across **all platforms** that support Model Context Protocol. Choose your platform below:
-
-<details>
-<summary><b>📘 Claude Desktop</b></summary>
-
-#### Option A: Remote Connection via Custom Connector (Beta)
-1. In Claude Desktop, scroll to bottom of connectors list
-2. Click "Add custom connector (BETA)"
-3. Enter:
-   - **Name**: Purmemo
-   - **Remote MCP server URL**: `https://mcp.purmemo.ai`
-4. Click "Connect"
-5. You'll be redirected to Purmemo login in your browser
-6. Sign in with your Purmemo account
-7. Authorize Claude to access your memories
-8. Return to Claude Desktop - connection established
-
-#### Option B: Local Connection via Config File
-
-**Config Location**:
+Edit your config file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -74,24 +32,18 @@ Purmemo MCP server works across **all platforms** that support Model Context Pro
       "command": "npx",
       "args": ["-y", "purmemo-mcp"],
       "env": {
-        "PURMEMO_API_KEY": "your-api-key-here",
-        "MCP_PLATFORM": "claude"
+        "PURMEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
-
 </details>
 
 <details>
-<summary><b>💻 Cursor IDE</b></summary>
+<summary><b>Cursor IDE</b></summary>
 
-#### Local Connection via Config File
-
-**Config Location**:
-- **macOS**: `~/.cursor/mcp.json`
-- **Windows**: `%USERPROFILE%\.cursor\mcp.json`
+Edit `~/.cursor/mcp.json` (macOS) or `%USERPROFILE%\.cursor\mcp.json` (Windows):
 
 ```json
 {
@@ -100,49 +52,18 @@ Purmemo MCP server works across **all platforms** that support Model Context Pro
       "command": "npx",
       "args": ["-y", "purmemo-mcp"],
       "env": {
-        "PURMEMO_API_KEY": "your-api-key-here",
-        "MCP_PLATFORM": "cursor"
+        "PURMEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
-
-**Or via Cursor UI**:
-1. Press `Cmd/Ctrl + Shift + P`
-2. Search for "Cursor Settings"
-3. Click "Tools & Integrations" → "Add Custom MCP"
-4. Paste the configuration above
-
 </details>
 
 <details>
-<summary><b>💬 ChatGPT (Web)</b></summary>
+<summary><b>Windsurf IDE</b></summary>
 
-#### Remote Connection via Developer Mode (Beta)
-
-**Prerequisites**:
-- ChatGPT Plus, Pro, Business, Enterprise, or Education account
-- Requires remote MCP server deployment (coming soon)
-
-**Setup**:
-1. Go to ChatGPT Settings → Connectors → Advanced → Developer Mode
-2. Enable Developer Mode
-3. Add MCP connector URL: `https://mcp.purmemo.ai` (when available)
-4. Authenticate with your Purmemo account via OAuth
-
-**Note**: ChatGPT requires remote MCP servers (SSE/HTTP). Local stdio connections are not supported.
-
-</details>
-
-<details>
-<summary><b>🌊 Windsurf IDE</b></summary>
-
-#### Local Connection via Config File
-
-**Config Location**:
-- **macOS**: `~/.windsurf/mcp.json`
-- **Windows**: `%USERPROFILE%\.windsurf\mcp.json`
+Edit `~/.windsurf/mcp.json` (macOS) or `%USERPROFILE%\.windsurf\mcp.json` (Windows):
 
 ```json
 {
@@ -151,24 +72,18 @@ Purmemo MCP server works across **all platforms** that support Model Context Pro
       "command": "npx",
       "args": ["-y", "purmemo-mcp"],
       "env": {
-        "PURMEMO_API_KEY": "your-api-key-here",
-        "MCP_PLATFORM": "windsurf"
+        "PURMEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
-
 </details>
 
 <details>
-<summary><b>⚡ Zed Editor</b></summary>
+<summary><b>Zed Editor</b></summary>
 
-#### Local Connection via Config File
-
-**Config Location**:
-- **macOS**: `~/.config/zed/mcp.json`
-- **Linux**: `~/.config/zed/mcp.json`
+Edit `~/.config/zed/mcp.json`:
 
 ```json
 {
@@ -177,214 +92,67 @@ Purmemo MCP server works across **all platforms** that support Model Context Pro
       "command": "npx",
       "args": ["-y", "purmemo-mcp"],
       "env": {
-        "PURMEMO_API_KEY": "your-api-key-here",
-        "MCP_PLATFORM": "zed"
+        "PURMEMO_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
-
 </details>
 
-### 4. Start Using in Claude
+### 3. Start Using
 
 ```
-You: "Remember that the meeting with Sarah is at 3pm tomorrow about the API redesign"
-Claude: "I've stored that memory with entities: Sarah (person), 3pm tomorrow (time), API redesign (topic)"
+You: "Save this conversation"
+Claude: ✅ Saved! Title: "React Hooks Discussion"
 
-You: "What meetings do I have with Sarah?"
-Claude: "Based on your memories: Tomorrow at 3pm - API redesign discussion"
+You: "What did we discuss about authentication last week?"
+Claude: "Based on your memories: You decided to use JWT tokens with..."
 ```
 
-## 🛠️ Available MCP Tools
+## 🛠️ Tools
 
-### v8.0.0 Tools (Local Connection)
+| Tool | Description |
+|------|-------------|
+| `save_conversation` | Save conversations with smart titles and context extraction |
+| `recall_memories` | Search memories with natural language |
+| `get_memory_details` | Get full details of a specific memory |
+| `discover_related_conversations` | Find related discussions across platforms |
 
-#### `save_conversation`
-Save complete conversations with full context (handles 100K+ characters)
-```typescript
-save_conversation(content: string): MemoryResponse
-```
+## ✨ Features
 
-#### `save_with_artifacts`
-Save content with code artifacts and attachments preserved
-```typescript
-save_with_artifacts(content: string, artifacts: object[]): MemoryResponse
-```
-
-#### `recall_memories`
-Search and retrieve memories using natural language
-```typescript
-recall_memories(query: string, limit?: number): Memory[]
-```
-
-#### `get_memory_details`
-Get detailed information about a specific memory
-```typescript
-get_memory_details(memory_id: string): Memory
-```
-
-### Tools Available in Both Connections
-
-Once the remote server update is complete, both connection methods will provide the same v8.0.0 tools with complete conversation capture, auto-chunking for 100K+ characters, and artifact preservation.
+- **Smart Titles** — Auto-generates meaningful titles (no timestamps)
+- **Living Documents** — Update existing memories instead of duplicating
+- **100K+ Characters** — Auto-chunks long conversations
+- **Cross-Platform Sync** — All memories sync to [app.purmemo.ai](https://app.purmemo.ai)
 
 ## 📝 Living Document Pattern
 
-**NEW in v9.2.0** - purmemo-mcp supports **living documents**: maintaining a single memory per conversation that updates over time, instead of creating duplicates.
+Save and update the same conversation over time:
 
-### How It Works
-
-**First Save** (creates new memory):
 ```
-You: "Save this as conversation react-hooks-guide"
-Claude: ✅ CONVERSATION SAVED!
-        📝 Conversation ID: react-hooks-guide
-        ✓ Use conversation ID "react-hooks-guide" to update this later!
+You: "Save as conversation project-planning"
+Claude: ✅ Saved with ID: project-planning
+
+[... continue working ...]
+
+You: "Update conversation project-planning"
+Claude: ✅ Updated! (not duplicated)
 ```
-
-**Update Save** (updates existing memory):
-```
-[... conversation continues with 10 more exchanges ...]
-
-You: "Update conversation react-hooks-guide"
-Claude: ✅ CONVERSATION UPDATED (Living Document)!
-        📝 Conversation ID: react-hooks-guide
-        📏 New size: 15,234 characters
-        ✓ Updated existing memory (not duplicated)!
-```
-
-### Benefits
-
-- ✅ **No duplicates**: Single memory per conversation
-- ✅ **Always current**: Latest version of conversation maintained
-- ✅ **Parity with Chrome extension**: Same living document pattern as web platforms
-- ✅ **User control**: You choose the conversation ID
-
-### Usage Tips
-
-**Simple naming**:
-```
-"Save as conversation project-planning"
-"Save as conversation api-design-2025-10-24"
-"Save as conversation debugging-auth-issue"
-```
-
-**Update anytime**:
-```
-"Update conversation project-planning"
-"Update project-planning"
-"Update the project-planning conversation"
-```
-
-**Optional**: If you don't specify a conversation ID, each save creates a new memory (original behavior).
-
-## 🎯 Real-World Use Cases
-
-### For Developers
-```
-"Remember the Redis cache config: max-memory 2gb, eviction policy LRU, persistence AOF"
-"What were those PostgreSQL optimization tips from last week's debugging session?"
-"Show me all the API endpoints I've documented this month"
-```
-
-### For Researchers
-```
-"Store this paper: [arxiv link] - key insight about transformer attention mechanisms"
-"What connections exist between my notes on neural networks and optimization?"
-"Find all memories related to machine learning from Q3 2024"
-```
-
-### For Project Managers
-```
-"Remember stakeholder feedback: John wants faster load times, prioritize performance"
-"What were the action items from yesterday's standup?"
-"Show me all decisions made about the Q4 roadmap"
-```
-
-## 🔒 Security & Privacy
-
-- **API Key Authentication**: Secure token-based access control
-- **HTTPS/TLS Encryption**: All data encrypted in transit
-- **Data Privacy**: Your memories belong to you
-- **Account Control**: Delete your data anytime from settings
 
 ## 💰 Pricing
 
-### Free Tier
-- 50 memories/month
-- Basic search
-- Full MCP integration
-- Community support
+| Plan | Price | Recalls | Saves |
+|------|-------|---------|-------|
+| Free | $0 | 100/month | Unlimited |
+| Pro | $9/month | 1,000/month | Unlimited |
 
-### Pro ($9/month)
-- Unlimited memories
-- Advanced AI features
-- Priority support
-- API access
+## 🔗 Links
 
-### Teams ($29/month)
-- Unlimited memories for 5 users
-- Shared knowledge base
-- Team collaboration features
-- Admin dashboard
-- Priority support
-
-## 🔧 Development
-
-### Local Development
-
-```bash
-# Clone the repository
-git clone https://github.com/coladapo/purmemo-mcp.git
-cd purmemo-mcp
-
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Start local server
-PURMEMO_API_KEY=your-key npm start
-```
-
-### Contributing
-
-We welcome contributions to the MCP protocol implementation! Please note:
-- This repository contains only the open-source MCP wrapper
-- Core memory algorithms remain proprietary
-- See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
-
-## 📚 Documentation
-
-- [API Documentation](https://api.purmemo.ai/docs)
-- [MCP Integration Guide](https://docs.purmemo.ai/mcp)
-- [Security Whitepaper](https://purmemo.ai/security)
-- [Terms of Service](https://purmemo.ai/terms)
-
-## 🎖️ Recognition
-
-Purmemo MCP is pursuing official recognition in the [Model Context Protocol servers repository](https://github.com/modelcontextprotocol/servers).
+- [Dashboard](https://app.purmemo.ai) — View and manage memories
+- [Chrome Extension](https://purmemo.ai/extension) — For ChatGPT, Claude.ai, Gemini
+- [Support](mailto:support@purmemo.ai)
 
 ## 📄 License
 
-**MIT License** - See [LICENSE](LICENSE) file
-
-## 🆘 Support
-
-- 📧 Email: support@purmemo.ai
-- 🐛 Issues: [GitHub Issues](https://github.com/coladapo/purmemo-mcp/issues)
-- 🌐 Website: [purmemo.ai](https://purmemo.ai)
-
----
-
-<div align="center">
-
-**Built with ❤️ for the AI community**
-
-*"Open the door, protect the house"* - Hybrid open-core model for sustainable innovation
-
-[Website](https://purmemo.ai) · [Dashboard](https://app.purmemo.ai) · [API Docs](https://api.purmemo.ai/docs) · [NPM](https://www.npmjs.com/package/purmemo-mcp)
-
-</div>
+MIT

@@ -37,6 +37,11 @@ import {
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
 
+// Debug: Log API key status (without exposing the full key)
+console.error(`[Purmemo MCP Debug] API_URL: ${API_URL}`);
+console.error(`[Purmemo MCP Debug] API_KEY present: ${!!API_KEY}`);
+console.error(`[Purmemo MCP Debug] API_KEY prefix: ${API_KEY ? API_KEY.substring(0, 15) + '...' : 'MISSING'}`);
+
 // Platform detection: user specifies via MCP_PLATFORM env var
 // Supported: 'claude', 'claude-code', 'cursor', 'chatgpt', 'windsurf', 'zed'
 // MCP is a universal protocol - same server works across all platforms
@@ -325,7 +330,7 @@ const TOOLS = [
 ];
 
 const server = new Server(
-  { name: 'purmemo-ultimate', version: '10.0.2-phase16.4-fix' },
+  { name: 'purmemo-mcp', version: '11.2.3' },
   { capabilities: { tools: {} } }
 );
 
@@ -364,6 +369,7 @@ async function makeApiCall(endpoint, options = {}) {
   const method = options.method || 'GET';
   console.error(`[API_CALL] ${method} ${API_URL}${endpoint}`);
   console.error(`[API_CALL] API_KEY configured: ${API_KEY ? 'Yes (length: ' + API_KEY.length + ')' : 'NO'}`);
+  console.error(`[API_CALL] API_KEY prefix: ${API_KEY ? API_KEY.substring(0, 20) + '...' : 'NONE'}`);
 
   if (!API_KEY) {
     console.error(`[API_CALL] FATAL: PURMEMO_API_KEY not configured`);
@@ -385,6 +391,42 @@ async function makeApiCall(endpoint, options = {}) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[API_CALL] ERROR RESPONSE (${response.status}):`, errorText.substring(0, 500));
+
+      // Special handling for quota exceeded (429)
+      if (response.status === 429) {
+        try {
+          const errorData = JSON.parse(errorText);
+          const upgradeUrl = errorData.upgrade_url || 'https://app.purmemo.ai/dashboard/plans';
+          const currentUsage = errorData.current_usage || '?';
+          const quotaLimit = errorData.quota_limit || '?';
+          const tier = errorData.tier || 'FREE';
+          const billingPeriod = errorData.billing_period || 'this month';
+
+          // Calculate reset date (first day of next month)
+          const now = new Date();
+          const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const resetDateStr = resetDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+          const userMessage = [
+            `❌ Monthly recall quota exceeded (${currentUsage}/${quotaLimit} used)`,
+            ``,
+            `You've reached the ${tier.toUpperCase()} tier limit of ${quotaLimit} recalls per month.`,
+            ``,
+            `🚀 Upgrade to PRO for unlimited recalls:`,
+            `   ${upgradeUrl}`,
+            ``,
+            `📅 Your quota will reset on ${resetDateStr}`,
+            ``,
+            `For immediate access, please upgrade your subscription.`
+          ].join('\n');
+
+          throw new Error(userMessage);
+        } catch (parseError) {
+          // If JSON parsing fails, fall back to generic quota message
+          throw new Error(`Monthly recall quota exceeded. Upgrade to PRO for unlimited recalls:\nhttps://app.purmemo.ai/dashboard/plans`);
+        }
+      }
+
       throw new Error(`API Error ${response.status}: ${errorText}`);
     }
 
@@ -885,178 +927,61 @@ async function handleSaveConversation(args) {
 
 async function handleDiscoverRelated(args) {
   try {
-    const limit = args.limit || 10;
-    const relatedLimit = args.relatedPerMemory || 5;
+    // QUOTA FIX: Use v10 MCP endpoint to enforce quota (same as recall_memories)
+    // OLD: Used /api/v1/memories/ and /api/v1/clusters/ which bypassed middleware quota check
+    // NEW: Uses /api/v10/mcp/tools/execute which enforces quota via middleware
 
-    // Step 1: Search for memories matching the query
-    const params = new URLSearchParams({
-      query: args.query,
-      page_size: String(limit)
+    const safeQuery = sanitizeUnicode(args.query || '');
+
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tool: 'discover_related_conversations',
+        arguments: {
+          query: args.query,
+          limit: args.limit || 10,
+          relatedPerMemory: args.relatedPerMemory || 5
+        }
+      })
     });
 
-    const data = await makeApiCall(`/api/v1/memories/?${params}`, {
-      method: 'GET'
-    });
-
-    const initialMemories = data.results || data.memories || data;
-
-    if (!initialMemories || initialMemories.length === 0) {
+    // Extract text from MCP response
+    if (!data.content || !data.content[0] || !data.content[0].text) {
       return {
         content: [{
           type: 'text',
-          text: `🔍 No memories found for "${args.query}"\n\nTry different keywords or check if conversations were saved.`
+          text: `🔍 No related conversations found for "${safeQuery}"\n\nTry different keywords or check if conversations were saved successfully.`
         }]
       };
     }
 
-    // Step 2: For each memory, get related conversations via clusters
-    const clusterMap = new Map(); // cluster_id -> {cluster_info, memories}
-    const processedMemoryIds = new Set();
-    let totalRelatedFound = 0;
+    const responseText = data.content[0].text;
 
-    for (const memory of initialMemories) {
-      const memoryId = memory.id || memory.memory_id;
-
-      if (processedMemoryIds.has(memoryId)) continue;
-      processedMemoryIds.add(memoryId);
-
-      try {
-        // Get related memories in same cluster
-        const relatedData = await makeApiCall(
-          `/api/v1/clusters/memory/${memoryId}/related?limit=${relatedLimit}`,
-          { method: 'GET' }
-        );
-
-        const relatedMemories = relatedData.related_memories || [];
-        totalRelatedFound += relatedMemories.length;
-
-        // Get cluster info by fetching one of the related memories
-        if (relatedMemories.length > 0) {
-          // Group by cluster (we'll use a synthetic cluster ID based on the set of related memories)
-          const clusterId = `cluster_${memoryId}`; // Use first memory as cluster anchor
-
-          if (!clusterMap.has(clusterId)) {
-            clusterMap.set(clusterId, {
-              anchorMemory: memory,
-              memories: [memory, ...relatedMemories.map(r => ({
-                id: r.id,
-                title: r.title,
-                content: r.content_preview || '',
-                created_at: r.created_at,
-                updated_at: r.updated_at,
-                platform: 'unknown', // Will be populated if available
-                similarity: r.similarity
-              }))]
-            });
-          }
-        } else {
-          // No related memories found, still show this memory
-          const clusterId = `single_${memoryId}`;
-          clusterMap.set(clusterId, {
-            anchorMemory: memory,
-            memories: [memory]
-          });
-        }
-      } catch (error) {
-        console.error(`Error fetching related for memory ${memoryId}:`, error.message);
-        // Still include the original memory even if related fetch fails
-        const clusterId = `single_${memoryId}`;
-        if (!clusterMap.has(clusterId)) {
-          clusterMap.set(clusterId, {
-            anchorMemory: memory,
-            memories: [memory]
-          });
-        }
-      }
-    }
-
-    // Step 3: Format results grouped by cluster with platform indicators
-    const safeQuery = sanitizeUnicode(args.query || '');
-    let resultText = `🌍 **Cross-Platform Discovery Results**\n`;
-    resultText += `🔍 Query: "${safeQuery}"\n`;
-    resultText += `📊 Found ${initialMemories.length} direct matches, ${totalRelatedFound} related conversations\n`;
-    resultText += `🎯 Organized into ${clusterMap.size} topic clusters\n\n`;
-    resultText += `${'─'.repeat(60)}\n\n`;
-
-    let clusterIndex = 1;
-    for (const [clusterId, clusterData] of clusterMap) {
-      const { anchorMemory, memories } = clusterData;
-
-      // Count platforms
-      const platformCounts = {};
-      memories.forEach(m => {
-        const platform = m.platform || 'unknown';
-        platformCounts[platform] = (platformCounts[platform] || 0) + 1;
-      });
-
-      const platformBadges = Object.entries(platformCounts)
-        .map(([platform, count]) => {
-          const emoji = platform === 'chatgpt' ? '🤖' :
-                       platform === 'claude' ? '🟣' :
-                       platform === 'gemini' ? '💎' : '❓';
-          return `${emoji} ${platform}: ${count}`;
-        })
-        .join(' | ');
-
-      // Sanitize cluster anchor title (THIS WAS THE BUG!)
-      const safeClusterTitle = sanitizeUnicode(anchorMemory.title || 'Untitled');
-      resultText += `## Cluster ${clusterIndex}: ${safeClusterTitle}\n`;
-      if (memories.length > 1) {
-        resultText += `🔗 ${memories.length} related conversations | ${platformBadges}\n\n`;
-      } else {
-        resultText += `📝 Single conversation | ${platformBadges}\n\n`;
-      }
-
-      // Show memories in this cluster
-      memories.forEach((mem, idx) => {
-        const memId = mem.id || mem.memory_id;
-        const platform = mem.platform || 'unknown';
-        const emoji = platform === 'chatgpt' ? '🤖' :
-                     platform === 'claude' ? '🟣' :
-                     platform === 'gemini' ? '💎' : '❓';
-
-        // Sanitize all text fields to prevent Unicode errors
-        const safeTitle = sanitizeUnicode(mem.title || 'Untitled');
-        const safeContent = mem.content ? sanitizeUnicode(mem.content) : '';
-
-        resultText += `  ${idx + 1}. ${emoji} **${safeTitle}**\n`;
-        resultText += `     Platform: ${platform} | ${safeContent.length || 0} chars\n`;
-        resultText += `     Created: ${mem.created_at ? new Date(mem.created_at).toLocaleString() : 'Unknown'}\n`;
-        if (mem.similarity) {
-          resultText += `     Similarity: ${(mem.similarity * 100).toFixed(1)}%\n`;
-        }
-        resultText += `     ID: ${memId}\n`;
-
-        if (safeContent && safeContent.length > 0) {
-          const preview = safeContent.substring(0, 100).replace(/\n/g, ' ');
-          resultText += `     Preview: ${preview}...\n`;
-        }
-        resultText += `\n`;
-      });
-
-      resultText += `\n`;
-      clusterIndex++;
-    }
-
-    resultText += `${'─'.repeat(60)}\n\n`;
-    resultText += `💡 **Tips:**\n`;
-    resultText += `- Use 'get_memory_details' with any memory ID to read full content\n`;
-    resultText += `- Related conversations are grouped by semantic similarity\n`;
-    resultText += `- Platform badges show which AI tool was used for each conversation\n`;
-
-    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
-    // Even though individual fields are sanitized, the concatenated result needs sanitization
-    const finalSanitizedText = sanitizeUnicode(resultText);
+    // PHASE 16.4.1: Final sanitization before sending to Claude API
+    const finalSanitizedText = sanitizeUnicode(responseText);
 
     return {
       content: [{ type: 'text', text: finalSanitizedText }]
     };
 
   } catch (error) {
+    // Check if this is a quota error (HTTP 429)
+    if (error.message && error.message.includes('429')) {
+      return {
+        content: [{
+          type: 'text',
+          text: `⚠️ Monthly recall quota exceeded.\n\n${error.message}\n\nNote: 'discover_related_conversations' shares the same quota pool as 'recall_memories'.`
+        }]
+      };
+    }
+
     return {
       content: [{
         type: 'text',
-        text: `❌ Discovery Error: ${error.message}\n\nThis could be due to:\n- Network connectivity issues\n- API endpoint changes\n- Clustering system not yet initialized\n\nTry using 'recall_memories' for basic search.`
+        text: `❌ Discovery Error: ${error.message}\n\nThis could be due to:\n- Monthly quota limit reached (check with your API provider)\n- Network connectivity issues\n- API endpoint changes\n\nTry using 'recall_memories' for basic search, or upgrade to PRO for unlimited recalls.`
       }]
     };
   }
