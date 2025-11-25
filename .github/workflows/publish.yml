@@ -1,15 +1,16 @@
-name: Publish to npm
+name: Publish Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v12.0.0, v12.1.0, etc.
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write
+      contents: write # Needed to create GitHub releases
+      id-token: write # Needed for npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,7 +24,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run tests
+        run: npm test
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Verify package.json version matches tag
+        run: |
+          PACKAGE_VERSION="v$(node -p "require('./package.json').version")"
+          TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PACKAGE_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
       - name: Publish to npm
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ```bash
+            npx purmemo-mcp
+            ```
+
+            ## Quick Start
+
+            1. Get your API key at https://app.purmemo.ai
+            2. Add to Claude Desktop/Cursor config (see README)
+
+            ---
+            Published to npm: https://www.npmjs.com/package/purmemo-mcp/v/${{ steps.get_version.outputs.VERSION }}
