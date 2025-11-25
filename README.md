@@ -21,9 +21,26 @@
 ### 2. Add to Your Platform
 
 <details open>
-<summary><b>Claude Desktop (Remote MCP — Recommended)</b></summary>
+<summary><b>Claude.ai Connectors UI (Easiest — 30 seconds)</b></summary>
 
-The easiest way! Use pūrmemo's hosted MCP server:
+The fastest way to get started! No config files needed:
+
+1. Go to [claude.ai](https://claude.ai) → Settings → Connectors
+2. Click "Add Connector" → "Add custom MCP server"
+3. Paste this URL:
+   ```
+   https://mcp.purmemo.ai/mcp/messages
+   ```
+4. Click "Add" and authenticate with your pūrmemo account
+
+That's it! Works on web and mobile.
+
+</details>
+
+<details>
+<summary><b>Claude Desktop (Remote MCP)</b></summary>
+
+Use pūrmemo's hosted MCP server with OAuth authentication:
 
 1. Open Claude Desktop → Settings → Developer → Edit Config
 2. Add this configuration:
@@ -32,8 +49,8 @@ The easiest way! Use pūrmemo's hosted MCP server:
 {
   "mcpServers": {
     "purmemo": {
-      "url": "https://mcp.purmemo.ai/mcp/messages",
-      "transport": "streamable-http"
+      "type": "http",
+      "url": "https://mcp.purmemo.ai/mcp/messages"
     }
   }
 }
@@ -179,8 +196,8 @@ Claude: ✅ Updated! (not duplicated)
 
 - [Dashboard](https://app.purmemo.ai) — View and manage memories
 - [Chrome Extension](https://purmemo.ai/extension) — For ChatGPT, Claude.ai, Gemini
-- [Documentation](https://github.com/coladapo/purmemo-mcp/tree/main/docs)
-- [Support](https://github.com/coladapo/purmemo-mcp/issues)
+- [Support & Documentation](https://app.purmemo.ai/support) — Setup guides and help
+- [GitHub Issues](https://github.com/coladapo/purmemo-mcp/issues) — Bug reports
 
 ## 🔐 Privacy
 
