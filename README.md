@@ -206,7 +206,7 @@ pūrmemo stores your conversation memories securely. Your data is:
 - Never shared with third parties
 - Accessible only to you via your API key
 
-See our [Privacy Policy](https://purmemo.ai/privacy) for details.
+See our [Privacy Policy](https://app.purmemo.ai/privacy) for details.
 
 ## 📄 License
 
