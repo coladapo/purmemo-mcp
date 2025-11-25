@@ -2,7 +2,9 @@
 
 [![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
+[![Tests](https://github.com/coladapo/purmemo-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/coladapo/purmemo-mcp/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 
 **MCP server for pūrmemo** — AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, Windsurf, and other MCP-compatible platforms.
 
