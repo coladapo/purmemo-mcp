@@ -45,7 +45,7 @@ function extractProjectContext(content) {
   // ============================================================================
 
   // Pattern 1: File paths (highest priority)
-  // e.g., /Users/wivak/projects/purmemo/v1-mvp/frontend/...
+  // e.g., /Users/username/projects/myproject/v1-mvp/frontend/...
   const filePathMatch = content.match(/(?:\/|\\)([a-zA-Z0-9-_]+)\/(?:v\d+[-.]\w+|src|components|backend|frontend)/i);
   if (filePathMatch) {
     context.project_name = normalizeProjectName(filePathMatch[1]);

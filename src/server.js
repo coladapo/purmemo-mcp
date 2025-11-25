@@ -328,7 +328,7 @@ const TOOLS = [
     - Shows conversations you may have forgotten about on other platforms
 
     EXAMPLES:
-    User: "Show me all conversations about Brandon and Wivak business"
+    User: "Show me all conversations about the marketing project"
     → Finds conversations across ChatGPT, Claude, Gemini automatically
 
     User: "What have I discussed about licensing requirements?"
