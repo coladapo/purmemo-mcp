@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ultimate Purmemo MCP Server v10.0.0 (Phase 15)
+ * pūrmemo MCP Server v11.0.0
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
