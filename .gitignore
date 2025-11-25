@@ -120,12 +120,14 @@ test_results.json
 # SECURITY - FILES WITH API KEYS
 # ==================================
 
-# Test files with hardcoded credentials
+# Test files with hardcoded credentials (in root, not tests/ directory)
 test-smart-final.cjs
 test-production.js
-test-*.cjs
-test-*.js
-*.test.js
+/test-*.cjs
+/test-*.js
+
+# Allow tests/ directory but ignore other test files in root
+!tests/
 
 # Archive folder contains API keys in test files
 archive/

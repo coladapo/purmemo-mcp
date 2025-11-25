@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import express from 'express';
 import open from 'open';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import os from 'os';
 import TokenStore from './token-store.js';
 
@@ -138,8 +138,9 @@ class OAuthManager {
     // Try to open browser quietly in background (might work, might not)
     try {
       if (this.platform === 'darwin') {
-        // On macOS, try using 'open' directly without the npm context
-        exec(`open "${authUrl.toString()}"`, (error) => {
+        // On macOS, use execFile (not exec) to avoid shell injection vulnerabilities
+        // execFile doesn't spawn a shell, so the URL is passed as a safe argument
+        execFile('open', [authUrl.toString()], (error) => {
           if (!error) {
             console.log('✨ Browser opened automatically - check your browser tabs');
           }
