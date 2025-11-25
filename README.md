@@ -151,7 +151,7 @@ Claude: ✅ Updated! (not duplicated)
 
 - [Dashboard](https://app.purmemo.ai) — View and manage memories
 - [Chrome Extension](https://purmemo.ai/extension) — For ChatGPT, Claude.ai, Gemini
-- [Support](mailto:support@purmemo.ai)
+- [Support](https://app.purmemo.ai/support)
 
 ## 📄 License
 
