@@ -1,0 +1,193 @@
+# Purmemo Project Instructions
+
+## Session Startup: Get Project Context
+
+**When starting a session after time away from the project, use `/context`** which automatically:
+1. Recalls recent purmemo conversations about the project
+2. Checks git status and recent commits
+3. Reviews pending tasks (TODOs, FIXMEs)
+4. Checks build/test status
+5. Presents comprehensive "state of the project" report
+6. Recommends next steps
+
+This gives you (and the user) full context in seconds vs. manually reviewing everything.
+
+## Context Gathering (Start of Every Task)
+
+**Before starting ANY implementation or debugging work:**
+
+### Option 1: Use the Research Workflow (RECOMMENDED)
+Invoke the research workflow which automatically:
+1. Gathers context about the task
+2. Recalls relevant purmemo memories
+3. Plans research strategy with krawlr_think
+4. Executes search_web_ai for best practices
+5. Gets Context7 library documentation
+6. Presents a comprehensive research brief
+
+To use: Type `/research` in the chat (slash command available in this project)
+
+### Option 2: Manual Research (if skill not available)
+**Execute these steps manually:**
+
+1. **Recall relevant context** using `mcp__purmemo-local__recall_memories` or `mcp__purmemo-local__discover_related_conversations`
+   - Search for related past conversations, decisions, and learnings
+   - Review similar problems solved before
+   - Gather architectural context and patterns used
+
+2. **Research best practices** using `mcp__krawlr__*` tools:
+   - **Step 1**: Use `krawlr_think` FIRST to analyze the task and plan the optimal search strategy
+   - **Step 2**: Based on the thinking output, **ALWAYS use `search_web_ai` first** for superior quality (AI re-ranking, enhanced snippets, can scrape top results)
+   - **Step 3**: Only fall back to basic `search_web` if `search_web_ai` fails
+   - **Step 4**: Use `scrape_url` to get detailed docs from official sources when needed
+   - Gather implementation guidance BEFORE coding to avoid unnecessary debugging
+
+3. **Get library documentation** using `mcp__Context7__*` tools:
+   - Use `resolve-library-id` to find the right library
+   - Use `get-library-docs` to get up-to-date API documentation and examples
+   - Reference current best practices and patterns
+
+## During Implementation & Debugging
+
+**When encountering bugs or errors, use the `/debug` slash command** which automatically:
+1. Recalls similar past issues from purmemo
+2. Plans debug strategy with krawlr_think
+3. Researches error messages with search_web_ai
+4. Checks Context7 for library-specific solutions
+5. Presents comprehensive debug brief
+6. Documents the solution for future reference
+
+**For ongoing development:**
+- **For library usage**: Use Context7 to get accurate API documentation
+- **For architectural decisions**: Use `/decide` command for structured decision-making with ADRs
+- **For unfamiliar patterns**: Research with krawlr before implementing
+
+This approach minimizes trial-and-error debugging by ensuring you have the best guidance upfront.
+
+## Making Architectural Decisions
+
+**When facing significant architectural or design decisions, use `/decide`** which:
+1. Recalls past architectural decisions from purmemo
+2. Plans research strategy with krawlr_think
+3. Researches best practices with search_web_ai
+4. Compares options using Context7 documentation
+5. Creates Architecture Decision Record (ADR)
+6. Saves to purmemo for future reference
+
+**Use for:** Database selection, framework choices, architecture patterns, major refactors
+**Creates:** Structured ADR documents that become valuable team knowledge
+
+## Pre-Commit Review
+
+**Before committing code, use `/review`** which performs comprehensive checks:
+1. **Security vulnerabilities** - SQL injection, XSS, auth issues, command injection, hardcoded secrets
+2. **Code quality** - Code smells, best practices, error handling, DRY principles
+3. **Test coverage** - Tests passing, new code tested, edge cases covered
+4. **Documentation** - README, API docs, comments, CHANGELOG updates
+5. **Dependencies** - Outdated packages, security vulnerabilities, config files
+6. **Review report** - Comprehensive status with blockers, warnings, recommendations
+7. **Saves to purmemo** - Creates audit trail and knowledge base
+
+**Prevents:** Security vulnerabilities, technical debt, incomplete documentation
+**Creates:** Safer, higher-quality commits with documented reviews
+
+## Pre-Deployment Checklist
+
+**Before deploying to production (Render/Supabase), use `/deploy`** which:
+1. **Runs full test suite** - Unit, integration, E2E tests must pass
+2. **Verifies environment variables** - All required vars set in production
+3. **Reviews recent logs** - Checks for existing issues (Render/Supabase logs)
+4. **Database migration check** - Reviews migrations, creates backups, tests rollback
+5. **Security audit** - Scans for vulnerabilities in dependencies
+6. **Rollback plan** - Documents rollback strategy and triggers
+7. **Deployment execution** - Provides deployment commands for Render/Supabase
+8. **Post-deployment verification** - Health checks and smoke tests
+9. **Saves deployment record** - Creates audit trail in purmemo
+
+**Integrates with:** Render MCP (service status, logs), Supabase MCP (migrations, advisors)
+**Prevents:** Failed deployments, data loss, production incidents
+**Creates:** Reliable deployment process with full audit trail
+
+## Automatic Conversation Saving
+
+When user says "save progress" or when significant milestones are reached, use the `/save` slash command which intelligently saves or updates conversations.
+
+**LIVING DOCUMENT INTELLIGENCE:**
+- The system AUTO-DETECTS whether this is a first save (CREATE) or update (UPDATE)
+- Same conversation topic = UPDATES existing memory (no duplicates)
+- Auto-generates conversation_id from title for consistency
+- Example: "Purmemo - Timeline View" saved 3 times = ONE memory updated 3 times
+
+**YOUR RESPONSIBILITIES:**
+
+1. **Use consistent, descriptive titles** following the format:
+   - `[Project] - [Component/Feature] - [Type]`
+   - Examples: "Purmemo - MCP Integration - Implementation"
+   - Same title = automatic update of existing memory
+
+2. **Include COMPLETE conversation content**:
+   - ALL user messages verbatim (not summaries)
+   - ALL assistant responses completely
+   - ALL code blocks with full syntax
+   - Minimum 500 chars expected (should be thousands)
+
+3. **When to save**:
+   - User explicitly asks "save progress" or "save this"
+   - Significant milestones reached (feature complete, bug fixed, decision made)
+   - End of session with meaningful work accomplished
+   - Do this proactively without waiting for explicit request
+
+4. **Use the /save slash command** - it handles all the intelligence for you
+
+The tool automatically:
+- Detects existing conversations and updates them (no duplicates)
+- Extracts project context, progress, relationships
+- Generates smart metadata and tags
+- Chunks large conversations if needed
+
+## Project Context
+
+This is the Purmemo project - a memory and context management system that uses MCP servers to help Claude remember and recall information across conversations.
+
+## Architecture: Production vs Staging Routes
+
+**CRITICAL**: The frontend has TWO environments on the SAME domain at DIFFERENT routes.
+
+### Route Structure
+```
+app.purmemo.ai
+├── /dashboard        → PRODUCTION (neural constellation frontend, all users)
+└── /staging/*        → STAGING (prototyping environment, superadmin chris@purmemo.ai only)
+    ├── /staging/clusters
+    ├── /staging/constellation
+    ├── /staging/graph
+    ├── /staging/memories/[id]
+    ├── /staging/timeline
+    └── /staging/trash
+```
+
+### When User Says:
+- **"Work on staging"** → Edit files in `app/staging/*` directory
+- **"Work on production"** → Edit files in `app/dashboard` directory
+- **"Deploy"** → Same command deploys BOTH environments (single Vercel deployment)
+
+### Deployment
+- **Single Vercel deployment** to app.purmemo.ai
+- **Deploy command**: `vercel --prod` or `git push` (triggers auto-deploy)
+- **Both environments** deployed together in single build
+- **Codebase location**: `/Users/wivak/puo-jects/____active/purmemo/v1-mvp/frontend`
+
+### Navigation
+- **"Production" button** (top nav in staging pages) → routes to `/dashboard`
+- **"Staging" link** (sidebar in production) → routes to `/staging` (superadmin only, controlled by `isSuperAdmin()`)
+
+### Access Control
+- **/dashboard** (production) → Visible to all authenticated users
+- **/staging/** (staging) → Only visible to superadmin (chris@purmemo.ai) via `isSuperAdmin()` check
+
+### Key Files with Route References
+If you modify navigation or routing, check these files:
+- `components/header.tsx` - Top navigation in staging pages
+- `components/neural-constellation-v67.tsx` - Sidebar navigation in production (contains "Staging" link)
+- `app/settings/page.tsx` - Back button navigation
+- `components/error-boundary.tsx` - Error recovery navigation
