@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v11.0.0
+ * pūrmemo MCP Server v12.1.0
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -19,6 +19,10 @@
  *   - Fixes "no low surrogate" errors from corrupted Unicode in memories
  *   - Automatically cleans all text before sending to Claude API
  *   - Prevents 400 errors caused by unpaired surrogate characters
+ * - 📋 MCP Spec 2025-11-25 Compliance:
+ *   - Server instructions for LLM guidance at connection time
+ *   - outputSchema on all 4 tools for structured tool output
+ *   - Tool annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -87,10 +91,10 @@ const TOOLS = [
     name: 'save_conversation',
     annotations: {
       title: 'Save Conversation',
-      readOnlyHint: false,      // This tool WRITES data to storage
-      destructiveHint: false,   // Updates existing memories, doesn't delete
-      idempotentHint: false,    // Same content may create different IDs
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
     },
     description: `Save complete conversations as living documents. REQUIRED: Send COMPLETE conversation in 'conversationContent' parameter (minimum 100 chars, should be thousands). Include EVERY message verbatim - NO summaries or partial content.
 
@@ -185,16 +189,29 @@ const TOOLS = [
         }
       },
       required: ['conversationContent']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        memoryId: { type: 'string', description: 'Unique ID of the saved or updated memory' },
+        conversationId: { type: 'string', description: 'Living document conversation ID (derived from title)' },
+        title: { type: 'string', description: 'Title of the saved memory' },
+        status: { type: 'string', description: 'Save status (created, updated, chunked)' },
+        characterCount: { type: 'integer', description: 'Total characters saved' },
+        chunkCount: { type: 'integer', description: 'Number of chunks (1 if not chunked)' },
+        isUpdate: { type: 'boolean', description: 'Whether this updated an existing living document' }
+      },
+      required: ['memoryId', 'status']
     }
   },
   {
     name: 'recall_memories',
     annotations: {
       title: 'Recall Memories',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same query returns same results
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: `Search and retrieve saved memories with intelligent semantic ranking.
 
@@ -252,7 +269,6 @@ const TOOLS = [
           default: true,
           description: 'Include content preview in results'
         },
-        // Phase 2: Knowledge Graph Intelligence - Entity & Context Filters
         entity: {
           type: 'string',
           description: 'Filter by entity name (people, projects, technologies). Use when user asks about a specific person, project, or technology by name. Example: entity="Alice" finds only memories mentioning Alice. More precise than semantic search. Supports partial matching.'
@@ -263,7 +279,7 @@ const TOOLS = [
         },
         stakeholder: {
           type: 'string',
-          description: 'Filter by stakeholder (person or team) from conversation context. Use when user asks about specific person\'s or team\'s involvement. Example: stakeholder="Engineering Team" finds memories where Engineering Team was mentioned as stakeholder. Supports partial matching (ILIKE).'
+          description: "Filter by stakeholder (person or team) from conversation context. Use when user asks about specific person's or team's involvement. Example: stakeholder=\"Engineering Team\" finds memories where Engineering Team was mentioned as stakeholder. Supports partial matching (ILIKE)."
         },
         deadline: {
           type: 'string',
@@ -279,16 +295,41 @@ const TOOLS = [
         }
       },
       required: ['query']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        memories: {
+          type: 'array',
+          description: 'Array of matching memories ranked by relevance',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Memory unique ID' },
+              title: { type: 'string', description: 'Memory title' },
+              content: { type: 'string', description: 'Content preview or full content' },
+              platform: { type: 'string', description: 'Source platform (chatgpt, claude, gemini, etc.)' },
+              project: { type: 'string', description: 'Extracted project name if available' },
+              tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
+              created_at: { type: 'string', description: 'ISO timestamp of creation' },
+              updated_at: { type: 'string', description: 'ISO timestamp of last update' },
+              relevanceScore: { type: 'number', description: 'Search relevance score' }
+            }
+          }
+        },
+        totalCount: { type: 'integer', description: 'Total number of matching memories' }
+      },
+      required: ['memories']
     }
   },
   {
     name: 'get_memory_details',
     annotations: {
       title: 'Get Memory Details',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same memoryId returns same result
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: 'Get complete details of a specific memory, including all linked parts if chunked',
     inputSchema: {
@@ -305,16 +346,52 @@ const TOOLS = [
         }
       },
       required: ['memoryId']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory unique ID' },
+        title: { type: 'string', description: 'Memory title' },
+        content: { type: 'string', description: 'Full memory content' },
+        platform: { type: 'string', description: 'Source platform' },
+        project: { type: 'string', description: 'Associated project name' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
+        created_at: { type: 'string', description: 'ISO creation timestamp' },
+        updated_at: { type: 'string', description: 'ISO last update timestamp' },
+        linkedParts: {
+          type: 'array',
+          description: 'Linked chunk parts for multi-part memories',
+          items: {
+            type: 'object',
+            properties: {
+              partId: { type: 'string' },
+              partNumber: { type: 'integer' },
+              content: { type: 'string' }
+            }
+          }
+        },
+        metadata: {
+          type: 'object',
+          description: 'Extracted metadata (technologies, phase, status, etc.)',
+          properties: {
+            characterCount: { type: 'integer' },
+            wordCount: { type: 'integer' },
+            hasCodeBlocks: { type: 'boolean' },
+            hasArtifacts: { type: 'boolean' }
+          }
+        }
+      },
+      required: ['id', 'title', 'content']
     }
   },
   {
     name: 'discover_related_conversations',
     annotations: {
       title: 'Discover Related Conversations',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same query returns same clustered results
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: `CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
 
@@ -359,13 +436,76 @@ const TOOLS = [
         }
       },
       required: ['query']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        clusters: {
+          type: 'array',
+          description: 'Semantic clusters of related conversations',
+          items: {
+            type: 'object',
+            properties: {
+              clusterName: { type: 'string', description: 'Topic cluster name' },
+              seedMemory: {
+                type: 'object',
+                description: 'Primary memory that seeded this cluster',
+                properties: {
+                  id: { type: 'string' },
+                  title: { type: 'string' },
+                  platform: { type: 'string' },
+                  relevanceScore: { type: 'number' },
+                  created_at: { type: 'string' }
+                }
+              },
+              relatedConversations: {
+                type: 'array',
+                description: 'Related conversations within this cluster',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    title: { type: 'string' },
+                    platform: { type: 'string' },
+                    similarity: { type: 'number', description: 'Similarity score 0-100' },
+                    created_at: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        },
+        totalConversations: { type: 'integer', description: 'Total conversations found across all clusters' },
+        totalClusters: { type: 'integer', description: 'Number of semantic clusters' }
+      },
+      required: ['clusters']
     }
   }
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '11.2.3' },
-  { capabilities: { tools: {} } }
+  { name: 'purmemo-mcp', version: '12.1.0' },
+  {
+    capabilities: { tools: {} },
+    instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
+
+CORE WORKFLOW:
+1. save_conversation — Save COMPLETE conversations as living documents. Same title updates existing memory. Include every message verbatim (minimum 500 chars, expect thousands). Server auto-chunks content >15K chars.
+2. recall_memories — Search memories with semantic ranking. Use Phase 2 filters (entity, has_observations, initiative, intent) for precision. Default hybrid search covers most cases.
+3. get_memory_details — Retrieve full memory content including all linked chunks for multi-part conversations.
+4. discover_related_conversations — Find related conversations across ALL AI platforms using semantic clustering.
+
+KEY PATTERNS:
+- Living Documents: Same title = updates existing memory (not duplicates). Use conversationId for explicit control.
+- Cross-Platform: Memories span ChatGPT, Claude, Gemini, Cursor — discover_related_conversations finds connections across all platforms.
+- Intelligent Extraction: save_conversation auto-extracts project context, technologies, status, and generates smart titles.
+- Quality Filtering: Use has_observations=true to find substantial technical discussions; entity="name" for specific topics.
+
+BEST PRACTICES:
+- Always send complete conversation content when saving — never summaries or partial content.
+- Use recall_memories before saving to check if a living document already exists for the topic.
+- For "save progress" requests, the system auto-generates contextual titles from conversation content.`
+  }
 );
 
 // Utility functions
@@ -597,8 +737,8 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         content: chunk,
         title: `${title} - Part ${partNumber}/${totalParts}`,
         tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
-        platform: PLATFORM,  // Auto-detected from MCP_PLATFORM env var
-        conversation_id: `${sessionId}-part-${partNumber}`,  // Unique ID per part (prevents living document update)
+        platform: PLATFORM,
+        conversation_id: `${sessionId}-part-${partNumber}`,
         metadata: {
           ...metadata,
           captureType: 'chunked',
@@ -642,8 +782,8 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
       content: indexContent,
       title: `${title} - Index`,
       tags: [...tags, 'chunked-index', `session:${sessionId}`],
-      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
-      conversation_id: `${sessionId}-index`,  // Unique ID for index (prevents living document update)
+      platform: PLATFORM,
+      conversation_id: `${sessionId}-index`,
       metadata: {
         ...metadata,
         captureType: 'chunked-index',
@@ -674,8 +814,8 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
       content,
       title,
       tags: [...tags, 'complete-conversation'],
-      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
-      conversation_id: metadata.conversationId || null,  // For living document pattern
+      platform: PLATFORM,
+      conversation_id: metadata.conversationId || null,
       metadata: {
         ...metadata,
         captureType: 'single',
@@ -687,7 +827,7 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
   return {
     memoryId: data.id || data.memory_id,
     size: content.length,
-    wisdomSuggestion: data.wisdom_suggestion || null  // PHASE 16.3: Return wisdom suggestion
+    wisdomSuggestion: data.wisdom_suggestion || null
   };
 }
 
@@ -714,45 +854,35 @@ function formatWisdomSuggestion(wisdomSuggestion) {
 
 // Tool handlers
 async function handleSaveConversation(args) {
-  // ⚠️ PHASE 16.4: Sanitize content IMMEDIATELY to prevent JSON encoding errors
   const rawContent = args.conversationContent || '';
   const content = sanitizeUnicode(rawContent);
   const contentLength = content.length;
 
-  // ============================================================================
-  // PHASE 15: INTELLIGENT CONTEXT EXTRACTION
-  // ============================================================================
   console.error('[Phase 15] Extracting intelligent context...');
   const intelligentContext = extractProjectContext(content);
 
-  // Generate intelligent title (unless explicitly provided)
   let title = args.title;
   if (!title || title.startsWith('Conversation 202')) {
     title = generateIntelligentTitle(intelligentContext, content);
     console.error(`[Phase 15] Generated intelligent title: "${title}"`);
   }
 
-  // Extract progress indicators and relationships
   const progressIndicators = extractProgressIndicators(content);
   const relationships = extractRelationships(content);
 
   const tags = args.tags || ['complete-conversation'];
 
-  // AUTO-GENERATE conversation_id from title if not provided
-  // This enables automatic living document pattern (like Chrome extension)
   let conversationId = args.conversationId;
   if (!conversationId && title && !title.startsWith('Conversation 202')) {
-    // Generate stable ID from title (normalize to slug)
     conversationId = title
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-      .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
-      .substring(0, 100);             // Limit length
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 100);
 
     console.error(`[AUTO-ID] Generated conversation_id from title: "${conversationId}"`);
   }
 
-  // Validate content quality
   if (contentLength < 100) {
     return {
       content: [{
@@ -790,12 +920,8 @@ async function handleSaveConversation(args) {
   try {
     const metadata = extractContentMetadata(content);
 
-    // ==========================================
-    // NEW: Check for existing memory (living document)
-    // ==========================================
     if (conversationId) {
       try {
-        // Search for existing memory with this conversation_id
         const params = new URLSearchParams({
           conversation_id: conversationId,
           platform: PLATFORM,
@@ -809,15 +935,11 @@ async function handleSaveConversation(args) {
         const existingMemories = searchResponse.results || [];
 
         if (existingMemories.length > 0) {
-          // FOUND existing memory - UPDATE it
           const existingMemory = existingMemories[0];
           const memoryId = existingMemory.id;
 
           console.error(`[LIVING DOC] Updating existing memory: ${memoryId}`);
 
-          // ============================================================================
-          // PHASE 15: ENRICH UPDATE WITH INTELLIGENT CONTEXT
-          // ============================================================================
           const updateMetadata = {
             ...metadata,
             captureType: shouldChunk(content) ? 'chunked' : 'single',
@@ -846,9 +968,8 @@ async function handleSaveConversation(args) {
             })
           });
 
-          // Success response for UPDATE
           const isAutoGenerated = !args.conversationId && conversationId;
-          const wisdomSuggestion = updateResponse.wisdom_suggestion || null;  // PHASE 16.3
+          const wisdomSuggestion = updateResponse.wisdom_suggestion || null;
 
           return {
             content: [{
@@ -864,7 +985,7 @@ async function handleSaveConversation(args) {
                     `- URLs: ${metadata.urlCount}\n\n` +
                     (isAutoGenerated ? `💡 Auto-living document: Saves with title "${title}" will update this memory\n` : '') +
                     `✓ Updated existing memory (not duplicated)!` +
-                    formatWisdomSuggestion(wisdomSuggestion)  // PHASE 16.3: Display wisdom suggestion
+                    formatWisdomSuggestion(wisdomSuggestion)
             }]
           };
         } else {
@@ -872,19 +993,11 @@ async function handleSaveConversation(args) {
         }
       } catch (error) {
         console.error(`[LIVING DOC] Error checking for existing memory:`, error);
-        // Fall through to create new memory
       }
     }
-    // ==========================================
-    // End of living document check
-    // ==========================================
 
-    // No conversation_id or no existing memory found - CREATE new memory
-    metadata.conversationId = conversationId;  // Store in metadata
+    metadata.conversationId = conversationId;
 
-    // ============================================================================
-    // PHASE 15: ENRICH METADATA WITH INTELLIGENT CONTEXT
-    // ============================================================================
     metadata.intelligent = {
       ...intelligentContext,
       progress_indicators: progressIndicators,
@@ -899,7 +1012,6 @@ async function handleSaveConversation(args) {
       status: intelligentContext.status
     }, null, 2));
 
-    // Decide whether to chunk or save directly
     if (shouldChunk(content)) {
       const result = await saveChunkedContent(content, title, tags, metadata);
       const isAutoGenerated = !args.conversationId && conversationId;
@@ -944,7 +1056,7 @@ async function handleSaveConversation(args) {
                 (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
                 (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved!` +
-                formatWisdomSuggestion(result.wisdomSuggestion)  // PHASE 16.3: Display wisdom suggestion
+                formatWisdomSuggestion(result.wisdomSuggestion)
         }]
       };
     }
@@ -961,10 +1073,6 @@ async function handleSaveConversation(args) {
 
 async function handleDiscoverRelated(args) {
   try {
-    // QUOTA FIX: Use v10 MCP endpoint to enforce quota (same as recall_memories)
-    // OLD: Used /api/v1/memories/ and /api/v1/clusters/ which bypassed middleware quota check
-    // NEW: Uses /api/v10/mcp/tools/execute which enforces quota via middleware
-
     const safeQuery = sanitizeUnicode(args.query || '');
 
     const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
@@ -982,7 +1090,6 @@ async function handleDiscoverRelated(args) {
       })
     });
 
-    // Extract text from MCP response
     if (!data.content || !data.content[0] || !data.content[0].text) {
       return {
         content: [{
@@ -993,8 +1100,6 @@ async function handleDiscoverRelated(args) {
     }
 
     const responseText = data.content[0].text;
-
-    // PHASE 16.4.1: Final sanitization before sending to Claude API
     const finalSanitizedText = sanitizeUnicode(responseText);
 
     return {
@@ -1002,7 +1107,6 @@ async function handleDiscoverRelated(args) {
     };
 
   } catch (error) {
-    // Check if this is a quota error (HTTP 429)
     if (error.message && error.message.includes('429')) {
       return {
         content: [{
@@ -1023,7 +1127,6 @@ async function handleDiscoverRelated(args) {
 
 async function handleRecallMemories(args) {
   try {
-    // Phase 4: Use v10 MCP endpoint with intelligent scoring
     const safeQuery = sanitizeUnicode(args.query || '');
 
     const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
@@ -1036,7 +1139,6 @@ async function handleRecallMemories(args) {
         arguments: {
           query: args.query,
           limit: args.limit || 10,
-          // Phase 2: Knowledge Graph Intelligence filters
           entity: args.entity,
           initiative: args.initiative,
           stakeholder: args.stakeholder,
@@ -1047,7 +1149,6 @@ async function handleRecallMemories(args) {
       })
     });
 
-    // Extract text from MCP response
     if (!data.content || !data.content[0] || !data.content[0].text) {
       return {
         content: [{
@@ -1059,19 +1160,9 @@ async function handleRecallMemories(args) {
 
     const responseText = data.content[0].text;
 
-    // Parse the response to extract memories and format with emojis
-    // The backend returns text like:
-    // **Title**
-    // ID: xxx
-    // Relevance: 95.1%
-    // Created: ...
-    // Platform: chatgpt
-    // Preview: ...
-
     const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**'));
 
     if (memoryBlocks.length === 0) {
-      // No memories in response, return the backend's message
       return {
         content: [{ type: 'text', text: sanitizeUnicode(responseText) }]
       };
@@ -1080,7 +1171,6 @@ async function handleRecallMemories(args) {
     let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
 
     memoryBlocks.forEach((block, index) => {
-      // Extract fields from the block
       const titleMatch = block.match(/\*\*(.+?)\*\*/);
       const relevanceMatch = block.match(/Relevance: ([\d.]+)%/);
       const idMatch = block.match(/ID: (.+)/);
@@ -1097,9 +1187,8 @@ async function handleRecallMemories(args) {
                    platform === 'claude' ? '🟣' :
                    platform === 'gemini' ? '💎' : '❓';
 
-      // Format with emojis and relevance score
       resultText += `${index + 1}. ${emoji} **${sanitizeUnicode(title)}**\n`;
-      resultText += `   🎯 Relevance: ${relevance}%\n`; // PHASE 4: Show relevance score!
+      resultText += `   🎯 Relevance: ${relevance}%\n`;
       resultText += `   🌍 Platform: ${platform}\n`;
 
       if (preview) {
@@ -1108,14 +1197,12 @@ async function handleRecallMemories(args) {
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
 
-    // Add cluster discovery hint at the end
     resultText += `${'─'.repeat(60)}\n\n`;
     resultText += `💡 **Discover More:**\n`;
     resultText += `Use 'discover_related_conversations' with your query to find related\n`;
     resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
     resultText += `Automatically grouped by AI-organized semantic clusters!\n`;
 
-    // PHASE 16.4.1: Final sanitization of entire response before sending to Claude API
     const finalSanitizedText = sanitizeUnicode(resultText);
 
     return {
@@ -1138,7 +1225,6 @@ async function handleGetMemoryDetails(args) {
   try {
     console.error(`[GET_MEMORY_DETAILS] Calling MCP endpoint POST /api/v10/mcp/tools/execute`);
 
-    // Call the MCP endpoint (same as recall_memories, save_conversation, etc.)
     const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
       method: 'POST',
       headers: {
@@ -1148,14 +1234,13 @@ async function handleGetMemoryDetails(args) {
         tool: 'get_memory_details',
         arguments: {
           memoryId: args.memoryId,
-          includeLinkedParts: args.includeLinkedParts !== false  // Default to true
+          includeLinkedParts: args.includeLinkedParts !== false
         }
       })
     });
 
     console.error(`[GET_MEMORY_DETAILS] MCP endpoint call succeeded`);
 
-    // Extract text from MCP response
     if (!data.content || !data.content[0] || !data.content[0].text) {
       console.error(`[GET_MEMORY_DETAILS] WARNING: MCP response has no content`);
       return {
@@ -1169,7 +1254,6 @@ async function handleGetMemoryDetails(args) {
     const responseText = data.content[0].text;
     console.error(`[GET_MEMORY_DETAILS] Successfully retrieved memory, response size: ${responseText.length} chars`);
 
-    // Sanitize the response before returning
     const sanitizedText = sanitizeUnicode(responseText);
 
     return {
