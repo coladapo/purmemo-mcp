@@ -73,11 +73,7 @@ if (process.env.NODE_ENV !== 'production') {
   console.error(`[Purmemo MCP] Detected platform: ${PLATFORM}`);
 }
 
-// Session management for chunked captures
-const sessions = {
-  active: new Map(),
-  completed: new Map()
-};
+
 
 // ULTIMATE TOOL DEFINITIONS
 // MCP Tool Annotations (Anthropic Connector Directory Requirement #17)
@@ -250,7 +246,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        query: { 
+        query: {
           type: 'string',
           description: 'Search query - can be keywords, topics, or specific content'
         },
@@ -259,8 +255,8 @@ const TOOLS = [
           default: true,
           description: 'Include chunked/multi-part conversations in results'
         },
-        limit: { 
-          type: 'integer', 
+        limit: {
+          type: 'integer',
           default: 10,
           description: 'Maximum number of memories to return'
         },
@@ -680,16 +676,16 @@ function shouldChunk(content) {
 function chunkContent(content, maxChunkSize = 20000) {
   const chunks = [];
   let currentPos = 0;
-  
+
   while (currentPos < content.length) {
     let chunkEnd = Math.min(currentPos + maxChunkSize, content.length);
-    
+
     // Try to break at natural boundaries (paragraph, section, etc.)
     if (chunkEnd < content.length) {
       // Look for good break points within the last 1000 chars of the chunk
       const searchStart = Math.max(chunkEnd - 1000, currentPos);
       const segment = content.slice(searchStart, chunkEnd);
-      
+
       // Try to break at section markers first
       const sectionBreak = segment.lastIndexOf('\n===');
       if (sectionBreak !== -1) {
@@ -708,12 +704,12 @@ function chunkContent(content, maxChunkSize = 20000) {
         }
       }
     }
-    
+
     const chunk = content.slice(currentPos, chunkEnd);
     chunks.push(chunk);
     currentPos = chunkEnd;
   }
-  
+
   return chunks;
 }
 
@@ -721,11 +717,11 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
   const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const chunks = chunkContent(content);
   const totalParts = chunks.length;
-  
+
   console.error(`[CHUNKED] Saving ${content.length} chars in ${totalParts} parts`);
-  
+
   const savedParts = [];
-  
+
   // Save each chunk
   for (let i = 0; i < chunks.length; i++) {
     const partNumber = i + 1;
@@ -750,31 +746,16 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         }
       })
     });
-    
+
     savedParts.push({
       partNumber,
       memoryId: partData.id || partData.memory_id,
       size: chunk.length
     });
   }
-  
+
   // Create index memory
-  const indexContent = `# ${title} - Complete Capture Index
-
-## Capture Summary
-- Total Parts: ${totalParts}
-- Total Size: ${content.length} characters
-- Session ID: ${sessionId}
-- Saved: ${new Date().toISOString()}
-
-## Parts Overview
-${savedParts.map(p => `- Part ${p.partNumber}: ${p.size} chars [${p.memoryId}]`).join('\n')}
-
-## Metadata
-${JSON.stringify(metadata, null, 2)}
-
-## Full Content Access
-Use recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
+  const indexContent = `# ${title} - Complete Capture Index\n\n## Capture Summary\n- Total Parts: ${totalParts}\n- Total Size: ${content.length} characters\n- Session ID: ${sessionId}\n- Saved: ${new Date().toISOString()}\n\n## Parts Overview\n${savedParts.map(p => `- Part ${p.partNumber}: ${p.size} chars [${p.memoryId}]`).join('\n')}\n\n## Metadata\n${JSON.stringify(metadata, null, 2)}\n\n## Full Content Access\nUse recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
 
   const indexData = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
@@ -1060,7 +1041,7 @@ async function handleSaveConversation(args) {
         }]
       };
     }
-    
+
   } catch (error) {
     return {
       content: [{
@@ -1304,19 +1285,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
-    console.error('✅ Purmemo MCP Server v10.0.2-phase16.4-fix started successfully');
+    console.error('✅ Purmemo MCP Server v12.1.0 started successfully');
     console.error(`   API URL: ${API_URL}`);
     console.error(`   API Key: ${API_KEY ? 'Configured ✓' : 'NOT CONFIGURED ✗'}`);
     console.error(`   Platform: ${PLATFORM}`);
     console.error(`   Tools: ${TOOLS.length} available`);
-    console.error(`   🧠 Phase 15: Intelligent memory saving with auto-context extraction`);
-    console.error(`   🎯 Phase 15: Smart title generation (no more timestamps!)`);
-    console.error(`   📊 Phase 15: Automatic project/component/feature detection`);
-    console.error(`   🗺️ Phase 15: Roadmap tracking across AI tools`);
-    console.error(`   🌟 Phase 16.3: Wisdom Layer - AI-powered tool orchestration`);
-    console.error(`   🔮 Phase 16.3: Proactive next-tool suggestions with context`);
-    console.error(`   🌍 Cluster-powered discovery across ChatGPT, Claude, Gemini`);
-    console.error(`   🛡️ Phase 16.4: Unicode sanitization - fixes "no low surrogate" errors`);
   })
   .catch((error) => {
     console.error('❌ Failed to start MCP server:', error.message);
