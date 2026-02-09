@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v12.2.0 - Tier 3 Production Hardening
+ * pūrmemo MCP Server v12.3.0 - Tier 4 Resources & Prompts
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -35,7 +35,11 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   extractProjectContext,
@@ -618,9 +622,9 @@ const TOOLS = [
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '12.2.0' },
+  { name: 'purmemo-mcp', version: '12.3.0' },
   {
-    capabilities: { tools: {} },
+    capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
 
 CORE WORKFLOW:
@@ -641,6 +645,99 @@ BEST PRACTICES:
 - For "save progress" requests, the system auto-generates contextual titles from conversation content.`
   }
 );
+
+// ============================================================================
+// TIER 4: Resource Definitions (MCP 2025-11-25)
+// ============================================================================
+
+const RESOURCES = [
+  {
+    uri: 'memory://recent',
+    name: 'Recent Memories',
+    description: 'Last 10 saved memories with titles, dates, and tags',
+    mimeType: 'application/json'
+  },
+  {
+    uri: 'memory://stats',
+    name: 'Memory Statistics',
+    description: 'Account-level memory statistics including total memories, tags, and storage usage',
+    mimeType: 'application/json'
+  }
+];
+
+const RESOURCE_TEMPLATES = [
+  {
+    uriTemplate: 'memory://{memoryId}',
+    name: 'Memory by ID',
+    description: 'Retrieve full content of a specific memory by its unique ID',
+    mimeType: 'application/json'
+  }
+];
+
+// ============================================================================
+// TIER 4: Prompt Definitions (MCP 2025-11-25)
+// ============================================================================
+
+const PROMPTS = [
+  {
+    name: 'save-session',
+    description: 'Generate a structured prompt for saving the current conversation as a living document',
+    arguments: [
+      {
+        name: 'sessionContext',
+        description: 'Brief description of what was discussed or accomplished in this session',
+        required: true
+      },
+      {
+        name: 'includeCode',
+        description: 'Whether to emphasize including code blocks in the save (true/false)',
+        required: false
+      },
+      {
+        name: 'autoTitle',
+        description: 'Whether to let the system auto-generate a title from context (true/false)',
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'recall-context',
+    description: 'Generate a prompt for recalling relevant past conversations before starting a new task',
+    arguments: [
+      {
+        name: 'taskDescription',
+        description: 'Description of the task you are about to work on',
+        required: true
+      },
+      {
+        name: 'searchType',
+        description: 'Type of search to perform: semantic (default), exact, or hybrid',
+        required: false
+      },
+      {
+        name: 'limit',
+        description: 'Maximum number of memories to recall (default: 5)',
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'weekly-summary',
+    description: 'Generate a prompt for creating a weekly summary of saved conversations and progress',
+    arguments: [
+      {
+        name: 'includeStats',
+        description: 'Whether to include memory statistics in the summary (true/false)',
+        required: false
+      },
+      {
+        name: 'projectFilter',
+        description: 'Optional project name to filter the summary to a specific project',
+        required: false
+      }
+    ]
+  }
+];
 
 // Utility functions
 
@@ -832,7 +929,7 @@ function extractContentMetadata(content) {
   }
 
   // Count file paths
-  const pathMatches = content.match(/[\/~][\w\-\.\/]+\.\w+/g);
+  const pathMatches = content.match(/[\/~][\w\-.\/]+\.\w+/g);
   if (pathMatches) {
     metadata.hasFilePaths = true;
     metadata.filePathCount = pathMatches.length;
@@ -1502,7 +1599,7 @@ async function handleRecallMemories(args) {
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
 
-    resultText += `${'-'.repeat(60)}\n\n`;
+    resultText += `${'─'.repeat(60)}\n\n`;
     resultText += `💡 **Discover More:**\n`;
     resultText += `Use 'discover_related_conversations' with your query to find related\n`;
     resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
@@ -1645,13 +1742,218 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// ============================================================================
+// TIER 4: Resource Handlers (MCP 2025-11-25)
+// ============================================================================
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  structuredLog.info('resources/list called');
+  return {
+    resources: RESOURCES,
+    resourceTemplates: RESOURCE_TEMPLATES
+  };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+  const requestId = `resource_read_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info('resources/read called', { request_id: requestId, uri });
+
+  try {
+    let data;
+    let resourceUri = uri;
+
+    if (uri === 'memory://recent') {
+      // Fetch recent memories
+      data = await makeApiCall('/api/v1/memories/?page_size=10&sort=-created_at', {
+        method: 'GET'
+      });
+      const memories = (data.results || []).map(m => ({
+        id: m.id,
+        title: m.title || 'Untitled',
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+        tags: m.tags || [],
+        platform: m.platform || 'unknown'
+      }));
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime,
+        memory_count: memories.length
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify({ memories, count: memories.length }, null, 2)
+        }]
+      };
+
+    } else if (uri === 'memory://stats') {
+      // Fetch memory statistics
+      data = await makeApiCall('/api/v1/stats/', { method: 'GET' });
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify(data, null, 2)
+        }]
+      };
+
+    } else if (uri.startsWith('memory://')) {
+      // Fetch specific memory by ID
+      const memoryId = uri.replace('memory://', '');
+      if (!memoryId || memoryId === '') {
+        throw new Error('Memory ID is required in URI: memory://{memoryId}');
+      }
+
+      data = await makeApiCall(`/api/v1/memories/${memoryId}/`, { method: 'GET' });
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime,
+        memory_id: memoryId
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify(data, null, 2)
+        }]
+      };
+
+    } else {
+      throw new Error(`Unknown resource URI: ${uri}`);
+    }
+
+  } catch (error) {
+    structuredLog.error('resources/read failed', {
+      request_id: requestId,
+      uri,
+      duration_ms: Date.now() - startTime,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+    throw error;
+  }
+});
+
+// ============================================================================
+// TIER 4: Prompt Handlers (MCP 2025-11-25)
+// ============================================================================
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  structuredLog.info('prompts/list called');
+  return { prompts: PROMPTS };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: promptArgs } = request.params;
+  const requestId = `prompt_get_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+  structuredLog.info('prompts/get called', { request_id: requestId, prompt_name: name });
+
+  if (name === 'save-session') {
+    const sessionContext = promptArgs?.sessionContext || 'No context provided';
+    const includeCode = promptArgs?.includeCode === 'true' || promptArgs?.includeCode === true;
+    const autoTitle = promptArgs?.autoTitle !== 'false' && promptArgs?.autoTitle !== false;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please save our current conversation using the save_conversation tool.\n\n` +
+                  `Session context: ${sessionContext}\n\n` +
+                  `Instructions:\n` +
+                  `- Include the COMPLETE conversation content (every message verbatim)\n` +
+                  (includeCode ? `- Make sure to include ALL code blocks and their full content\n` : '') +
+                  (autoTitle ? `- Let the system auto-generate an intelligent title from the content\n` : `- Use a descriptive title based on the session context\n`) +
+                  `- Tag with relevant project names and technologies discussed\n` +
+                  `- This should be saved as a living document that can be updated later`
+          }
+        }
+      ]
+    };
+
+  } else if (name === 'recall-context') {
+    const taskDescription = promptArgs?.taskDescription || 'general task';
+    const searchType = promptArgs?.searchType || 'semantic';
+    const limit = parseInt(promptArgs?.limit) || 5;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Before I start working on: "${taskDescription}"\n\n` +
+                  `Please recall relevant past conversations using recall_memories.\n\n` +
+                  `Search strategy: ${searchType}\n` +
+                  `Maximum results: ${limit}\n\n` +
+                  `Look for:\n` +
+                  `- Previous discussions about this topic or related features\n` +
+                  `- Decisions made that might affect this work\n` +
+                  `- Code patterns or approaches used before\n` +
+                  `- Any blockers or issues encountered in similar tasks\n\n` +
+                  `Summarize what you find so I have full context before starting.`
+          }
+        }
+      ]
+    };
+
+  } else if (name === 'weekly-summary') {
+    const includeStats = promptArgs?.includeStats !== 'false' && promptArgs?.includeStats !== false;
+    const projectFilter = promptArgs?.projectFilter || null;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please create a weekly summary of my recent AI conversations.\n\n` +
+                  (includeStats ? `First, check memory://stats for overall statistics.\n` : '') +
+                  (projectFilter ? `Focus specifically on the "${projectFilter}" project.\n` : 'Cover all projects and topics.\n') +
+                  `\nThen recall recent memories and organize them by:\n` +
+                  `1. Key decisions made\n` +
+                  `2. Progress on ongoing projects\n` +
+                  `3. New learnings or insights\n` +
+                  `4. Open questions or blockers\n` +
+                  `5. Cross-platform activity (which AI tools were used)\n\n` +
+                  `Keep the summary concise but actionable.`
+          }
+        }
+      ]
+    };
+
+  } else {
+    throw new Error(`Unknown prompt: ${name}. Available prompts: ${PROMPTS.map(p => p.name).join(', ')}`);
+  }
+});
+
 // Start server
 const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
     structuredLog.info('Purmemo MCP Server started successfully', {
-      version: '12.2.0',
-      tier: '3-production',
+      version: '12.3.0',
+      tier: '4-resources-prompts',
       api_url: API_URL,
       api_key_configured: !!API_KEY,
       platform: PLATFORM,
@@ -1667,7 +1969,9 @@ server.connect(transport)
         'Structured JSON logging',
         'Circuit breaker pattern for API resilience',
         'Per-tool request timing and metrics',
-        'Safe error handling with fallbacks'
+        'Safe error handling with fallbacks',
+        'MCP Resources (memory://recent, memory://stats, memory://{id})',
+        'MCP Prompts (save-session, recall-context, weekly-summary)'
       ]
     });
   })
