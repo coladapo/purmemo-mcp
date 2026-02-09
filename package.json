@@ -19,7 +19,7 @@
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
     "test": "node --test tests/*.test.js",
-    "postinstall": "node -e \"console.log('\\n🚀 pūrmemo MCP installed!\\n\\nSave and recall AI conversations across Claude Desktop, Cursor, and more.\\n\\n📋 Quick Setup:\\n   1. Get your free API key at https://app.purmemo.ai\\n   2. Add PURMEMO_API_KEY to your MCP config\\n   3. Docs: https://github.com/coladapo/purmemo-mcp#quick-start\\n\\n🌐 Using ChatGPT, Claude.ai, or Gemini in browser?\\n   Get the Chrome Extension at https://purmemo.ai/extension\\n')\"
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "mcp",
