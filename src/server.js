@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v12.1.0 - Tier 3 Production Hardening
+ * pūrmemo MCP Server v12.2.0 - Tier 3 Production Hardening
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -618,7 +618,7 @@ const TOOLS = [
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '12.1.0' },
+  { name: 'purmemo-mcp', version: '12.2.0' },
   {
     capabilities: { tools: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -1502,7 +1502,7 @@ async function handleRecallMemories(args) {
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
 
-    resultText += `${'─'.repeat(60)}\n\n`;
+    resultText += `${'-'.repeat(60)}\n\n`;
     resultText += `💡 **Discover More:**\n`;
     resultText += `Use 'discover_related_conversations' with your query to find related\n`;
     resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
@@ -1650,7 +1650,7 @@ const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
     structuredLog.info('Purmemo MCP Server started successfully', {
-      version: '12.1.0',
+      version: '12.2.0',
       tier: '3-production',
       api_url: API_URL,
       api_key_configured: !!API_KEY,
