@@ -961,29 +961,22 @@ async function handleSaveConversation(args) {
 
 async function handleDiscoverRelated(args) {
   try {
-    // QUOTA FIX: Use v10 MCP endpoint to enforce quota (same as recall_memories)
-    // OLD: Used /api/v1/memories/ and /api/v1/clusters/ which bypassed middleware quota check
-    // NEW: Uses /api/v10/mcp/tools/execute which enforces quota via middleware
-
+    // PATCHED: Use direct v1 API instead of broken v10 MCP endpoint
+    // First, search for memories matching the query
     const safeQuery = sanitizeUnicode(args.query || '');
 
-    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        tool: 'discover_related_conversations',
-        arguments: {
-          query: args.query,
-          limit: args.limit || 10,
-          relatedPerMemory: args.relatedPerMemory || 5
-        }
-      })
+    const searchParams = new URLSearchParams({
+      query: args.query,
+      limit: (args.limit || 10).toString()
     });
 
-    // Extract text from MCP response
-    if (!data.content || !data.content[0] || !data.content[0].text) {
+    const searchData = await makeApiCall(`/api/v1/memories/search/?${searchParams}`, {
+      method: 'GET'
+    });
+
+    const memories = searchData.results || [];
+
+    if (memories.length === 0) {
       return {
         content: [{
           type: 'text',
@@ -992,10 +985,57 @@ async function handleDiscoverRelated(args) {
       };
     }
 
-    const responseText = data.content[0].text;
+    // For each memory, get its cluster and find related memories
+    let resultText = `🔍 Discovered ${memories.length} conversations for "${safeQuery}" across platforms\n\n`;
+
+    for (let i = 0; i < Math.min(memories.length, args.limit || 10); i++) {
+      const memory = memories[i];
+      const title = memory.title || 'Untitled';
+      const platform = memory.platform || 'unknown';
+      const memoryId = memory.id;
+
+      const emoji = platform === 'chatgpt' ? '🤖' :
+                   platform === 'claude' || platform === 'claude-code' ? '🟣' :
+                   platform === 'gemini' ? '💎' : '❓';
+
+      resultText += `${i + 1}. ${emoji} **${sanitizeUnicode(title)}**\n`;
+      resultText += `   🌍 Platform: ${platform}\n`;
+      resultText += `   🔗 ID: ${memoryId}\n`;
+
+      // Try to get related memories from the same cluster
+      if (memory.cluster_id) {
+        try {
+          const clusterParams = new URLSearchParams({
+            cluster_id: memory.cluster_id.toString(),
+            limit: (args.relatedPerMemory || 5).toString()
+          });
+
+          const clusterData = await makeApiCall(`/api/v1/memories/search/?${clusterParams}`, {
+            method: 'GET'
+          });
+
+          const relatedMemories = (clusterData.results || []).filter(m => m.id !== memoryId).slice(0, args.relatedPerMemory || 5);
+
+          if (relatedMemories.length > 0) {
+            resultText += `   📎 Related (${relatedMemories.length}):\n`;
+            relatedMemories.forEach(related => {
+              const relatedPlatform = related.platform || 'unknown';
+              const relatedEmoji = relatedPlatform === 'chatgpt' ? '🤖' :
+                                  relatedPlatform === 'claude' || relatedPlatform === 'claude-code' ? '🟣' :
+                                  relatedPlatform === 'gemini' ? '💎' : '❓';
+              resultText += `      ${relatedEmoji} ${sanitizeUnicode(related.title || 'Untitled')}\n`;
+            });
+          }
+        } catch (error) {
+          console.error(`[DISCOVER_RELATED] Error fetching cluster for memory ${memoryId}:`, error.message);
+        }
+      }
+
+      resultText += `\n`;
+    }
 
     // PHASE 16.4.1: Final sanitization before sending to Claude API
-    const finalSanitizedText = sanitizeUnicode(responseText);
+    const finalSanitizedText = sanitizeUnicode(resultText);
 
     return {
       content: [{ type: 'text', text: finalSanitizedText }]
@@ -1023,32 +1063,33 @@ async function handleDiscoverRelated(args) {
 
 async function handleRecallMemories(args) {
   try {
-    // Phase 4: Use v10 MCP endpoint with intelligent scoring
+    // PATCHED: Use direct v1 API instead of broken v10 MCP endpoint
     const safeQuery = sanitizeUnicode(args.query || '');
 
-    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        tool: 'recall_memories',
-        arguments: {
-          query: args.query,
-          limit: args.limit || 10,
-          // Phase 2: Knowledge Graph Intelligence filters
-          entity: args.entity,
-          initiative: args.initiative,
-          stakeholder: args.stakeholder,
-          deadline: args.deadline,
-          intent: args.intent,
-          has_observations: args.has_observations
-        }
-      })
+    // Build query params for direct API call
+    const params = new URLSearchParams({
+      query: args.query,
+      limit: (args.limit || 10).toString(),
+      include_chunked: (args.includeChunked !== false).toString(),
+      content_preview: (args.contentPreview !== false).toString()
     });
 
-    // Extract text from MCP response
-    if (!data.content || !data.content[0] || !data.content[0].text) {
+    // Add optional filters if provided
+    if (args.entity) params.append('entity', args.entity);
+    if (args.initiative) params.append('initiative', args.initiative);
+    if (args.stakeholder) params.append('stakeholder', args.stakeholder);
+    if (args.deadline) params.append('deadline', args.deadline);
+    if (args.intent) params.append('intent', args.intent);
+    if (args.has_observations !== undefined) params.append('has_observations', args.has_observations.toString());
+
+    const data = await makeApiCall(`/api/v1/memories/search/?${params}`, {
+      method: 'GET'
+    });
+
+    // PATCHED: Parse direct API response instead of MCP wrapper
+    const memories = data.results || [];
+
+    if (memories.length === 0) {
       return {
         content: [{
           type: 'text',
@@ -1057,49 +1098,22 @@ async function handleRecallMemories(args) {
       };
     }
 
-    const responseText = data.content[0].text;
+    let resultText = `🔍 Found ${memories.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
 
-    // Parse the response to extract memories and format with emojis
-    // The backend returns text like:
-    // **Title**
-    // ID: xxx
-    // Relevance: 95.1%
-    // Created: ...
-    // Platform: chatgpt
-    // Preview: ...
-
-    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**'));
-
-    if (memoryBlocks.length === 0) {
-      // No memories in response, return the backend's message
-      return {
-        content: [{ type: 'text', text: sanitizeUnicode(responseText) }]
-      };
-    }
-
-    let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
-
-    memoryBlocks.forEach((block, index) => {
-      // Extract fields from the block
-      const titleMatch = block.match(/\*\*(.+?)\*\*/);
-      const relevanceMatch = block.match(/Relevance: ([\d.]+)%/);
-      const idMatch = block.match(/ID: (.+)/);
-      const platformMatch = block.match(/Platform: (\w+)/);
-      const previewMatch = block.match(/Preview: (.+)/);
-
-      const title = titleMatch ? titleMatch[1] : 'Untitled';
-      const relevance = relevanceMatch ? relevanceMatch[1] : '?';
-      const memoryId = idMatch ? idMatch[1].trim() : 'unknown';
-      const platform = platformMatch ? platformMatch[1] : 'unknown';
-      const preview = previewMatch ? previewMatch[1] : '';
+    memories.forEach((memory, index) => {
+      const title = memory.title || 'Untitled';
+      const relevance = memory.relevance_score ? (memory.relevance_score * 100).toFixed(1) : '?';
+      const memoryId = memory.id || 'unknown';
+      const platform = memory.platform || 'unknown';
+      const preview = memory.content_preview || memory.content || '';
 
       const emoji = platform === 'chatgpt' ? '🤖' :
-                   platform === 'claude' ? '🟣' :
+                   platform === 'claude' || platform === 'claude-code' ? '🟣' :
                    platform === 'gemini' ? '💎' : '❓';
 
       // Format with emojis and relevance score
       resultText += `${index + 1}. ${emoji} **${sanitizeUnicode(title)}**\n`;
-      resultText += `   🎯 Relevance: ${relevance}%\n`; // PHASE 4: Show relevance score!
+      resultText += `   🎯 Relevance: ${relevance}%\n`;
       resultText += `   🌍 Platform: ${platform}\n`;
 
       if (preview) {
@@ -1136,41 +1150,59 @@ async function handleGetMemoryDetails(args) {
   console.error(`[GET_MEMORY_DETAILS] Called with memoryId: ${args.memoryId}, includeLinkedParts: ${args.includeLinkedParts}`);
 
   try {
-    console.error(`[GET_MEMORY_DETAILS] Calling MCP endpoint POST /api/v10/mcp/tools/execute`);
+    console.error(`[GET_MEMORY_DETAILS] PATCHED: Calling direct API GET /api/v1/memories/${args.memoryId}/`);
 
-    // Call the MCP endpoint (same as recall_memories, save_conversation, etc.)
-    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        tool: 'get_memory_details',
-        arguments: {
-          memoryId: args.memoryId,
-          includeLinkedParts: args.includeLinkedParts !== false  // Default to true
-        }
-      })
+    // PATCHED: Use direct v1 API instead of broken v10 MCP endpoint
+    const data = await makeApiCall(`/api/v1/memories/${args.memoryId}/`, {
+      method: 'GET'
     });
 
-    console.error(`[GET_MEMORY_DETAILS] MCP endpoint call succeeded`);
+    console.error(`[GET_MEMORY_DETAILS] Direct API call succeeded`);
 
-    // Extract text from MCP response
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      console.error(`[GET_MEMORY_DETAILS] WARNING: MCP response has no content`);
+    if (!data || !data.id) {
+      console.error(`[GET_MEMORY_DETAILS] WARNING: API response has no memory data`);
       return {
         content: [{
           type: 'text',
-          text: `❌ Memory not found or invalid response\n\nMemory ID: ${args.memoryId}`
+          text: `❌ Memory not found\n\nMemory ID: ${args.memoryId}`
         }]
       };
     }
 
-    const responseText = data.content[0].text;
-    console.error(`[GET_MEMORY_DETAILS] Successfully retrieved memory, response size: ${responseText.length} chars`);
+    // Format the memory details
+    const memory = data;
+    const title = memory.title || 'Untitled';
+    const content = memory.content || '';
+    const platform = memory.platform || 'unknown';
+    const createdAt = memory.created_at ? new Date(memory.created_at).toLocaleString() : 'Unknown';
+    const tags = memory.tags || [];
+    const metadata = memory.metadata || {};
+
+    const emoji = platform === 'chatgpt' ? '🤖' :
+                 platform === 'claude' || platform === 'claude-code' ? '🟣' :
+                 platform === 'gemini' ? '💎' : '❓';
+
+    let resultText = `${emoji} **${sanitizeUnicode(title)}**\n\n`;
+    resultText += `🔗 ID: ${memory.id}\n`;
+    resultText += `🌍 Platform: ${platform}\n`;
+    resultText += `📅 Created: ${createdAt}\n`;
+
+    if (tags.length > 0) {
+      resultText += `🏷️ Tags: ${tags.join(', ')}\n`;
+    }
+
+    resultText += `\n${'─'.repeat(60)}\n\n`;
+    resultText += `📝 **Content:**\n\n${sanitizeUnicode(content)}\n`;
+
+    if (Object.keys(metadata).length > 0) {
+      resultText += `\n${'─'.repeat(60)}\n\n`;
+      resultText += `📊 **Metadata:**\n\n${JSON.stringify(metadata, null, 2)}\n`;
+    }
+
+    console.error(`[GET_MEMORY_DETAILS] Successfully formatted memory, response size: ${resultText.length} chars`);
 
     // Sanitize the response before returning
-    const sanitizedText = sanitizeUnicode(responseText);
+    const sanitizedText = sanitizeUnicode(resultText);
 
     return {
       content: [{ type: 'text', text: sanitizedText }]
