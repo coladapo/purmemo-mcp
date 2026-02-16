@@ -1205,16 +1205,78 @@ async function handleGetAcknowledgedErrors(args) {
       };
     }
 
-    // Format response for Claude
+    // Format response for Claude with rich context
     const errorList = response.acknowledged_errors.map((err, idx) => {
-      return `\n${idx + 1}. **${err.level.toUpperCase()}** (ID: ${err.id})
+      let output = `\n${idx + 1}. **${err.level.toUpperCase()}** (ID: ${err.id})
    Message: ${err.message}
    Occurrences: ${err.occurrence_count}
    First Seen: ${err.first_seen_at}
    Last Seen: ${err.last_seen_at}
-   Source: ${err.source}
-   ${err.metadata ? `Metadata: ${JSON.stringify(err.metadata, null, 2)}` : ''}
-   ${err.sample_log_ids && err.sample_log_ids.length > 0 ? `Sample Logs: ${err.sample_log_ids.join(', ')}` : ''}`;
+   Source: ${err.source}`;
+
+      // Enhanced: Display rich error context if available
+      if (err.metadata) {
+        // Check for exception context from Phase 1 enhancement
+        if (err.metadata.exception_type) {
+          output += `\n\n   🔍 EXCEPTION DETAILS:`;
+          output += `\n   Type: ${err.metadata.exception_type}`;
+          if (err.metadata.exception_message) {
+            output += `\n   Message: ${err.metadata.exception_message}`;
+          }
+        }
+
+        // Display error location
+        if (err.metadata.error_location) {
+          const loc = err.metadata.error_location;
+          output += `\n\n   📍 ERROR LOCATION:`;
+          output += `\n   File: ${loc.file || loc.full_path}`;
+          output += `\n   Line: ${loc.line}`;
+          output += `\n   Function: ${loc.function}`;
+          if (loc.code) {
+            output += `\n   Code: ${loc.code}`;
+          }
+        }
+
+        // Display traceback (first 5 frames)
+        if (err.metadata.traceback_frames && err.metadata.traceback_frames.length > 0) {
+          output += `\n\n   📚 STACK TRACE:`;
+          const frames = err.metadata.traceback_frames.slice(-5); // Last 5 frames
+          frames.forEach((frame, i) => {
+            output += `\n   ${i + 1}. ${frame.file}:${frame.line} in ${frame.function}`;
+            if (frame.code) {
+              output += `\n      ${frame.code}`;
+            }
+          });
+        }
+
+        // Display request context
+        if (err.metadata.request_context) {
+          const req = err.metadata.request_context;
+          output += `\n\n   🌐 REQUEST CONTEXT:`;
+          output += `\n   Endpoint: ${req.endpoint || req.path}`;
+          output += `\n   Method: ${req.method}`;
+          if (req.user) output += `\n   User: ${req.user}`;
+        }
+
+        // Display other metadata compactly
+        const displayedKeys = ['exception_type', 'exception_message', 'error_location', 'traceback_frames', 'traceback', 'request_context'];
+        const otherMetadata = Object.keys(err.metadata)
+          .filter(key => !displayedKeys.includes(key))
+          .reduce((obj, key) => {
+            obj[key] = err.metadata[key];
+            return obj;
+          }, {});
+
+        if (Object.keys(otherMetadata).length > 0) {
+          output += `\n\n   📋 OTHER METADATA: ${JSON.stringify(otherMetadata, null, 2)}`;
+        }
+      }
+
+      if (err.sample_log_ids && err.sample_log_ids.length > 0) {
+        output += `\n\n   📝 Sample Logs: ${err.sample_log_ids.join(', ')}`;
+      }
+
+      return output;
     }).join('\n');
 
     return {
