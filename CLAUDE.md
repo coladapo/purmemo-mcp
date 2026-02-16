@@ -108,6 +108,72 @@ This approach minimizes trial-and-error debugging by ensuring you have the best 
 **Prevents:** Failed deployments, data loss, production incidents
 **Creates:** Reliable deployment process with full audit trail
 
+## Error Investigation Workflow
+
+**When production errors are acknowledged in the admin panel, use `/investigate-errors`** to:
+1. **Fetch acknowledged errors** - Get errors waiting for investigation via MCP tool
+2. **Research similar fixes** - Check purmemo for past similar errors
+3. **Search best practices** - Use krawlr search_web_ai for solutions
+4. **Get library docs** - Use Context7 for up-to-date API documentation
+5. **Investigate codebase** - grep, read, git log to find root cause
+6. **Propose fix** - Present analysis with confidence score and risk assessment
+7. **Deploy when approved** - Edit, test, commit, push, monitor deployment
+8. **Save investigation** - Store audit trail for learning from past fixes
+
+**7-Step Investigation Process:**
+
+**Step 1:** Fetch errors
+```
+get_acknowledged_errors(limit=10, level_filter="error", min_occurrences=3)
+```
+
+**Step 2:** Choose error to investigate (ask user)
+
+**Step 3:** Research
+- `recall_memories(query="<error keywords>")` - Check if we've seen this before
+- `search_web_ai(query="<error message> solution")` - Find official solutions
+- Context7 - Get library-specific documentation
+
+**Step 4:** Investigate
+- `grep` to find error source
+- `read` to examine files
+- `bash git log` to check recent changes
+
+**Step 5:** Propose fix (template)
+```markdown
+## ROOT CAUSE
+[Your analysis]
+
+## FIX
+Files to change:
+- `file_path:line_number` (what to change)
+
+## CONFIDENCE
+[0.0-1.0] - [Explanation]
+
+## RISK
+[low/medium/high] - [Why]
+
+## TEST PLAN
+[How to verify]
+
+## ROLLBACK
+[How to rollback]
+```
+
+**Step 6:** Wait for approval ("Should I deploy this fix?")
+
+**Step 7:** Execute
+- Edit files
+- Run tests
+- Commit: `"Fix: <error message> [AI-Investigated]"`
+- Push to GitHub (triggers Render auto-deploy)
+- Save investigation: `save_investigation_result({...})`
+
+**Integrates with:** Purmemo MCP (acknowledged errors, investigation storage)
+**Creates:** Audit trail for learning, faster resolution of similar errors
+**Saves:** 20+ hours/month on manual debugging
+
 ## Automatic Conversation Saving
 
 When user says "save progress" or when significant milestones are reached, use the `/save` slash command which intelligently saves or updates conversations.
