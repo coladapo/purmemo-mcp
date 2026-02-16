@@ -976,15 +976,14 @@ async function handleDiscoverRelated(args) {
       })
     });
 
-    // V10 returns MCP response format
+    // V10 returns MCP response format with extra fields, extract just content
     if (response.content && response.content[0]) {
-      return response;
+      return {
+        content: response.content
+      };
     }
 
     // Fallback if no content
-    const memories = [];
-
-    // V10 handles all the formatting, just return it
     return {
       content: [{
         type: 'text',
@@ -1037,8 +1036,10 @@ async function handleRecallMemories(args) {
       })
     });
 
-    // V10 returns MCP response format, just return it
-    return response;
+    // V10 returns MCP response format with extra fields, extract just content
+    return {
+      content: response.content || []
+    };
 
   } catch (error) {
     return {
@@ -1070,8 +1071,10 @@ async function handleGetMemoryDetails(args) {
 
     console.error(`[GET_MEMORY_DETAILS] V10 API call succeeded`);
 
-    // V10 returns MCP response format, just return it
-    return response;
+    // V10 returns MCP response format with extra fields, extract just content
+    return {
+      content: response.content || []
+    };
 
   } catch (error) {
     console.error(`[GET_MEMORY_DETAILS] ERROR CAUGHT:`, error);
