@@ -9,12 +9,19 @@ Run Autonomous Safety System tests for production-ready validation.
 /test phase-2    → Redis + SQS + Database tests (47 tests, ~20 sec)
 /test phase-3    → Performance benchmarks (12 tests, ~47 sec)
 /test phase-4    → Intelligence Layer tests (94 tests, ~30 sec)
-/test phase-5    → RAG Quality tests (131 tests, ~45 sec)
+/test phase-5    → RAG Quality tests (156 tests, ~50 sec)
 /test phase-6    → Misc tests (48 tests, ~15 sec)
-/test all        → Full Autonomous Safety System (397 tests, ~3 min)
+/test all        → Full Autonomous Safety System (422 tests, ~3 min)
 /test quick      → Phase 1 + Phase 2 only (112 tests, ~35 sec)
 /test core       → Phase 1-3 original tests (124 tests, ~82 sec)
-/test intel      → Phase 4 + Phase 5 intelligence tests (225 tests, ~75 sec)
+/test intel      → Phase 4 + Phase 5 intelligence tests (250 tests, ~80 sec)
+
+# Frontend E2E Tests (NEW)
+/test frontend   → All frontend E2E tests (~41 tests, ~2 min)
+/test frontend:auth     → Auth flow tests (login, logout, protected routes)
+/test frontend:token    → Token refresh tests (proactive refresh, expiry)
+/test frontend:dashboard → Dashboard functionality tests
+/test fullstack  → Backend + Frontend tests (comprehensive validation)
 ```
 
 ## Your Task
@@ -54,8 +61,8 @@ pytest tests/test_performance_benchmarks.py -v
 # Phase 4: Intelligence Layer (94 tests)
 pytest tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py -v
 
-# Phase 5: RAG Quality (131 tests)
-pytest tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py -v
+# Phase 5: RAG Quality (156 tests)
+pytest tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py -v
 
 # Phase 6: Misc (48 tests)
 pytest tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
@@ -66,11 +73,56 @@ pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embedding
 # Core (Phase 1-3 original tests) (124 tests)
 pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_performance_benchmarks.py -v
 
-# Intel (Phase 4 + 5 intelligence tests) (225 tests)
-pytest tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py -v
+# Intel (Phase 4 + 5 intelligence tests) (250 tests)
+pytest tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py -v
 
-# Full Autonomous Safety System (397 tests)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_performance_benchmarks.py tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
+# Full Autonomous Safety System (422 tests)
+pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_performance_benchmarks.py tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
+```
+
+### Frontend E2E Tests (Playwright)
+
+```bash
+# Navigate to frontend directory
+cd /Users/wivak/puo-jects/____active/purmemo/v1-mvp/frontend
+
+# All frontend E2E tests (~41 tests)
+npm run test:e2e
+
+# Auth flow tests only (login, logout, protected routes)
+npx playwright test e2e/auth/auth-flow.spec.ts
+
+# Token refresh tests only (proactive refresh, expiry handling)
+npx playwright test e2e/auth/token-refresh.spec.ts
+
+# Dashboard tests only
+npx playwright test e2e/dashboard/dashboard.spec.ts
+
+# Run with browser visible (for debugging)
+npm run test:e2e:headed
+
+# Run with UI mode (interactive)
+npm run test:e2e:ui
+
+# Debug mode
+npm run test:e2e:debug
+
+# View test report
+npm run test:e2e:report
+```
+
+### Fullstack Tests (Backend + Frontend)
+
+```bash
+# Run both backend and frontend tests
+# Backend first
+cd /Users/wivak/puo-jects/____active/purmemo/v1-mvp/backend
+source venv/bin/activate
+pytest tests/test_api_contracts.py tests/test_auth_flows.py -v
+
+# Then frontend
+cd /Users/wivak/puo-jects/____active/purmemo/v1-mvp/frontend
+npm run test:e2e
 ```
 
 ### 4. Intelligent Reporting
@@ -177,17 +229,56 @@ Mark todos as completed and add new ones if fixes needed:
 - Intelligence Extraction: `tests/test_intelligence_extraction.py` (33 tests)
 - Knowledge Graph: `tests/test_knowledge_graph.py` (33 tests)
 
-**Phase 5 - RAG Quality (131 tests):**
+**Phase 5 - RAG Quality (156 tests):**
 - Enhanced Recall Scoring: `tests/test_enhanced_recall_scoring.py` (51 tests)
 - RAG Recall Quality: `tests/test_rag_recall_quality.py` (39 tests)
 - Query Intelligence Matcher: `tests/test_query_intelligence_matcher.py` (41 tests)
+- Multi-Word Query Routing: `tests/test_multiword_query_routing.py` (25 tests)
 
 **Phase 6 - Misc (48 tests):**
 - Living Document Upsert: `tests/test_living_document_upsert.py` (13 tests)
 - Semantic Quality: `tests/test_semantic_quality.py` (4 tests)
 - Unicode Sanitization: `tests/test_unicode_sanitization.py` (31 tests)
 
-**Total: 397 tests protecting complete Purmemo system**
+**Total Backend: 422 tests protecting complete Purmemo system**
+
+---
+
+### Frontend E2E Tests (Playwright) - NEW
+
+**Location:** `/Users/wivak/puo-jects/____active/purmemo/v1-mvp/frontend/e2e/`
+
+**Auth Tests (~27 tests):**
+- Token Refresh: `e2e/auth/token-refresh.spec.ts` (11 tests)
+  - Proactive refresh when JWT expired
+  - Refresh within 60s buffer window
+  - Multiple user types (regular, superadmin)
+  - Failure handling and redirects
+  - Concurrent request handling
+- Auth Flow: `e2e/auth/auth-flow.spec.ts` (16 tests)
+  - Login/logout flows
+  - Protected route access
+  - Session persistence
+  - Error handling
+
+**Dashboard Tests (~14 tests):**
+- Dashboard: `e2e/dashboard/dashboard.spec.ts` (14 tests)
+  - Dashboard loading
+  - Navigation
+  - Responsive design
+  - Superadmin access
+
+**Test Fixtures:**
+- Auth Helpers: `e2e/fixtures/auth.ts`
+  - `loginUser()`, `loginAndGetTokens()`
+  - `createExpiredJWT()`, `createExpiringSoonJWT()`
+  - `setAuthTokens()`, `clearAuth()`
+
+**Total Frontend: ~41 tests protecting user-facing flows**
+
+---
+
+**GRAND TOTAL: ~463 tests (422 backend + 41 frontend)**
 
 **Documentation:**
 - Integration Strategy: `/Users/wivak/puo-jects/____active/purmemo/v1-mvp/backend/AUTONOMOUS_SAFETY_SYSTEM_INTEGRATION.md`
@@ -200,16 +291,31 @@ Mark todos as completed and add new ones if fixes needed:
 |---------|-------|------|----------|
 | `/test quick` | 112 | ~35s | Fast feedback during dev |
 | `/test core` | 124 | ~82s | Original Phase 1-3 tests |
-| `/test intel` | 225 | ~75s | Intelligence/RAG tests only |
-| `/test all` | 397 | ~3m | Full validation before deploy |
+| `/test intel` | 250 | ~80s | Intelligence/RAG tests only |
+| `/test all` | 422 | ~3m | Full validation before deploy |
 | `/test phase-4` | 94 | ~30s | After clustering changes |
-| `/test phase-5` | 131 | ~45s | After recall/RAG changes |
+| `/test phase-5` | 156 | ~50s | After recall/RAG changes |
+| `/test frontend` | ~41 | ~2m | Frontend E2E validation |
+| `/test frontend:token` | 11 | ~30s | Token refresh flow tests |
+| `/test frontend:auth` | 16 | ~45s | Auth flow tests |
+| `/test frontend:dashboard` | 14 | ~45s | Dashboard tests |
+| `/test fullstack` | ~463 | ~5m | Complete backend + frontend |
 
 ## Notes
 
+### Backend Tests
 - **Prefer `/test quick`** for fast feedback during development
 - **Use `/test intel`** after changes to intelligence/RAG/clustering
 - **Use `/test all`** before major commits or deploys
 - **Use `/test phase-3`** after performance-sensitive changes
+
+### Frontend Tests
+- **Use `/test frontend:token`** after auth/token changes (critical for token refresh fix)
+- **Use `/test frontend:auth`** after login/logout/session changes
+- **Use `/test frontend:dashboard`** after dashboard UI changes
+- **Use `/test frontend`** before any frontend deploy
+- **Use `/test fullstack`** before major releases
+
+### General
 - All patterns are saved to purmemo for intelligent recall
-- Tests protect: API contracts, Redis, SQS, PostgreSQL, performance baselines, clustering, knowledge graph, RAG quality
+- Tests protect: API contracts, Redis, SQS, PostgreSQL, performance baselines, clustering, knowledge graph, RAG quality, token refresh flow, auth flows, dashboard functionality
