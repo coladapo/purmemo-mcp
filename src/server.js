@@ -1276,6 +1276,30 @@ async function handleGetAcknowledgedErrors(args) {
         output += `\n\n   📝 Sample Logs: ${err.sample_log_ids.join(', ')}`;
       }
 
+      // Phase 2: Display similar past investigations
+      if (err.similar_investigations && err.similar_investigations.length > 0) {
+        output += `\n\n   🔄 SIMILAR PAST FIXES (${err.similar_investigations.length}):`;
+        err.similar_investigations.forEach((inv, i) => {
+          output += `\n\n   ${i + 1}. Fixed ${inv.fixed_at ? new Date(inv.fixed_at).toLocaleDateString() : 'previously'}`;
+          if (inv.root_cause) {
+            output += `\n      Root Cause: ${inv.root_cause}`;
+          }
+          if (inv.fix_type) {
+            output += `\n      Fix Type: ${inv.fix_type}`;
+          }
+          if (inv.confidence !== null && inv.confidence !== undefined) {
+            output += `\n      Confidence: ${(inv.confidence * 100).toFixed(0)}%`;
+          }
+          if (inv.risk_level) {
+            output += `\n      Risk: ${inv.risk_level}`;
+          }
+          if (inv.commit_hash) {
+            output += `\n      Commit: ${inv.commit_hash.substring(0, 7)}`;
+          }
+        });
+        output += `\n\n   💡 TIP: We've fixed this error before! Review the past fixes above.`;
+      }
+
       return output;
     }).join('\n');
 
