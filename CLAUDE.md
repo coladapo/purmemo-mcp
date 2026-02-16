@@ -110,6 +110,8 @@ This approach minimizes trial-and-error debugging by ensuring you have the best 
 
 ## Error Investigation Workflow
 
+**System Name**: AI-Powered Error Resolution System (see `v1-mvp/backend/ERROR_RESOLUTION_SYSTEM.md` for complete documentation)
+
 **When production errors are acknowledged in the admin panel, use `/investigate-errors`** to:
 1. **Fetch acknowledged errors** - Get errors waiting for investigation via MCP tool
 2. **Research similar fixes** - Check purmemo for past similar errors
