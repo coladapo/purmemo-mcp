@@ -360,6 +360,178 @@ const TOOLS = [
       },
       required: ['query']
     }
+  },
+  {
+    name: 'get_acknowledged_errors',
+    annotations: {
+      title: 'Get Acknowledged Errors',
+      readOnlyHint: true,       // This tool only READS data, never writes
+      destructiveHint: false,   // No data modification
+      idempotentHint: true,     // Same parameters return same results
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
+    description: `Fetch acknowledged errors waiting for AI investigation.
+
+    Used to fetch errors that have been acknowledged in the admin panel and need investigation.
+    Returns errors with full context including logs, metadata, occurrence count.
+
+    USAGE:
+    - Call this when user says "investigate acknowledged errors" or "/investigate-errors"
+    - Errors are sorted by occurrence count (most frequent first)
+    - Returns full error details for investigation
+
+    QUERY PARAMETERS:
+    - limit: Max errors to return (default: 10)
+    - level_filter: Filter by level - 'all', 'critical', 'error', 'warning' (default: 'all')
+    - min_occurrences: Only errors with occurrence_count >= this (default: 1)
+
+    EXAMPLE:
+    get_acknowledged_errors(limit=5, level_filter="error", min_occurrences=3)
+    → Returns top 5 error-level issues that occurred 3+ times
+
+    RETURNS:
+    - acknowledged_errors: Array of error objects
+    - total_count: Number of errors returned
+    - filters_applied: Summary of filters used`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'integer',
+          default: 10,
+          description: 'Maximum number of errors to return'
+        },
+        level_filter: {
+          type: 'string',
+          default: 'all',
+          enum: ['all', 'critical', 'error', 'warning'],
+          description: 'Filter by error level'
+        },
+        min_occurrences: {
+          type: 'integer',
+          default: 1,
+          description: 'Only errors with occurrence_count >= this'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'save_investigation_result',
+    annotations: {
+      title: 'Save Investigation Result',
+      readOnlyHint: false,      // This tool WRITES data to storage
+      destructiveHint: false,   // Creates new records, doesn't delete
+      idempotentHint: false,    // Each call creates new investigation record
+      openWorldHint: true       // Interacts with Purmemo cloud API
+    },
+    description: `Save AI investigation results for an error incident.
+
+    Used to store investigation results for audit trail and learning from past fixes.
+    Call this after investigating an error and proposing/deploying a fix.
+
+    USAGE:
+    - Call after completing investigation and deploying fix
+    - Stores root cause analysis, research sources, proposed changes
+    - Creates audit trail for learning from past investigations
+
+    REQUEST FIELDS:
+    - incident_id: UUID of the error incident (from get_acknowledged_errors)
+    - root_cause_analysis: Your analysis of what caused the error
+    - similar_incidents_analyzed: Array of similar incident IDs found
+    - research_sources: Array of URLs used (search_web_ai, Context7 docs)
+    - fix_type: Type of fix - 'code_change', 'config_update', 'deployment', 'migration', 'documentation'
+    - proposed_changes: Object with file paths and changes made
+    - confidence_score: Your confidence in the fix (0.0-1.0)
+    - risk_level: Risk assessment - 'low', 'medium', 'high'
+    - test_plan: How you tested the fix
+    - rollback_plan: How to roll back if needed
+    - deployment_commit_hash: Git commit hash of the fix
+    - deployment_results: Object with deployment success/failure details
+
+    EXAMPLE:
+    save_investigation_result({
+      incident_id: "550e8400-e29b-41d4-a716-446655440000",
+      root_cause_analysis: "Timeout set to 5s, too short for slow networks",
+      fix_type: "code_change",
+      confidence_score: 0.85,
+      risk_level: "low",
+      deployment_commit_hash: "abc123def456"
+    })
+
+    RETURNS:
+    - investigation_id: UUID of saved investigation
+    - incident_id: UUID of the error incident
+    - investigation_status: 'in_progress' or 'completed'
+    - deployment_status: 'not_started', 'in_progress', 'completed'
+    - success: true if saved successfully`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        incident_id: {
+          type: 'string',
+          description: 'UUID of the error incident from get_acknowledged_errors'
+        },
+        root_cause_analysis: {
+          type: 'string',
+          description: 'Your analysis of what caused the error'
+        },
+        similar_incidents_analyzed: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of similar incident IDs found via recall_memories'
+        },
+        research_sources: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+              title: { type: 'string' },
+              source: { type: 'string' }
+            }
+          },
+          description: 'Array of research sources used (URLs from search_web_ai, Context7)'
+        },
+        fix_type: {
+          type: 'string',
+          enum: ['code_change', 'config_update', 'deployment', 'migration', 'documentation'],
+          description: 'Type of fix applied'
+        },
+        proposed_changes: {
+          type: 'object',
+          description: 'Object with file paths and changes made'
+        },
+        confidence_score: {
+          type: 'number',
+          minimum: 0.0,
+          maximum: 1.0,
+          description: 'AI confidence in proposed fix (0.0-1.0)'
+        },
+        risk_level: {
+          type: 'string',
+          enum: ['low', 'medium', 'high'],
+          description: 'Risk assessment of the fix'
+        },
+        test_plan: {
+          type: 'string',
+          description: 'How the fix was tested'
+        },
+        rollback_plan: {
+          type: 'string',
+          description: 'How to roll back if fix fails'
+        },
+        deployment_commit_hash: {
+          type: 'string',
+          description: 'Git commit hash of the deployed fix'
+        },
+        deployment_results: {
+          type: 'object',
+          description: 'Deployment success/failure details'
+        }
+      },
+      required: ['incident_id']
+    }
   }
 ];
 
@@ -1011,6 +1183,99 @@ async function handleDiscoverRelated(args) {
   }
 }
 
+async function handleGetAcknowledgedErrors(args) {
+  try {
+    const limit = args.limit || 10;
+    const levelFilter = args.level_filter || 'all';
+    const minOccurrences = args.min_occurrences || 1;
+
+    const response = await makeApiCall(
+      `/api/v1/admin/acknowledged-errors?limit=${limit}&level_filter=${levelFilter}&min_occurrences=${minOccurrences}`,
+      {
+        method: 'GET'
+      }
+    );
+
+    if (!response.acknowledged_errors || response.acknowledged_errors.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ No acknowledged errors found!\n\nAll acknowledged errors have been investigated and resolved.`
+        }]
+      };
+    }
+
+    // Format response for Claude
+    const errorList = response.acknowledged_errors.map((err, idx) => {
+      return `\n${idx + 1}. **${err.level.toUpperCase()}** (ID: ${err.id})
+   Message: ${err.message}
+   Occurrences: ${err.occurrence_count}
+   First Seen: ${err.first_seen_at}
+   Last Seen: ${err.last_seen_at}
+   Source: ${err.source}
+   ${err.metadata ? `Metadata: ${JSON.stringify(err.metadata, null, 2)}` : ''}
+   ${err.sample_log_ids && err.sample_log_ids.length > 0 ? `Sample Logs: ${err.sample_log_ids.join(', ')}` : ''}`;
+    }).join('\n');
+
+    return {
+      content: [{
+        type: 'text',
+        text: `🔍 Found ${response.total_count} Acknowledged Errors\n\nFilters Applied: Level=${levelFilter}, Min Occurrences=${minOccurrences}\n${errorList}\n\n📝 Next Steps:\n1. Choose an error to investigate\n2. Use recall_memories to check if we've seen similar errors\n3. Use search_web_ai to research solutions\n4. Use Context7 for library-specific docs\n5. Propose fix with confidence score\n6. Deploy fix when approved\n7. Call save_investigation_result to store audit trail`
+      }]
+    };
+
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error fetching acknowledged errors: ${error.message}\n\nMake sure:\n1. Backend API is running\n2. You have admin permissions\n3. Error tracking service is active`
+      }]
+    };
+  }
+}
+
+async function handleSaveInvestigation(args) {
+  try {
+    if (!args.incident_id) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Missing required field: incident_id\n\nPlease provide the incident_id from get_acknowledged_errors.`
+        }]
+      };
+    }
+
+    const response = await makeApiCall('/api/v1/admin/investigations', {
+      method: 'POST',
+      body: JSON.stringify(args)
+    });
+
+    if (response.success) {
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ Investigation Saved Successfully!\n\n📋 Investigation ID: ${response.investigation_id}\n🔗 Incident ID: ${response.incident_id}\n📊 Status: ${response.investigation_status}\n🚀 Deployment: ${response.deployment_status}\n\n${args.deployment_commit_hash ? `✓ Deployed with commit: ${args.deployment_commit_hash}` : '⏳ Awaiting deployment'}\n\nThis investigation is now part of the audit trail and can be used to learn from similar errors in the future.`
+        }]
+      };
+    } else {
+      return {
+        content: [{
+          type: 'text',
+          text: `⚠️ Investigation saved with warnings:\n\n${JSON.stringify(response, null, 2)}`
+        }]
+      };
+    }
+
+  } catch (error) {
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error saving investigation: ${error.message}\n\nPlease check:\n1. incident_id is valid\n2. Backend API is running\n3. You have admin permissions`
+      }]
+    };
+  }
+}
+
 async function handleRecallMemories(args) {
   try {
     // Use v10 MCP endpoint for semantic search with intelligent scoring
@@ -1106,6 +1371,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return await handleGetMemoryDetails(args);
     case 'discover_related_conversations':
       return await handleDiscoverRelated(args);
+    case 'get_acknowledged_errors':
+      return await handleGetAcknowledgedErrors(args);
+    case 'save_investigation_result':
+      return await handleSaveInvestigation(args);
     default:
       return {
         content: [{
