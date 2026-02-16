@@ -6,14 +6,14 @@ Run Autonomous Safety System tests for production-ready validation.
 
 ```
 /test phase-1    → API + Auth + Embeddings tests (65 tests, ~15 sec)
-/test phase-2    → Redis + SQS + Database tests (47 tests, ~20 sec)
+/test phase-2    → Redis + SQS + Database + Error Tracking (73 tests, ~25 sec)
 /test phase-3    → Performance benchmarks (12 tests, ~47 sec)
 /test phase-4    → Intelligence Layer tests (94 tests, ~30 sec)
 /test phase-5    → RAG Quality tests (156 tests, ~50 sec)
 /test phase-6    → Misc tests (48 tests, ~15 sec)
-/test all        → Full Autonomous Safety System (422 tests, ~3 min)
-/test quick      → Phase 1 + Phase 2 only (112 tests, ~35 sec)
-/test core       → Phase 1-3 original tests (124 tests, ~82 sec)
+/test all        → Full Autonomous Safety System (448 tests, ~3.5 min)
+/test quick      → Phase 1 + Phase 2 only (138 tests, ~40 sec)
+/test core       → Phase 1-3 original tests (150 tests, ~87 sec)
 /test intel      → Phase 4 + Phase 5 intelligence tests (250 tests, ~80 sec)
 
 # Frontend E2E Tests (NEW)
@@ -52,8 +52,8 @@ source venv/bin/activate
 # Phase 1: API + Auth + Embeddings (65 tests)
 pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py -v
 
-# Phase 2: Redis + SQS + Database (47 tests)
-pytest tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py -v
+# Phase 2: Redis + SQS + Database + Error Tracking (73 tests)
+pytest tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_error_alerting.py -v
 
 # Phase 3: Performance Benchmarks (12 tests)
 pytest tests/test_performance_benchmarks.py -v
@@ -67,17 +67,17 @@ pytest tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py te
 # Phase 6: Misc (48 tests)
 pytest tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
 
-# Quick (Phase 1 + 2 - RECOMMENDED for fast feedback) (112 tests)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py -v
+# Quick (Phase 1 + 2 - RECOMMENDED for fast feedback) (138 tests)
+pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_error_alerting.py -v
 
-# Core (Phase 1-3 original tests) (124 tests)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_performance_benchmarks.py -v
+# Core (Phase 1-3 original tests) (150 tests)
+pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_error_alerting.py tests/test_performance_benchmarks.py -v
 
 # Intel (Phase 4 + 5 intelligence tests) (250 tests)
 pytest tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py -v
 
-# Full Autonomous Safety System (422 tests)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_performance_benchmarks.py tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
+# Full Autonomous Safety System (448 tests)
+pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py tests/test_error_alerting.py tests/test_performance_benchmarks.py tests/test_clustering.py tests/test_intelligence_extraction.py tests/test_knowledge_graph.py tests/test_enhanced_recall_scoring.py tests/test_rag_recall_quality.py tests/test_query_intelligence_matcher.py tests/test_multiword_query_routing.py tests/test_living_document_upsert.py tests/test_semantic_quality.py tests/test_unicode_sanitization.py -v
 ```
 
 ### Frontend E2E Tests (Playwright)
@@ -216,10 +216,11 @@ Mark todos as completed and add new ones if fixes needed:
 - Auth Flows: `tests/test_auth_flows.py` (18 tests)
 - Embeddings Service: `tests/test_embeddings_service.py` (12 tests)
 
-**Phase 2 - Integration (47 tests):**
+**Phase 2 - Integration (73 tests):**
 - Redis Integration: `tests/test_redis_integration.py` (14 tests)
 - SQS Publishing: `tests/test_sqs_publishing.py` (11 tests)
 - Database Constraints: `tests/test_database_constraints_v2.py` (22 tests)
+- Error Tracking & Resolution: `tests/test_error_alerting.py` (26 tests)
 
 **Phase 3 - Performance (12 tests):**
 - Performance Benchmarks: `tests/test_performance_benchmarks.py` (12 tests)
@@ -240,7 +241,7 @@ Mark todos as completed and add new ones if fixes needed:
 - Semantic Quality: `tests/test_semantic_quality.py` (4 tests)
 - Unicode Sanitization: `tests/test_unicode_sanitization.py` (31 tests)
 
-**Total Backend: 422 tests protecting complete Purmemo system**
+**Total Backend: 448 tests protecting complete Purmemo system**
 
 ---
 
@@ -278,7 +279,7 @@ Mark todos as completed and add new ones if fixes needed:
 
 ---
 
-**GRAND TOTAL: ~463 tests (422 backend + 41 frontend)**
+**GRAND TOTAL: ~489 tests (448 backend + 41 frontend)**
 
 **Documentation:**
 - Integration Strategy: `/Users/wivak/puo-jects/____active/purmemo/v1-mvp/backend/AUTONOMOUS_SAFETY_SYSTEM_INTEGRATION.md`
@@ -289,17 +290,18 @@ Mark todos as completed and add new ones if fixes needed:
 
 | Command | Tests | Time | Use Case |
 |---------|-------|------|----------|
-| `/test quick` | 112 | ~35s | Fast feedback during dev |
-| `/test core` | 124 | ~82s | Original Phase 1-3 tests |
+| `/test quick` | 138 | ~40s | Fast feedback during dev |
+| `/test core` | 150 | ~87s | Original Phase 1-3 tests |
 | `/test intel` | 250 | ~80s | Intelligence/RAG tests only |
-| `/test all` | 422 | ~3m | Full validation before deploy |
+| `/test all` | 448 | ~3.5m | Full validation before deploy |
+| `/test phase-2` | 73 | ~25s | After integration/error tracking changes |
 | `/test phase-4` | 94 | ~30s | After clustering changes |
 | `/test phase-5` | 156 | ~50s | After recall/RAG changes |
 | `/test frontend` | ~41 | ~2m | Frontend E2E validation |
 | `/test frontend:token` | 11 | ~30s | Token refresh flow tests |
 | `/test frontend:auth` | 16 | ~45s | Auth flow tests |
 | `/test frontend:dashboard` | 14 | ~45s | Dashboard tests |
-| `/test fullstack` | ~463 | ~5m | Complete backend + frontend |
+| `/test fullstack` | ~489 | ~5.5m | Complete backend + frontend |
 
 ## Notes
 
