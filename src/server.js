@@ -842,7 +842,7 @@ EXAMPLE USAGE:
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '12.4.0' },
+  { name: 'purmemo-mcp', version: '12.4.1' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
