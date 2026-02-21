@@ -2240,11 +2240,11 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     let resourceUri = uri;
 
     if (uri === 'memory://recent') {
-      // Fetch recent memories
-      data = await makeApiCall('/api/v1/memories/?page_size=10&sort=-created_at', {
+      // Fetch recent memories via dedicated endpoint
+      data = await makeApiCall('/api/v1/memories/recent?limit=10', {
         method: 'GET'
       });
-      const memories = (data.results || []).map(m => ({
+      const memories = (data.memories || []).map(m => ({
         id: m.id,
         title: m.title || 'Untitled',
         created_at: m.created_at,
