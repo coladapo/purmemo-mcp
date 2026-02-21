@@ -1,6 +1,6 @@
 {
   "name": "purmemo-mcp",
-  "version": "12.4.2",
+  "version": "12.4.3",
   "description": "MCP server for p\u016brmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "main": "src/server.js",
   "type": "module",

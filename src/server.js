@@ -1696,7 +1696,7 @@ async function handleRecallMemories(args) {
 
     memoryBlocks.forEach((block, index) => {
       const titleMatch = block.match(/\*\*(.+?)\*\*/);
-      const relevanceMatch = block.match(/Relevance: ([\d.]+)%/);
+      const relevanceMatch = block.match(/Relevance Score: ([\d.]+)/) || block.match(/Relevance: ([\d.]+)%/);
       const idMatch = block.match(/ID: (.+)/);
       const platformMatch = block.match(/Platform: (\w+)/);
       const previewMatch = block.match(/Preview: (.+)/);
