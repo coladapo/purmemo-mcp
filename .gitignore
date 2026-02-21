@@ -53,3 +53,7 @@ htmlcov/
 *.seed
 *.pid.lock
 .vercel
+teleprompter.html
+
+# Git worktrees (parallel Claude Code sessions)
+.worktrees/
