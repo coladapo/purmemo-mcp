@@ -1563,8 +1563,8 @@ async function handleDiscoverRelated(args) {
         tool: 'discover_related_conversations',
         arguments: {
           query: args.query,
-          limit: args.limit || 10,
-          relatedPerMemory: args.relatedPerMemory || 5
+          limit: parseInt(args.limit) || 10,
+          relatedPerMemory: parseInt(args.relatedPerMemory) || 5
         }
       })
     });
@@ -1649,7 +1649,7 @@ async function handleRecallMemories(args) {
         tool: 'recall_memories',
         arguments: {
           query: args.query,
-          limit: args.limit || 10,
+          limit: parseInt(args.limit) || 10,
           entity: args.entity,
           initiative: args.initiative,
           stakeholder: args.stakeholder,

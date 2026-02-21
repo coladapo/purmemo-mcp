@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "12.4.3",
-  "description": "MCP server for p\u016brmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
+  "version": "12.4.4",
+  "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "main": "src/server.js",
   "type": "module",
   "bin": {
@@ -19,7 +19,7 @@
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
     "test": "node --test tests/*.test.js",
-    "postinstall": "node -e \"console.log('\\\\n\ud83d\ude80 p\u016brmemo MCP installed!\\\\n\\\\nSave and recall AI conversations across Claude Desktop, Cursor, and more.\\\\n\\\\n\ud83d\udccb Quick Setup:\\\\n   1. Get your free API key at https://app.purmemo.ai\\\\n   2. Add PURMEMO_API_KEY to your MCP config\\\\n   3. Docs: https://github.com/coladapo/purmemo-mcp#quick-start\\\\n\\\\n\ud83c\udf10 Using ChatGPT, Claude.ai, or Gemini in browser?\\\\n   Get the Chrome Extension at https://purmemo.ai/extension\\\\n')\""
+    "postinstall": "node -e \"console.log('\\\\n🚀 pūrmemo MCP installed!\\\\n\\\\nSave and recall AI conversations across Claude Desktop, Cursor, and more.\\\\n\\\\n📋 Quick Setup:\\\\n   1. Get your free API key at https://app.purmemo.ai\\\\n   2. Add PURMEMO_API_KEY to your MCP config\\\\n   3. Docs: https://github.com/coladapo/purmemo-mcp#quick-start\\\\n\\\\n🌐 Using ChatGPT, Claude.ai, or Gemini in browser?\\\\n   Get the Chrome Extension at https://purmemo.ai/extension\\\\n')\""
   },
   "keywords": [
     "mcp",
@@ -38,7 +38,7 @@
     "chrome-extension",
     "ai-memory"
   ],
-  "author": "p\u016brmemo <support@purmemo.ai>",
+  "author": "pūrmemo <support@purmemo.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
