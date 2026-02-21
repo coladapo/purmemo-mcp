@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v11.0.0
+ * pūrmemo MCP Server v12.3.0 - Tier 4 Resources & Prompts
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -19,13 +19,27 @@
  *   - Fixes "no low surrogate" errors from corrupted Unicode in memories
  *   - Automatically cleans all text before sending to Claude API
  *   - Prevents 400 errors caused by unpaired surrogate characters
+ * - 📋 MCP Spec 2025-11-25 Compliance:
+ *   - Server instructions for LLM guidance at connection time
+ *   - outputSchema on all 4 tools for structured tool output
+ *   - Tool annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+ * - 🛡️ TIER 3 PRODUCTION HARDENING:
+ *   - Structured JSON logging for all operations
+ *   - Circuit breaker pattern for API resilience
+ *   - 30-second request timeouts with AbortController
+ *   - Per-tool request timing and metrics
+ *   - Safe error messages with fallback handling
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   extractProjectContext,
@@ -37,10 +51,138 @@ import {
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const API_KEY = process.env.PURMEMO_API_KEY;
 
-// Debug: Log API key status (without exposing the full key)
-console.error(`[Purmemo MCP Debug] API_URL: ${API_URL}`);
-console.error(`[Purmemo MCP Debug] API_KEY present: ${!!API_KEY}`);
-console.error(`[Purmemo MCP Debug] API_KEY prefix: ${API_KEY ? API_KEY.substring(0, 15) + '...' : 'MISSING'}`);
+// ============================================================================
+// TIER 3: Structured Logging System
+// ============================================================================
+
+function logStructured(level, message, context = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level: level.toUpperCase(),
+    message,
+    ...context
+  };
+  console.error(JSON.stringify(entry));
+}
+
+const structuredLog = {
+  info: (msg, ctx = {}) => logStructured('info', msg, ctx),
+  warn: (msg, ctx = {}) => logStructured('warn', msg, ctx),
+  error: (msg, ctx = {}) => logStructured('error', msg, ctx),
+  debug: (msg, ctx = {}) => logStructured('debug', msg, ctx)
+};
+
+// Log API configuration
+structuredLog.info('API configuration loaded', {
+  api_url: API_URL,
+  api_key_present: !!API_KEY,
+  api_key_length: API_KEY ? API_KEY.length : 0
+});
+
+// ============================================================================
+// TIER 3: Circuit Breaker Pattern
+// ============================================================================
+
+class CircuitBreaker {
+  constructor(name, failureThreshold = 5, recoveryTimeout = 60000) {
+    this.name = name;
+    this.failureThreshold = failureThreshold;
+    this.recoveryTimeout = recoveryTimeout;
+    this.failureCount = 0;
+    this.successCount = 0;
+    this.state = 'CLOSED';
+    this.openedAt = null;
+    this.lastFailureTime = null;
+    this.totalCalls = 0;
+    this.totalFailures = 0;
+  }
+
+  async execute(fn) {
+    this.totalCalls++;
+
+    // Check for OPEN → HALF_OPEN transition
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.openedAt >= this.recoveryTimeout) {
+        this.state = 'HALF_OPEN';
+        structuredLog.info('Circuit breaker entering HALF_OPEN', { circuit_breaker: this.name });
+      } else {
+        throw new CircuitBreakerOpenError(this.name);
+      }
+    }
+
+    try {
+      const result = await fn();
+      this._onSuccess();
+      return result;
+    } catch (error) {
+      this._onFailure(error);
+      throw error;
+    }
+  }
+
+  _onSuccess() {
+    this.failureCount = 0;
+    this.successCount++;
+    if (this.state === 'HALF_OPEN') {
+      this.state = 'CLOSED';
+      structuredLog.info('Circuit breaker recovered', { circuit_breaker: this.name });
+    }
+  }
+
+  _onFailure(error) {
+    this.failureCount++;
+    this.totalFailures++;
+    this.lastFailureTime = Date.now();
+
+    if (this.state === 'HALF_OPEN') {
+      this.state = 'OPEN';
+      this.openedAt = Date.now();
+      structuredLog.warn('Circuit breaker reopened', { circuit_breaker: this.name, error: error.message });
+    } else if (this.failureCount >= this.failureThreshold && this.state === 'CLOSED') {
+      this.state = 'OPEN';
+      this.openedAt = Date.now();
+      structuredLog.error('Circuit breaker opened', { circuit_breaker: this.name, failures: this.failureCount });
+    }
+  }
+
+  getStatus() {
+    return {
+      name: this.name,
+      state: this.state,
+      failureCount: this.failureCount,
+      totalCalls: this.totalCalls,
+      totalFailures: this.totalFailures,
+      openedAt: this.openedAt ? new Date(this.openedAt).toISOString() : null
+    };
+  }
+}
+
+class CircuitBreakerOpenError extends Error {
+  constructor(name) {
+    super(`Circuit breaker '${name}' is OPEN. Service temporarily unavailable.`);
+    this.name = 'CircuitBreakerOpenError';
+    this.circuitBreakerName = name;
+  }
+}
+
+const apiCircuitBreaker = new CircuitBreaker('purmemo-api', 5, 60000);
+
+// ============================================================================
+// TIER 3: Safe Error Message Helper
+// ============================================================================
+
+function safeErrorMessage(error) {
+  if (error.message?.includes('429') || error.message?.includes('quota')) {
+    return error.message; // Quota messages are user-facing
+  }
+  if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+    return 'Request timed out. Please try again.';
+  }
+  if (error instanceof CircuitBreakerOpenError) {
+    return 'Service temporarily unavailable. Please try again in a moment.';
+  }
+  return 'An error occurred while processing your request. Please try again.';
+}
 
 // Platform detection: user specifies via MCP_PLATFORM env var
 // Supported: 'claude', 'claude-code', 'cursor', 'chatgpt', 'windsurf', 'zed'
@@ -71,8 +213,8 @@ const ADMIN_MODE = process.env.PURMEMO_ADMIN === '1';
 
 // Log detected platform for debugging (only in development)
 if (process.env.NODE_ENV !== 'production') {
-  console.error(`[Purmemo MCP] Detected platform: ${PLATFORM}`);
-  console.error(`[Purmemo MCP] Admin mode: ${ADMIN_MODE ? 'ON' : 'off'}`);
+  structuredLog.debug('Platform detected', { platform: PLATFORM });
+  structuredLog.debug('Admin mode', { admin_mode: ADMIN_MODE });
 }
 
 // Session management for chunked captures
@@ -93,10 +235,10 @@ const TOOLS = [
     name: 'save_conversation',
     annotations: {
       title: 'Save Conversation',
-      readOnlyHint: false,      // This tool WRITES data to storage
-      destructiveHint: false,   // Updates existing memories, doesn't delete
-      idempotentHint: false,    // Same content may create different IDs
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
     },
     description: `Save complete conversations as living documents. REQUIRED: Send COMPLETE conversation in 'conversationContent' parameter (minimum 100 chars, should be thousands). Include EVERY message verbatim - NO summaries or partial content.
 
@@ -191,16 +333,29 @@ const TOOLS = [
         }
       },
       required: ['conversationContent']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        memoryId: { type: 'string', description: 'Unique ID of the saved or updated memory' },
+        conversationId: { type: 'string', description: 'Living document conversation ID (derived from title)' },
+        title: { type: 'string', description: 'Title of the saved memory' },
+        status: { type: 'string', description: 'Save status (created, updated, chunked)' },
+        characterCount: { type: 'integer', description: 'Total characters saved' },
+        chunkCount: { type: 'integer', description: 'Number of chunks (1 if not chunked)' },
+        isUpdate: { type: 'boolean', description: 'Whether this updated an existing living document' }
+      },
+      required: ['memoryId', 'status']
     }
   },
   {
     name: 'recall_memories',
     annotations: {
       title: 'Recall Memories',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same query returns same results
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: `Search and retrieve saved memories with intelligent semantic ranking.
 
@@ -239,7 +394,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        query: { 
+        query: {
           type: 'string',
           description: 'Search query - can be keywords, topics, or specific content'
         },
@@ -248,8 +403,8 @@ const TOOLS = [
           default: true,
           description: 'Include chunked/multi-part conversations in results'
         },
-        limit: { 
-          type: 'integer', 
+        limit: {
+          type: 'integer',
           default: 10,
           description: 'Maximum number of memories to return'
         },
@@ -258,7 +413,6 @@ const TOOLS = [
           default: true,
           description: 'Include content preview in results'
         },
-        // Phase 2: Knowledge Graph Intelligence - Entity & Context Filters
         entity: {
           type: 'string',
           description: 'Filter by entity name (people, projects, technologies). Use when user asks about a specific person, project, or technology by name. Example: entity="Alice" finds only memories mentioning Alice. More precise than semantic search. Supports partial matching.'
@@ -269,7 +423,7 @@ const TOOLS = [
         },
         stakeholder: {
           type: 'string',
-          description: 'Filter by stakeholder (person or team) from conversation context. Use when user asks about specific person\'s or team\'s involvement. Example: stakeholder="Engineering Team" finds memories where Engineering Team was mentioned as stakeholder. Supports partial matching (ILIKE).'
+          description: "Filter by stakeholder (person or team) from conversation context. Use when user asks about specific person's or team's involvement. Example: stakeholder=\"Engineering Team\" finds memories where Engineering Team was mentioned as stakeholder. Supports partial matching (ILIKE)."
         },
         deadline: {
           type: 'string',
@@ -285,16 +439,41 @@ const TOOLS = [
         }
       },
       required: ['query']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        memories: {
+          type: 'array',
+          description: 'Array of matching memories ranked by relevance',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Memory unique ID' },
+              title: { type: 'string', description: 'Memory title' },
+              content: { type: 'string', description: 'Content preview or full content' },
+              platform: { type: 'string', description: 'Source platform (chatgpt, claude, gemini, etc.)' },
+              project: { type: 'string', description: 'Extracted project name if available' },
+              tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
+              created_at: { type: 'string', description: 'ISO timestamp of creation' },
+              updated_at: { type: 'string', description: 'ISO timestamp of last update' },
+              relevanceScore: { type: 'number', description: 'Search relevance score' }
+            }
+          }
+        },
+        totalCount: { type: 'integer', description: 'Total number of matching memories' }
+      },
+      required: ['memories']
     }
   },
   {
     name: 'get_memory_details',
     annotations: {
       title: 'Get Memory Details',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same memoryId returns same result
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: 'Get complete details of a specific memory, including all linked parts if chunked',
     inputSchema: {
@@ -311,16 +490,52 @@ const TOOLS = [
         }
       },
       required: ['memoryId']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory unique ID' },
+        title: { type: 'string', description: 'Memory title' },
+        content: { type: 'string', description: 'Full memory content' },
+        platform: { type: 'string', description: 'Source platform' },
+        project: { type: 'string', description: 'Associated project name' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
+        created_at: { type: 'string', description: 'ISO creation timestamp' },
+        updated_at: { type: 'string', description: 'ISO last update timestamp' },
+        linkedParts: {
+          type: 'array',
+          description: 'Linked chunk parts for multi-part memories',
+          items: {
+            type: 'object',
+            properties: {
+              partId: { type: 'string' },
+              partNumber: { type: 'integer' },
+              content: { type: 'string' }
+            }
+          }
+        },
+        metadata: {
+          type: 'object',
+          description: 'Extracted metadata (technologies, phase, status, etc.)',
+          properties: {
+            characterCount: { type: 'integer' },
+            wordCount: { type: 'integer' },
+            hasCodeBlocks: { type: 'boolean' },
+            hasArtifacts: { type: 'boolean' }
+          }
+        }
+      },
+      required: ['id', 'title', 'content']
     }
   },
   {
     name: 'discover_related_conversations',
     annotations: {
       title: 'Discover Related Conversations',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same query returns same clustered results
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: `CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
 
@@ -365,6 +580,49 @@ const TOOLS = [
         }
       },
       required: ['query']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        clusters: {
+          type: 'array',
+          description: 'Semantic clusters of related conversations',
+          items: {
+            type: 'object',
+            properties: {
+              clusterName: { type: 'string', description: 'Topic cluster name' },
+              seedMemory: {
+                type: 'object',
+                description: 'Primary memory that seeded this cluster',
+                properties: {
+                  id: { type: 'string' },
+                  title: { type: 'string' },
+                  platform: { type: 'string' },
+                  relevanceScore: { type: 'number' },
+                  created_at: { type: 'string' }
+                }
+              },
+              relatedConversations: {
+                type: 'array',
+                description: 'Related conversations within this cluster',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    title: { type: 'string' },
+                    platform: { type: 'string' },
+                    similarity: { type: 'number', description: 'Similarity score 0-100' },
+                    created_at: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        },
+        totalConversations: { type: 'integer', description: 'Total conversations found across all clusters' },
+        totalClusters: { type: 'integer', description: 'Number of semantic clusters' }
+      },
+      required: ['clusters']
     }
   },
   {
@@ -413,10 +671,10 @@ EXAMPLE USAGE:
     name: 'get_acknowledged_errors',
     annotations: {
       title: 'Get Acknowledged Errors',
-      readOnlyHint: true,       // This tool only READS data, never writes
-      destructiveHint: false,   // No data modification
-      idempotentHint: true,     // Same parameters return same results
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
     },
     description: `Fetch acknowledged errors waiting for AI investigation.
 
@@ -468,10 +726,10 @@ EXAMPLE USAGE:
     name: 'save_investigation_result',
     annotations: {
       title: 'Save Investigation Result',
-      readOnlyHint: false,      // This tool WRITES data to storage
-      destructiveHint: false,   // Creates new records, doesn't delete
-      idempotentHint: false,    // Each call creates new investigation record
-      openWorldHint: true       // Interacts with Purmemo cloud API
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true
     },
     description: `Save AI investigation results for an error incident.
 
@@ -584,9 +842,122 @@ EXAMPLE USAGE:
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '11.2.3' },
-  { capabilities: { tools: {} } }
+  { name: 'purmemo-mcp', version: '12.4.0' },
+  {
+    capabilities: { tools: {}, resources: {}, prompts: {} },
+    instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
+
+CORE WORKFLOW:
+1. save_conversation — Save COMPLETE conversations as living documents. Same title updates existing memory. Include every message verbatim (minimum 500 chars, expect thousands). Server auto-chunks content >15K chars.
+2. recall_memories — Search memories with semantic ranking. Use Phase 2 filters (entity, has_observations, initiative, intent) for precision. Default hybrid search covers most cases.
+3. get_memory_details — Retrieve full memory content including all linked chunks for multi-part conversations.
+4. discover_related_conversations — Find related conversations across ALL AI platforms using semantic clustering.
+
+KEY PATTERNS:
+- Living Documents: Same title = updates existing memory (not duplicates). Use conversationId for explicit control.
+- Cross-Platform: Memories span ChatGPT, Claude, Gemini, Cursor — discover_related_conversations finds connections across all platforms.
+- Intelligent Extraction: save_conversation auto-extracts project context, technologies, status, and generates smart titles.
+- Quality Filtering: Use has_observations=true to find substantial technical discussions; entity="name" for specific topics.
+
+BEST PRACTICES:
+- Always send complete conversation content when saving — never summaries or partial content.
+- Use recall_memories before saving to check if a living document already exists for the topic.
+- For "save progress" requests, the system auto-generates contextual titles from conversation content.`
+  }
 );
+
+// ============================================================================
+// TIER 4: Resource Definitions (MCP 2025-11-25)
+// ============================================================================
+
+const RESOURCES = [
+  {
+    uri: 'memory://recent',
+    name: 'Recent Memories',
+    description: 'Last 10 saved memories with titles, dates, and tags',
+    mimeType: 'application/json'
+  },
+  {
+    uri: 'memory://stats',
+    name: 'Memory Statistics',
+    description: 'Account-level memory statistics including total memories, tags, and storage usage',
+    mimeType: 'application/json'
+  }
+];
+
+const RESOURCE_TEMPLATES = [
+  {
+    uriTemplate: 'memory://{memoryId}',
+    name: 'Memory by ID',
+    description: 'Retrieve full content of a specific memory by its unique ID',
+    mimeType: 'application/json'
+  }
+];
+
+// ============================================================================
+// TIER 4: Prompt Definitions (MCP 2025-11-25)
+// ============================================================================
+
+const PROMPTS = [
+  {
+    name: 'save-session',
+    description: 'Generate a structured prompt for saving the current conversation as a living document',
+    arguments: [
+      {
+        name: 'sessionContext',
+        description: 'Brief description of what was discussed or accomplished in this session',
+        required: true
+      },
+      {
+        name: 'includeCode',
+        description: 'Whether to emphasize including code blocks in the save (true/false)',
+        required: false
+      },
+      {
+        name: 'autoTitle',
+        description: 'Whether to let the system auto-generate a title from context (true/false)',
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'recall-context',
+    description: 'Generate a prompt for recalling relevant past conversations before starting a new task',
+    arguments: [
+      {
+        name: 'taskDescription',
+        description: 'Description of the task you are about to work on',
+        required: true
+      },
+      {
+        name: 'searchType',
+        description: 'Type of search to perform: semantic (default), exact, or hybrid',
+        required: false
+      },
+      {
+        name: 'limit',
+        description: 'Maximum number of memories to recall (default: 5)',
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'weekly-summary',
+    description: 'Generate a prompt for creating a weekly summary of saved conversations and progress',
+    arguments: [
+      {
+        name: 'includeStats',
+        description: 'Whether to include memory statistics in the summary (true/false)',
+        required: false
+      },
+      {
+        name: 'projectFilter',
+        description: 'Optional project name to filter the summary to a specific project',
+        required: false
+      }
+    ]
+  }
+];
 
 // Utility functions
 
@@ -608,12 +979,12 @@ function sanitizeUnicode(text) {
                .replace(/\uFFFE|\uFFFF/g, '') // Non-characters
                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Control characters except \n, \r, \t
   } catch (error) {
-    console.error('[SANITIZE] Error sanitizing text:', error.message);
+    structuredLog.error('Error sanitizing text', { error_message: error.message });
     // Fallback: try to encode/decode to fix encoding issues
     try {
       return Buffer.from(text, 'utf8').toString('utf8');
     } catch (fallbackError) {
-      console.error('[SANITIZE] Fallback failed, returning empty string');
+      structuredLog.error('Fallback sanitization failed, returning empty string', { error_message: fallbackError.message });
       return '';
     }
   }
@@ -621,22 +992,27 @@ function sanitizeUnicode(text) {
 
 async function makeApiCall(endpoint, options = {}) {
   const method = options.method || 'GET';
-  console.error(`[API_CALL] ${method} ${API_URL}${endpoint}`);
-  console.error(`[API_CALL] API_KEY configured: ${API_KEY ? 'Yes (length: ' + API_KEY.length + ')' : 'NO'}`);
-  console.error(`[API_CALL] API_KEY prefix: ${API_KEY ? API_KEY.substring(0, 20) + '...' : 'NONE'}`);
+  const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+  structuredLog.info('API call starting', {
+    request_id: requestId,
+    method,
+    endpoint,
+    api_url: API_URL,
+    api_key_configured: !!API_KEY
+  });
 
   if (!API_KEY) {
-    console.error(`[API_CALL] FATAL: PURMEMO_API_KEY not configured`);
+    structuredLog.error('PURMEMO_API_KEY not configured', { request_id: requestId });
     throw new Error('PURMEMO_API_KEY not configured');
   }
 
-  try {
+  return await apiCircuitBreaker.execute(async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s for high-latency connections
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    let response;
     try {
-      response = await fetch(`${API_URL}${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         signal: controller.signal,
         headers: {
@@ -645,67 +1021,96 @@ async function makeApiCall(endpoint, options = {}) {
           ...options.headers
         }
       });
-    } finally {
+
       clearTimeout(timeoutId);
-    }
 
-    console.error(`[API_CALL] Response status: ${response.status} ${response.statusText}`);
+      structuredLog.debug('API response received', {
+        request_id: requestId,
+        endpoint,
+        status: response.status,
+        status_text: response.statusText
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[API_CALL] ERROR RESPONSE (${response.status}):`, errorText.substring(0, 500));
+      if (!response.ok) {
+        const errorText = await response.text();
+        structuredLog.warn('API error response', {
+          request_id: requestId,
+          endpoint,
+          status: response.status,
+          error_preview: errorText.substring(0, 500)
+        });
 
-      // Special handling for quota exceeded (429)
-      if (response.status === 429) {
-        try {
-          const errorData = JSON.parse(errorText);
-          const upgradeUrl = errorData.upgrade_url || 'https://app.purmemo.ai/dashboard/plans';
-          const currentUsage = errorData.current_usage || '?';
-          const quotaLimit = errorData.quota_limit || '?';
-          const tier = errorData.tier || 'FREE';
-          const billingPeriod = errorData.billing_period || 'this month';
+        // Special handling for quota exceeded (429)
+        if (response.status === 429) {
+          try {
+            const errorData = JSON.parse(errorText);
+            const upgradeUrl = errorData.upgrade_url || 'https://app.purmemo.ai/dashboard/plans';
+            const currentUsage = errorData.current_usage || '?';
+            const quotaLimit = errorData.quota_limit || '?';
+            const tier = errorData.tier || 'FREE';
+            const billingPeriod = errorData.billing_period || 'this month';
 
-          // Calculate reset date (first day of next month)
-          const now = new Date();
-          const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          const resetDateStr = resetDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            // Calculate reset date (first day of next month)
+            const now = new Date();
+            const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const resetDateStr = resetDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-          const userMessage = [
-            `❌ Monthly recall quota exceeded (${currentUsage}/${quotaLimit} used)`,
-            ``,
-            `You've reached the ${tier.toUpperCase()} tier limit of ${quotaLimit} recalls per month.`,
-            ``,
-            `🚀 Upgrade to PRO for unlimited recalls:`,
-            `   ${upgradeUrl}`,
-            ``,
-            `📅 Your quota will reset on ${resetDateStr}`,
-            ``,
-            `For immediate access, please upgrade your subscription.`
-          ].join('\n');
+            const userMessage = [
+              `❌ Monthly recall quota exceeded (${currentUsage}/${quotaLimit} used)`,
+              ``,
+              `You've reached the ${tier.toUpperCase()} tier limit of ${quotaLimit} recalls per month.`,
+              ``,
+              `🚀 Upgrade to PRO for unlimited recalls:`,
+              `   ${upgradeUrl}`,
+              ``,
+              `📅 Your quota will reset on ${resetDateStr}`,
+              ``,
+              `For immediate access, please upgrade your subscription.`
+            ].join('\n');
 
-          throw new Error(userMessage);
-        } catch (parseError) {
-          // If JSON parsing fails, fall back to generic quota message
-          throw new Error(`Monthly recall quota exceeded. Upgrade to PRO for unlimited recalls:\nhttps://app.purmemo.ai/dashboard/plans`);
+            throw new Error(userMessage);
+          } catch (parseError) {
+            // If JSON parsing fails, fall back to generic quota message
+            throw new Error(`Monthly recall quota exceeded. Upgrade to PRO for unlimited recalls:\nhttps://app.purmemo.ai/dashboard/plans`);
+          }
         }
+
+        throw new Error(`API Error ${response.status}: ${errorText}`);
       }
 
-      throw new Error(`API Error ${response.status}: ${errorText}`);
+      const data = await response.json();
+
+      structuredLog.info('API call successful', {
+        request_id: requestId,
+        endpoint,
+        response_keys: Object.keys(data).length,
+        response_size_bytes: JSON.stringify(data).length
+      });
+
+      return data;
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error.name === 'AbortError') {
+        structuredLog.error('API request timeout', {
+          request_id: requestId,
+          endpoint,
+          timeout_ms: 30000
+        });
+        throw new Error('Request timeout after 30 seconds');
+      }
+
+      structuredLog.error('API call exception', {
+        request_id: requestId,
+        endpoint,
+        error_name: error.constructor.name,
+        error_message: error.message
+      });
+
+      throw error;
     }
-
-    const data = await response.json();
-    console.error(`[API_CALL] Success - Response has ${Object.keys(data).length} top-level keys`);
-    console.error(`[API_CALL] Success - Response size: ${JSON.stringify(data).length} bytes`);
-
-    return data;
-
-  } catch (error) {
-    console.error(`[API_CALL] EXCEPTION CAUGHT:`, error);
-    console.error(`[API_CALL] Exception type: ${error.constructor.name}`);
-    console.error(`[API_CALL] Exception message: ${error.message}`);
-    if (error.stack) console.error(`[API_CALL] Exception stack:`, error.stack);
-    throw error;
-  }
+  });
 }
 
 function extractContentMetadata(content) {
@@ -744,7 +1149,7 @@ function extractContentMetadata(content) {
   }
 
   // Count file paths
-  const pathMatches = content.match(/[\/~][\w\-\.\/]+\.\w+/g);
+  const pathMatches = content.match(/[\/~][\w\-.\/]+\.\w+/g);
   if (pathMatches) {
     metadata.hasFilePaths = true;
     metadata.filePathCount = pathMatches.length;
@@ -769,16 +1174,16 @@ function shouldChunk(content) {
 function chunkContent(content, maxChunkSize = 20000) {
   const chunks = [];
   let currentPos = 0;
-  
+
   while (currentPos < content.length) {
     let chunkEnd = Math.min(currentPos + maxChunkSize, content.length);
-    
+
     // Try to break at natural boundaries (paragraph, section, etc.)
     if (chunkEnd < content.length) {
       // Look for good break points within the last 1000 chars of the chunk
       const searchStart = Math.max(chunkEnd - 1000, currentPos);
       const segment = content.slice(searchStart, chunkEnd);
-      
+
       // Try to break at section markers first
       const sectionBreak = segment.lastIndexOf('\n===');
       if (sectionBreak !== -1) {
@@ -797,12 +1202,12 @@ function chunkContent(content, maxChunkSize = 20000) {
         }
       }
     }
-    
+
     const chunk = content.slice(currentPos, chunkEnd);
     chunks.push(chunk);
     currentPos = chunkEnd;
   }
-  
+
   return chunks;
 }
 
@@ -810,11 +1215,15 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
   const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const chunks = chunkContent(content);
   const totalParts = chunks.length;
-  
-  console.error(`[CHUNKED] Saving ${content.length} chars in ${totalParts} parts`);
-  
+
+  structuredLog.info('Saving chunked content', {
+    session_id: sessionId,
+    total_chars: content.length,
+    total_parts: totalParts
+  });
+
   const savedParts = [];
-  
+
   // Save each chunk
   for (let i = 0; i < chunks.length; i++) {
     const partNumber = i + 1;
@@ -826,8 +1235,8 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         content: chunk,
         title: `${title} - Part ${partNumber}/${totalParts}`,
         tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
-        platform: PLATFORM,  // Auto-detected from MCP_PLATFORM env var
-        conversation_id: `${sessionId}-part-${partNumber}`,  // Unique ID per part (prevents living document update)
+        platform: PLATFORM,
+        conversation_id: `${sessionId}-part-${partNumber}`,
         metadata: {
           ...metadata,
           captureType: 'chunked',
@@ -839,31 +1248,24 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
         }
       })
     });
-    
+
     savedParts.push({
       partNumber,
       memoryId: partData.id || partData.memory_id,
       size: chunk.length
     });
+
+    structuredLog.debug('Chunk saved', {
+      session_id: sessionId,
+      part_number: partNumber,
+      total_parts: totalParts,
+      chunk_size: chunk.length,
+      memory_id: partData.id || partData.memory_id
+    });
   }
-  
+
   // Create index memory
-  const indexContent = `# ${title} - Complete Capture Index
-
-## Capture Summary
-- Total Parts: ${totalParts}
-- Total Size: ${content.length} characters
-- Session ID: ${sessionId}
-- Saved: ${new Date().toISOString()}
-
-## Parts Overview
-${savedParts.map(p => `- Part ${p.partNumber}: ${p.size} chars [${p.memoryId}]`).join('\n')}
-
-## Metadata
-${JSON.stringify(metadata, null, 2)}
-
-## Full Content Access
-Use recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
+  const indexContent = `# ${title} - Complete Capture Index\n\n## Capture Summary\n- Total Parts: ${totalParts}\n- Total Size: ${content.length} characters\n- Session ID: ${sessionId}\n- Saved: ${new Date().toISOString()}\n\n## Parts Overview\n${savedParts.map(p => `- Part ${p.partNumber}: ${p.size} chars [${p.memoryId}]`).join('\n')}\n\n## Metadata\n${JSON.stringify(metadata, null, 2)}\n\n## Full Content Access\nUse recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
 
   const indexData = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
@@ -871,8 +1273,8 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
       content: indexContent,
       title: `${title} - Index`,
       tags: [...tags, 'chunked-index', `session:${sessionId}`],
-      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
-      conversation_id: `${sessionId}-index`,  // Unique ID for index (prevents living document update)
+      platform: PLATFORM,
+      conversation_id: `${sessionId}-index`,
       metadata: {
         ...metadata,
         captureType: 'chunked-index',
@@ -885,6 +1287,12 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
     })
   });
 
+  structuredLog.info('Chunked content save complete', {
+    session_id: sessionId,
+    total_parts: totalParts,
+    index_memory_id: indexData.id || indexData.memory_id
+  });
+
   return {
     sessionId,
     totalParts,
@@ -895,7 +1303,10 @@ Use recall_memories with session:${sessionId} to find all parts, or use get_memo
 }
 
 async function saveSingleContent(content, title, tags = [], metadata = {}) {
-  console.error(`[SINGLE] Saving ${content.length} chars directly`);
+  structuredLog.debug('Saving single content', {
+    char_count: content.length,
+    title
+  });
 
   const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
@@ -903,8 +1314,8 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
       content,
       title,
       tags: [...tags, 'complete-conversation'],
-      platform: PLATFORM,  // 'claude' - MCP is Claude-specific
-      conversation_id: metadata.conversationId || null,  // For living document pattern
+      platform: PLATFORM,
+      conversation_id: metadata.conversationId || null,
       metadata: {
         ...metadata,
         captureType: 'single',
@@ -913,10 +1324,15 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
     })
   });
 
+  structuredLog.info('Single content saved', {
+    memory_id: data.id || data.memory_id,
+    char_count: content.length
+  });
+
   return {
     memoryId: data.id || data.memory_id,
     size: content.length,
-    wisdomSuggestion: data.wisdom_suggestion || null  // PHASE 16.3: Return wisdom suggestion
+    wisdomSuggestion: data.wisdom_suggestion || null
   };
 }
 
@@ -943,88 +1359,103 @@ function formatWisdomSuggestion(wisdomSuggestion) {
 
 // Tool handlers
 async function handleSaveConversation(args) {
-  // ⚠️ PHASE 16.4: Sanitize content IMMEDIATELY to prevent JSON encoding errors
-  const rawContent = args.conversationContent || '';
-  const content = sanitizeUnicode(rawContent);
-  const contentLength = content.length;
+  const toolName = 'save_conversation';
+  const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
 
-  // ============================================================================
-  // PHASE 15: INTELLIGENT CONTEXT EXTRACTION
-  // ============================================================================
-  console.error('[Phase 15] Extracting intelligent context...');
-  const intelligentContext = extractProjectContext(content);
-
-  // Generate intelligent title (unless explicitly provided)
-  let title = args.title;
-  if (!title || title.startsWith('Conversation 202')) {
-    title = generateIntelligentTitle(intelligentContext, content);
-    console.error(`[Phase 15] Generated intelligent title: "${title}"`);
-  }
-
-  // Extract progress indicators and relationships
-  const progressIndicators = extractProgressIndicators(content);
-  const relationships = extractRelationships(content);
-
-  const tags = args.tags || ['complete-conversation'];
-
-  // AUTO-GENERATE conversation_id from title if not provided
-  // This enables automatic living document pattern (like Chrome extension)
-  let conversationId = args.conversationId;
-  if (!conversationId && title && !title.startsWith('Conversation 202')) {
-    // Generate stable ID from title (normalize to slug)
-    conversationId = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-      .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
-      .substring(0, 100);             // Limit length
-
-    console.error(`[AUTO-ID] Generated conversation_id from title: "${conversationId}"`);
-  }
-
-  // Validate content quality
-  if (contentLength < 100) {
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ INSUFFICIENT CONTENT DETECTED!\n\n` +
-              `You provided only ${contentLength} characters.\n` +
-              `This tool requires the COMPLETE conversation content.\n\n` +
-              `What you sent: "${content.substring(0, 100)}..."\n\n` +
-              `REQUIREMENTS:\n` +
-              `- Include ALL user messages verbatim\n` +
-              `- Include ALL assistant responses completely\n` +
-              `- Include ALL code blocks and artifacts\n` +
-              `- Minimum 500 characters expected for real conversations\n\n` +
-              `Please retry with the FULL conversation content.`
-      }]
-    };
-  }
-
-  if (contentLength < 500 && !content.includes('USER:') && !content.includes('ASSISTANT:')) {
-    return {
-      content: [{
-        type: 'text',
-        text: `⚠️ POSSIBLE SUMMARY DETECTED!\n\n` +
-              `Content: "${content}"\n\n` +
-              `This appears to be a summary rather than the full conversation.\n` +
-              `Please include the complete conversation with:\n` +
-              `- USER: [exact messages]\n` +
-              `- ASSISTANT: [exact responses]\n` +
-              `- All code blocks and artifacts\n\n` +
-              `Or confirm this is the complete content by adding more context.`
-      }]
-    };
-  }
+  structuredLog.info(`${toolName}: starting`, {
+    tool_name: toolName,
+    request_id: requestId
+  });
 
   try {
+    const rawContent = args.conversationContent || '';
+    const content = sanitizeUnicode(rawContent);
+    const contentLength = content.length;
+
+    structuredLog.debug('Extracting intelligent context', {
+      request_id: requestId,
+      content_length: contentLength
+    });
+
+    const intelligentContext = extractProjectContext(content);
+
+    let title = args.title;
+    if (!title || title.startsWith('Conversation 202')) {
+      title = generateIntelligentTitle(intelligentContext, content);
+      structuredLog.debug('Generated intelligent title', {
+        request_id: requestId,
+        title
+      });
+    }
+
+    const progressIndicators = extractProgressIndicators(content);
+    const relationships = extractRelationships(content);
+
+    const tags = args.tags || ['complete-conversation'];
+
+    let conversationId = args.conversationId;
+    if (!conversationId && title && !title.startsWith('Conversation 202')) {
+      conversationId = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .substring(0, 100);
+
+      structuredLog.debug('Generated conversation ID from title', {
+        request_id: requestId,
+        conversation_id: conversationId
+      });
+    }
+
+    if (contentLength < 100) {
+      structuredLog.warn('Insufficient content detected', {
+        request_id: requestId,
+        content_length: contentLength
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ INSUFFICIENT CONTENT DETECTED!\n\n` +
+                `You provided only ${contentLength} characters.\n` +
+                `This tool requires the COMPLETE conversation content.\n\n` +
+                `What you sent: "${content.substring(0, 100)}..."\n\n` +
+                `REQUIREMENTS:\n` +
+                `- Include ALL user messages verbatim\n` +
+                `- Include ALL assistant responses completely\n` +
+                `- Include ALL code blocks and artifacts\n` +
+                `- Minimum 500 characters expected for real conversations\n\n` +
+                `Please retry with the FULL conversation content.`
+        }]
+      };
+    }
+
+    if (contentLength < 500 && !content.includes('USER:') && !content.includes('ASSISTANT:')) {
+      structuredLog.warn('Possible summary detected', {
+        request_id: requestId,
+        content_length: contentLength
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `⚠️ POSSIBLE SUMMARY DETECTED!\n\n` +
+                `Content: "${content}"\n\n` +
+                `This appears to be a summary rather than the full conversation.\n` +
+                `Please include the complete conversation with:\n` +
+                `- USER: [exact messages]\n` +
+                `- ASSISTANT: [exact responses]\n` +
+                `- All code blocks and artifacts\n\n` +
+                `Or confirm this is the complete content by adding more context.`
+        }]
+      };
+    }
+
     const metadata = extractContentMetadata(content);
 
-    // ==========================================
-    // NEW: Check for existing memory (living document)
-    // ==========================================
     if (conversationId) {
       try {
-        // Search for existing memory with this conversation_id
         const params = new URLSearchParams({
           conversation_id: conversationId,
           platform: PLATFORM,
@@ -1038,15 +1469,15 @@ async function handleSaveConversation(args) {
         const existingMemories = searchResponse.results || [];
 
         if (existingMemories.length > 0) {
-          // FOUND existing memory - UPDATE it
           const existingMemory = existingMemories[0];
           const memoryId = existingMemory.id;
 
-          console.error(`[LIVING DOC] Updating existing memory: ${memoryId}`);
+          structuredLog.debug('Found existing memory for living document update', {
+            request_id: requestId,
+            memory_id: memoryId,
+            conversation_id: conversationId
+          });
 
-          // ============================================================================
-          // PHASE 15: ENRICH UPDATE WITH INTELLIGENT CONTEXT
-          // ============================================================================
           const updateMetadata = {
             ...metadata,
             captureType: shouldChunk(content) ? 'chunked' : 'single',
@@ -1059,12 +1490,6 @@ async function handleSaveConversation(args) {
             }
           };
 
-          console.error(`[Phase 15] Updating with intelligent metadata:`, JSON.stringify({
-            project: intelligentContext.project_name,
-            phase: intelligentContext.phase,
-            status: intelligentContext.status
-          }));
-
           const updateResponse = await makeApiCall(`/api/v1/memories/${memoryId}/`, {
             method: 'PATCH',
             body: JSON.stringify({
@@ -1075,9 +1500,17 @@ async function handleSaveConversation(args) {
             })
           });
 
-          // Success response for UPDATE
           const isAutoGenerated = !args.conversationId && conversationId;
-          const wisdomSuggestion = updateResponse.wisdom_suggestion || null;  // PHASE 16.3
+          const wisdomSuggestion = updateResponse.wisdom_suggestion || null;
+
+          structuredLog.info(`${toolName}: completed`, {
+            tool_name: toolName,
+            request_id: requestId,
+            duration_ms: Date.now() - startTime,
+            action: 'updated',
+            memory_id: memoryId,
+            char_count: content.length
+          });
 
           return {
             content: [{
@@ -1093,27 +1526,25 @@ async function handleSaveConversation(args) {
                     `- URLs: ${metadata.urlCount}\n\n` +
                     (isAutoGenerated ? `💡 Auto-living document: Saves with title "${title}" will update this memory\n` : '') +
                     `✓ Updated existing memory (not duplicated)!` +
-                    formatWisdomSuggestion(wisdomSuggestion)  // PHASE 16.3: Display wisdom suggestion
+                    formatWisdomSuggestion(wisdomSuggestion)
             }]
           };
         } else {
-          console.error(`[LIVING DOC] No existing memory found for conversation_id=${conversationId}, will create new`);
+          structuredLog.debug('No existing memory found, will create new', {
+            request_id: requestId,
+            conversation_id: conversationId
+          });
         }
       } catch (error) {
-        console.error(`[LIVING DOC] Error checking for existing memory:`, error);
-        // Fall through to create new memory
+        structuredLog.warn('Error checking for existing memory', {
+          request_id: requestId,
+          error_message: error.message
+        });
       }
     }
-    // ==========================================
-    // End of living document check
-    // ==========================================
 
-    // No conversation_id or no existing memory found - CREATE new memory
-    metadata.conversationId = conversationId;  // Store in metadata
+    metadata.conversationId = conversationId;
 
-    // ============================================================================
-    // PHASE 15: ENRICH METADATA WITH INTELLIGENT CONTEXT
-    // ============================================================================
     metadata.intelligent = {
       ...intelligentContext,
       progress_indicators: progressIndicators,
@@ -1132,25 +1563,26 @@ async function handleSaveConversation(args) {
           focus: sess.focus,
           platform: PLATFORM
         };
-        console.error(`[IDENTITY] Attached session context to memory: project=${sess.project}`);
+        structuredLog.debug('Attached session context to memory', { project: sess.project });
       }
     } catch (sessionErr) {
       // Non-fatal — save proceeds without session context
-      console.error(`[IDENTITY] Could not fetch session context (non-fatal): ${sessionErr.message}`);
+      structuredLog.warn('Could not fetch session context (non-fatal)', { error_message: sessionErr.message });
     }
 
-    console.error(`[Phase 15] Enriched metadata:`, JSON.stringify({
-      project: intelligentContext.project_name,
-      component: intelligentContext.project_component,
-      feature: intelligentContext.feature_name,
-      phase: intelligentContext.phase,
-      status: intelligentContext.status
-    }, null, 2));
-
-    // Decide whether to chunk or save directly
     if (shouldChunk(content)) {
       const result = await saveChunkedContent(content, title, tags, metadata);
       const isAutoGenerated = !args.conversationId && conversationId;
+
+      structuredLog.info(`${toolName}: completed`, {
+        tool_name: toolName,
+        request_id: requestId,
+        duration_ms: Date.now() - startTime,
+        action: 'chunked',
+        session_id: result.sessionId,
+        total_parts: result.totalParts,
+        char_count: result.totalSize
+      });
 
       return {
         content: [{
@@ -1176,6 +1608,15 @@ async function handleSaveConversation(args) {
       const result = await saveSingleContent(content, title, tags, metadata);
       const isAutoGenerated = !args.conversationId && conversationId;
 
+      structuredLog.info(`${toolName}: completed`, {
+        tool_name: toolName,
+        request_id: requestId,
+        duration_ms: Date.now() - startTime,
+        action: 'created',
+        memory_id: result.memoryId,
+        char_count: result.size
+      });
+
       return {
         content: [{
           type: 'text',
@@ -1192,28 +1633,49 @@ async function handleSaveConversation(args) {
                 (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
                 (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
                 `✓ Complete conversation preserved!` +
-                formatWisdomSuggestion(result.wisdomSuggestion)  // PHASE 16.3: Display wisdom suggestion
+                formatWisdomSuggestion(result.wisdomSuggestion)
         }]
       };
     }
-    
+
   } catch (error) {
+    const errorMsg = safeErrorMessage(error);
+
+    structuredLog.error(`${toolName}: failed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+
     return {
       content: [{
         type: 'text',
-        text: `❌ Save Error: ${error.message}\n\nPlease try again or contact support if the issue persists.`
+        text: `❌ Save Error: ${errorMsg}\n\nPlease try again or contact support if the issue persists.`
       }]
     };
   }
 }
 
 async function handleDiscoverRelated(args) {
+  const toolName = 'discover_related_conversations';
+  const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info(`${toolName}: starting`, {
+    tool_name: toolName,
+    request_id: requestId
+  });
+
   try {
-    // Use v10 MCP endpoint for proper semantic clustering
     const safeQuery = sanitizeUnicode(args.query || '');
 
-    const response = await makeApiCall('/api/v10/mcp/tools/execute', {
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         tool: 'discover_related_conversations',
         arguments: {
@@ -1224,28 +1686,51 @@ async function handleDiscoverRelated(args) {
       })
     });
 
-    // V10 returns MCP response format with extra fields, extract just content
-    if (response.content && response.content[0]) {
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      structuredLog.warn(`${toolName}: no results found`, {
+        tool_name: toolName,
+        request_id: requestId,
+        query: safeQuery
+      });
+
       return {
-        content: response.content
+        content: [{
+          type: 'text',
+          text: `🔍 No related conversations found for "${safeQuery}"\n\nTry different keywords or check if conversations were saved successfully.`
+        }]
       };
     }
 
-    // Fallback if no content
+    const responseText = data.content[0].text;
+    const finalSanitizedText = sanitizeUnicode(responseText);
+
+    structuredLog.info(`${toolName}: completed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      response_size: finalSanitizedText.length
+    });
+
     return {
-      content: [{
-        type: 'text',
-        text: `🔍 No related conversations found for "${safeQuery}"\n\nTry different keywords or check if conversations were saved successfully.`
-      }]
+      content: [{ type: 'text', text: finalSanitizedText }]
     };
 
   } catch (error) {
-    // Check if this is a quota error (HTTP 429)
+    const errorMsg = safeErrorMessage(error);
+
+    structuredLog.error(`${toolName}: failed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+
     if (error.message && error.message.includes('429')) {
       return {
         content: [{
           type: 'text',
-          text: `⚠️ Monthly recall quota exceeded.\n\n${error.message}\n\nNote: 'discover_related_conversations' shares the same quota pool as 'recall_memories'.`
+          text: `⚠️ Monthly recall quota exceeded.\n\n${errorMsg}\n\nNote: 'discover_related_conversations' shares the same quota pool as 'recall_memories'.`
         }]
       };
     }
@@ -1253,7 +1738,304 @@ async function handleDiscoverRelated(args) {
     return {
       content: [{
         type: 'text',
-        text: `❌ Discovery Error: ${error.message}\n\nThis could be due to:\n- Monthly quota limit reached (check with your API provider)\n- Network connectivity issues\n- API endpoint changes\n\nTry using 'recall_memories' for basic search, or upgrade to PRO for unlimited recalls.`
+        text: `❌ Discovery Error: ${errorMsg}\n\nThis could be due to:\n- Monthly quota limit reached (check with your API provider)\n- Network connectivity issues\n- API endpoint changes\n\nTry using 'recall_memories' for basic search, or upgrade to PRO for unlimited recalls.`
+      }]
+    };
+  }
+}
+
+async function handleRecallMemories(args) {
+  const toolName = 'recall_memories';
+  const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info(`${toolName}: starting`, {
+    tool_name: toolName,
+    request_id: requestId
+  });
+
+  try {
+    const safeQuery = sanitizeUnicode(args.query || '');
+
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tool: 'recall_memories',
+        arguments: {
+          query: args.query,
+          limit: args.limit || 10,
+          entity: args.entity,
+          initiative: args.initiative,
+          stakeholder: args.stakeholder,
+          deadline: args.deadline,
+          intent: args.intent,
+          has_observations: args.has_observations
+        }
+      })
+    });
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      structuredLog.warn(`${toolName}: no results found`, {
+        tool_name: toolName,
+        request_id: requestId,
+        query: safeQuery
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `🔍 No memories found for "${safeQuery}"\n\nTry different keywords or check if the conversation was saved successfully.`
+        }]
+      };
+    }
+
+    const responseText = data.content[0].text;
+
+    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**'));
+
+    if (memoryBlocks.length === 0) {
+      structuredLog.info(`${toolName}: completed`, {
+        tool_name: toolName,
+        request_id: requestId,
+        duration_ms: Date.now() - startTime,
+        results_count: 0
+      });
+
+      return {
+        content: [{ type: 'text', text: sanitizeUnicode(responseText) }]
+      };
+    }
+
+    let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
+
+    memoryBlocks.forEach((block, index) => {
+      const titleMatch = block.match(/\*\*(.+?)\*\*/);
+      const relevanceMatch = block.match(/Relevance: ([\d.]+)%/);
+      const idMatch = block.match(/ID: (.+)/);
+      const platformMatch = block.match(/Platform: (\w+)/);
+      const previewMatch = block.match(/Preview: (.+)/);
+
+      const title = titleMatch ? titleMatch[1] : 'Untitled';
+      const relevance = relevanceMatch ? relevanceMatch[1] : '?';
+      const memoryId = idMatch ? idMatch[1].trim() : 'unknown';
+      const platform = platformMatch ? platformMatch[1] : 'unknown';
+      const preview = previewMatch ? previewMatch[1] : '';
+
+      const emoji = platform === 'chatgpt' ? '🤖' :
+                     platform === 'claude' ? '🟣' :
+                     platform === 'gemini' ? '💎' : '❓';
+
+      resultText += `${index + 1}. ${emoji} **${sanitizeUnicode(title)}**\n`;
+      resultText += `   🎯 Relevance: ${relevance}%\n`;
+      resultText += `   🌍 Platform: ${platform}\n`;
+
+      if (preview) {
+        resultText += `   📝 Preview: ${sanitizeUnicode(preview.substring(0, 150))}...\n`;
+      }
+      resultText += `   🔗 ID: ${memoryId}\n\n`;
+    });
+
+    resultText += `${'─'.repeat(60)}\n\n`;
+    resultText += `💡 **Discover More:**\n`;
+    resultText += `Use 'discover_related_conversations' with your query to find related\n`;
+    resultText += `conversations across ALL platforms (ChatGPT, Claude, Gemini).\n`;
+    resultText += `Automatically grouped by AI-organized semantic clusters!\n`;
+
+    const finalSanitizedText = sanitizeUnicode(resultText);
+
+    structuredLog.info(`${toolName}: completed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      results_count: memoryBlocks.length,
+      response_size: finalSanitizedText.length
+    });
+
+    return {
+      content: [{ type: 'text', text: finalSanitizedText }]
+    };
+
+  } catch (error) {
+    const errorMsg = safeErrorMessage(error);
+
+    structuredLog.error(`${toolName}: failed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Recall Error: ${errorMsg}`
+      }]
+    };
+  }
+}
+
+async function handleGetMemoryDetails(args) {
+  const toolName = 'get_memory_details';
+  const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info(`${toolName}: starting`, {
+    tool_name: toolName,
+    request_id: requestId,
+    memory_id: args.memoryId,
+    include_linked_parts: args.includeLinkedParts
+  });
+
+  try {
+    const data = await makeApiCall(`/api/v10/mcp/tools/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tool: 'get_memory_details',
+        arguments: {
+          memoryId: args.memoryId,
+          includeLinkedParts: args.includeLinkedParts !== false
+        }
+      })
+    });
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      structuredLog.warn(`${toolName}: no content in response`, {
+        tool_name: toolName,
+        request_id: requestId,
+        memory_id: args.memoryId
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Memory not found or invalid response\n\nMemory ID: ${args.memoryId}`
+        }]
+      };
+    }
+
+    const responseText = data.content[0].text;
+    const sanitizedText = sanitizeUnicode(responseText);
+
+    structuredLog.info(`${toolName}: completed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      memory_id: args.memoryId,
+      response_size: sanitizedText.length
+    });
+
+    return {
+      content: [{ type: 'text', text: sanitizedText }]
+    };
+
+  } catch (error) {
+    const errorMsg = safeErrorMessage(error);
+
+    structuredLog.error(`${toolName}: failed`, {
+      tool_name: toolName,
+      request_id: requestId,
+      duration_ms: Date.now() - startTime,
+      memory_id: args.memoryId,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error retrieving memory: ${errorMsg}\n\nMemory ID: ${args.memoryId}\n\nCheck logs for full details.`
+      }]
+    };
+  }
+}
+
+// ============================================================================
+// IDENTITY LAYER HANDLERS
+// ============================================================================
+
+async function handleGetUserContext(args) {
+  structuredLog.info('get_user_context: called', { platform: PLATFORM });
+
+  try {
+    // Fetch identity profile and session context in parallel
+    const [identityResponse, sessionResponse] = await Promise.allSettled([
+      makeApiCall('/api/v1/auth/me'),
+      makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`)
+    ]);
+
+    // Extract identity from /me response
+    let identity = {};
+    let userEmail = null;
+    if (identityResponse.status === 'fulfilled') {
+      const me = identityResponse.value;
+      identity = me.identity || {};
+      userEmail = me.email;
+      structuredLog.debug('Identity loaded', { email: userEmail });
+    } else {
+      structuredLog.warn('Identity fetch failed', { error_message: String(identityResponse.reason) });
+    }
+
+    // Extract session context
+    let session = {};
+    if (sessionResponse.status === 'fulfilled') {
+      session = sessionResponse.value.session || {};
+      structuredLog.debug('Session loaded', { project: session.project, context: session.context });
+    } else {
+      structuredLog.warn('Session fetch failed', { error_message: String(sessionResponse.reason) });
+    }
+
+    // Build output text
+    const hasIdentity = identity.role || (identity.expertise && identity.expertise.length > 0);
+    const hasSession = session.context || session.project || session.focus;
+
+    let output = `🧠 User Context for ${userEmail || 'this user'}\n\n`;
+
+    output += `👤 Identity Profile\n`;
+    if (identity.role) output += `   Role: ${identity.role}\n`;
+    if (identity.primary_domain) output += `   Domain: ${identity.primary_domain}\n`;
+    if (identity.work_style) output += `   Work style: ${identity.work_style}\n`;
+    if (identity.expertise && identity.expertise.length > 0) {
+      output += `   Expertise: ${identity.expertise.join(', ')}\n`;
+    }
+    if (identity.tools && identity.tools.length > 0) {
+      output += `   Tools: ${identity.tools.join(', ')}\n`;
+    }
+    if (!hasIdentity) {
+      output += `   (No identity profile set — user can configure at app.purmemo.ai/dashboard)\n`;
+    }
+
+    output += `\n🎯 Current Session (${PLATFORM})\n`;
+    if (session.project) output += `   Project: ${session.project}\n`;
+    if (session.context) output += `   Working on: ${session.context}\n`;
+    if (session.focus) output += `   Focus: ${session.focus}\n`;
+    if (session.updated_at) output += `   Last updated: ${session.updated_at}\n`;
+    if (!hasSession) {
+      output += `   (No active session context — user can set "What are you working on?" in the dashboard)\n`;
+    }
+
+    output += `\n💡 How to use this context:\n`;
+    output += `   - Address the user by their role and domain (not generically)\n`;
+    output += `   - Assume their current project context without them having to repeat it\n`;
+    output += `   - Tailor your responses to their expertise level and work style\n`;
+    output += `   - Ask targeted follow-ups based on their focus area\n`;
+
+    return {
+      content: [{ type: 'text', text: output }]
+    };
+
+  } catch (error) {
+    structuredLog.error('get_user_context: failed', { error_message: error.message });
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Failed to load user context: ${error.message}\n\nMake sure your Purmemo API key is configured.`
       }]
     };
   }
@@ -1267,9 +2049,7 @@ async function handleGetAcknowledgedErrors(args) {
 
     const response = await makeApiCall(
       `/api/v1/admin/acknowledged-errors?limit=${limit}&level_filter=${levelFilter}&min_occurrences=${minOccurrences}`,
-      {
-        method: 'GET'
-      }
+      { method: 'GET' }
     );
 
     if (!response.acknowledged_errors || response.acknowledged_errors.length === 0) {
@@ -1281,7 +2061,6 @@ async function handleGetAcknowledgedErrors(args) {
       };
     }
 
-    // Format response for Claude with rich context
     const errorList = response.acknowledged_errors.map((err, idx) => {
       let output = `\n${idx + 1}. **${err.level.toUpperCase()}** (ID: ${err.id})
    Message: ${err.message}
@@ -1290,9 +2069,7 @@ async function handleGetAcknowledgedErrors(args) {
    Last Seen: ${err.last_seen_at}
    Source: ${err.source}`;
 
-      // Enhanced: Display rich error context if available
       if (err.metadata) {
-        // Check for exception context from Phase 1 enhancement
         if (err.metadata.exception_type) {
           output += `\n\n   🔍 EXCEPTION DETAILS:`;
           output += `\n   Type: ${err.metadata.exception_type}`;
@@ -1300,32 +2077,22 @@ async function handleGetAcknowledgedErrors(args) {
             output += `\n   Message: ${err.metadata.exception_message}`;
           }
         }
-
-        // Display error location
         if (err.metadata.error_location) {
           const loc = err.metadata.error_location;
           output += `\n\n   📍 ERROR LOCATION:`;
           output += `\n   File: ${loc.file || loc.full_path}`;
           output += `\n   Line: ${loc.line}`;
           output += `\n   Function: ${loc.function}`;
-          if (loc.code) {
-            output += `\n   Code: ${loc.code}`;
-          }
+          if (loc.code) output += `\n   Code: ${loc.code}`;
         }
-
-        // Display traceback (first 5 frames)
         if (err.metadata.traceback_frames && err.metadata.traceback_frames.length > 0) {
           output += `\n\n   📚 STACK TRACE:`;
-          const frames = err.metadata.traceback_frames.slice(-5); // Last 5 frames
+          const frames = err.metadata.traceback_frames.slice(-5);
           frames.forEach((frame, i) => {
             output += `\n   ${i + 1}. ${frame.file}:${frame.line} in ${frame.function}`;
-            if (frame.code) {
-              output += `\n      ${frame.code}`;
-            }
+            if (frame.code) output += `\n      ${frame.code}`;
           });
         }
-
-        // Display request context
         if (err.metadata.request_context) {
           const req = err.metadata.request_context;
           output += `\n\n   🌐 REQUEST CONTEXT:`;
@@ -1333,45 +2100,23 @@ async function handleGetAcknowledgedErrors(args) {
           output += `\n   Method: ${req.method}`;
           if (req.user) output += `\n   User: ${req.user}`;
         }
-
-        // Display other metadata compactly
-        const displayedKeys = ['exception_type', 'exception_message', 'error_location', 'traceback_frames', 'traceback', 'request_context'];
-        const otherMetadata = Object.keys(err.metadata)
-          .filter(key => !displayedKeys.includes(key))
-          .reduce((obj, key) => {
-            obj[key] = err.metadata[key];
-            return obj;
-          }, {});
-
-        if (Object.keys(otherMetadata).length > 0) {
-          output += `\n\n   📋 OTHER METADATA: ${JSON.stringify(otherMetadata, null, 2)}`;
-        }
       }
 
       if (err.sample_log_ids && err.sample_log_ids.length > 0) {
         output += `\n\n   📝 Sample Logs: ${err.sample_log_ids.join(', ')}`;
       }
 
-      // Phase 2: Display similar past investigations
       if (err.similar_investigations && err.similar_investigations.length > 0) {
         output += `\n\n   🔄 SIMILAR PAST FIXES (${err.similar_investigations.length}):`;
         err.similar_investigations.forEach((inv, i) => {
           output += `\n\n   ${i + 1}. Fixed ${inv.fixed_at ? new Date(inv.fixed_at).toLocaleDateString() : 'previously'}`;
-          if (inv.root_cause) {
-            output += `\n      Root Cause: ${inv.root_cause}`;
-          }
-          if (inv.fix_type) {
-            output += `\n      Fix Type: ${inv.fix_type}`;
-          }
+          if (inv.root_cause) output += `\n      Root Cause: ${inv.root_cause}`;
+          if (inv.fix_type) output += `\n      Fix Type: ${inv.fix_type}`;
           if (inv.confidence !== null && inv.confidence !== undefined) {
             output += `\n      Confidence: ${(inv.confidence * 100).toFixed(0)}%`;
           }
-          if (inv.risk_level) {
-            output += `\n      Risk: ${inv.risk_level}`;
-          }
-          if (inv.commit_hash) {
-            output += `\n      Commit: ${inv.commit_hash.substring(0, 7)}`;
-          }
+          if (inv.risk_level) output += `\n      Risk: ${inv.risk_level}`;
+          if (inv.commit_hash) output += `\n      Commit: ${inv.commit_hash.substring(0, 7)}`;
         });
         output += `\n\n   💡 TIP: We've fixed this error before! Review the past fixes above.`;
       }
@@ -1438,171 +2183,6 @@ async function handleSaveInvestigation(args) {
   }
 }
 
-async function handleRecallMemories(args) {
-  try {
-    // Use v10 MCP endpoint for semantic search with intelligent scoring
-    const safeQuery = sanitizeUnicode(args.query || '');
-
-    const response = await makeApiCall('/api/v10/mcp/tools/execute', {
-      method: 'POST',
-      body: JSON.stringify({
-        tool: 'recall_memories',
-        arguments: {
-          query: args.query,
-          limit: args.limit || 10,
-          includeChunked: args.includeChunked !== false,
-          contentPreview: args.contentPreview !== false,
-          // Phase 2 Knowledge Graph filters
-          entity: args.entity,
-          initiative: args.initiative,
-          stakeholder: args.stakeholder,
-          deadline: args.deadline,
-          intent: args.intent,
-          has_observations: args.has_observations
-        }
-      })
-    });
-
-    // V10 returns MCP response format with extra fields, extract just content
-    return {
-      content: response.content || []
-    };
-
-  } catch (error) {
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ Recall Error: ${error.message}`
-      }]
-    };
-  }
-}
-
-async function handleGetMemoryDetails(args) {
-  console.error(`[GET_MEMORY_DETAILS] Called with memoryId: ${args.memoryId}, includeLinkedParts: ${args.includeLinkedParts}`);
-
-  try {
-    console.error(`[GET_MEMORY_DETAILS] Using v10 MCP endpoint with auto-linked parts support`);
-
-    // Use v10 MCP endpoint for enhanced memory details
-    const response = await makeApiCall('/api/v10/mcp/tools/execute', {
-      method: 'POST',
-      body: JSON.stringify({
-        tool: 'get_memory_details',
-        arguments: {
-          memoryId: args.memoryId,
-          includeLinkedParts: args.includeLinkedParts !== false
-        }
-      })
-    });
-
-    console.error(`[GET_MEMORY_DETAILS] V10 API call succeeded`);
-
-    // V10 returns MCP response format with extra fields, extract just content
-    return {
-      content: response.content || []
-    };
-
-  } catch (error) {
-    console.error(`[GET_MEMORY_DETAILS] ERROR CAUGHT:`, error);
-    console.error(`[GET_MEMORY_DETAILS] Error type: ${error.constructor.name}`);
-    console.error(`[GET_MEMORY_DETAILS] Error message: ${error.message}`);
-    console.error(`[GET_MEMORY_DETAILS] Error stack:`, error.stack);
-
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ Error retrieving memory: ${error.message}\n\nMemory ID: ${args.memoryId}\nError Type: ${error.constructor.name}\n\nCheck logs for full details.`
-      }]
-    };
-  }
-}
-
-async function handleGetUserContext(args) {
-  console.error(`[GET_USER_CONTEXT] Called for platform: ${PLATFORM}`);
-
-  try {
-    // Fetch identity profile and session context in parallel
-    const [identityResponse, sessionResponse] = await Promise.allSettled([
-      makeApiCall('/api/v1/auth/me'),
-      makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`)
-    ]);
-
-    // Extract identity from /me response
-    let identity = {};
-    let userEmail = null;
-    if (identityResponse.status === 'fulfilled') {
-      const me = identityResponse.value;
-      identity = me.identity || {};
-      userEmail = me.email;
-      console.error(`[GET_USER_CONTEXT] Identity loaded for ${userEmail}`);
-    } else {
-      console.error(`[GET_USER_CONTEXT] Identity fetch failed: ${identityResponse.reason}`);
-    }
-
-    // Extract session context
-    let session = {};
-    if (sessionResponse.status === 'fulfilled') {
-      session = sessionResponse.value.session || {};
-      console.error(`[GET_USER_CONTEXT] Session loaded: project=${session.project}, context=${session.context}`);
-    } else {
-      console.error(`[GET_USER_CONTEXT] Session fetch failed: ${sessionResponse.reason}`);
-    }
-
-    // Build output text
-    const hasIdentity = identity.role || (identity.expertise && identity.expertise.length > 0);
-    const hasSession = session.context || session.project || session.focus;
-
-    let output = `🧠 User Context for ${userEmail || 'this user'}\n\n`;
-
-    // Identity section
-    output += `👤 Identity Profile\n`;
-    if (identity.role) output += `   Role: ${identity.role}\n`;
-    if (identity.primary_domain) output += `   Domain: ${identity.primary_domain}\n`;
-    if (identity.work_style) output += `   Work style: ${identity.work_style}\n`;
-    if (identity.expertise && identity.expertise.length > 0) {
-      output += `   Expertise: ${identity.expertise.join(', ')}\n`;
-    }
-    if (identity.tools && identity.tools.length > 0) {
-      output += `   Tools: ${identity.tools.join(', ')}\n`;
-    }
-    if (!hasIdentity) {
-      output += `   (No identity profile set — user can configure at app.purmemo.ai/dashboard)\n`;
-    }
-
-    output += `\n🎯 Current Session (${PLATFORM})\n`;
-    if (session.project) output += `   Project: ${session.project}\n`;
-    if (session.context) output += `   Working on: ${session.context}\n`;
-    if (session.focus) output += `   Focus: ${session.focus}\n`;
-    if (session.updated_at) output += `   Last updated: ${session.updated_at}\n`;
-    if (!hasSession) {
-      output += `   (No active session context — user can set "What are you working on?" in the dashboard)\n`;
-    }
-
-    output += `\n💡 How to use this context:\n`;
-    output += `   - Address the user by their role and domain (not generically)\n`;
-    output += `   - Assume their current project context without them having to repeat it\n`;
-    output += `   - Tailor your responses to their expertise level and work style\n`;
-    output += `   - Ask targeted follow-ups based on their focus area\n`;
-
-    return {
-      content: [{
-        type: 'text',
-        text: output
-      }]
-    };
-
-  } catch (error) {
-    console.error(`[GET_USER_CONTEXT] Error: ${error.message}`);
-    return {
-      content: [{
-        type: 'text',
-        text: `❌ Failed to load user context: ${error.message}\n\nMake sure your Purmemo API key is configured.`
-      }]
-    };
-  }
-}
-
 // Setup server
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
@@ -1618,14 +2198,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return await handleGetMemoryDetails(args);
     case 'discover_related_conversations':
       return await handleDiscoverRelated(args);
+    case 'get_user_context':
+      return await handleGetUserContext(args);
     case 'get_acknowledged_errors':
       if (!ADMIN_MODE) break;
       return await handleGetAcknowledgedErrors(args);
     case 'save_investigation_result':
       if (!ADMIN_MODE) break;
       return await handleSaveInvestigation(args);
-    case 'get_user_context':
-      return await handleGetUserContext(args);
     default:
       return {
         content: [{
@@ -1636,25 +2216,243 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// ============================================================================
+// TIER 4: Resource Handlers (MCP 2025-11-25)
+// ============================================================================
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  structuredLog.info('resources/list called');
+  return {
+    resources: RESOURCES,
+    resourceTemplates: RESOURCE_TEMPLATES
+  };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+  const requestId = `resource_read_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info('resources/read called', { request_id: requestId, uri });
+
+  try {
+    let data;
+    let resourceUri = uri;
+
+    if (uri === 'memory://recent') {
+      // Fetch recent memories
+      data = await makeApiCall('/api/v1/memories/?page_size=10&sort=-created_at', {
+        method: 'GET'
+      });
+      const memories = (data.results || []).map(m => ({
+        id: m.id,
+        title: m.title || 'Untitled',
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+        tags: m.tags || [],
+        platform: m.platform || 'unknown'
+      }));
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime,
+        memory_count: memories.length
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify({ memories, count: memories.length }, null, 2)
+        }]
+      };
+
+    } else if (uri === 'memory://stats') {
+      // Fetch memory statistics
+      data = await makeApiCall('/api/v1/stats/', { method: 'GET' });
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify(data, null, 2)
+        }]
+      };
+
+    } else if (uri.startsWith('memory://')) {
+      // Fetch specific memory by ID
+      const memoryId = uri.replace('memory://', '');
+      if (!memoryId || memoryId === '') {
+        throw new Error('Memory ID is required in URI: memory://{memoryId}');
+      }
+
+      data = await makeApiCall(`/api/v1/memories/${memoryId}/`, { method: 'GET' });
+
+      structuredLog.info('resources/read completed', {
+        request_id: requestId,
+        uri,
+        duration_ms: Date.now() - startTime,
+        memory_id: memoryId
+      });
+
+      return {
+        contents: [{
+          uri: resourceUri,
+          mimeType: 'application/json',
+          text: JSON.stringify(data, null, 2)
+        }]
+      };
+
+    } else {
+      throw new Error(`Unknown resource URI: ${uri}`);
+    }
+
+  } catch (error) {
+    structuredLog.error('resources/read failed', {
+      request_id: requestId,
+      uri,
+      duration_ms: Date.now() - startTime,
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
+    throw error;
+  }
+});
+
+// ============================================================================
+// TIER 4: Prompt Handlers (MCP 2025-11-25)
+// ============================================================================
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  structuredLog.info('prompts/list called');
+  return { prompts: PROMPTS };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: promptArgs } = request.params;
+  const requestId = `prompt_get_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+  structuredLog.info('prompts/get called', { request_id: requestId, prompt_name: name });
+
+  if (name === 'save-session') {
+    const sessionContext = promptArgs?.sessionContext || 'No context provided';
+    const includeCode = promptArgs?.includeCode === 'true' || promptArgs?.includeCode === true;
+    const autoTitle = promptArgs?.autoTitle !== 'false' && promptArgs?.autoTitle !== false;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please save our current conversation using the save_conversation tool.\n\n` +
+                  `Session context: ${sessionContext}\n\n` +
+                  `Instructions:\n` +
+                  `- Include the COMPLETE conversation content (every message verbatim)\n` +
+                  (includeCode ? `- Make sure to include ALL code blocks and their full content\n` : '') +
+                  (autoTitle ? `- Let the system auto-generate an intelligent title from the content\n` : `- Use a descriptive title based on the session context\n`) +
+                  `- Tag with relevant project names and technologies discussed\n` +
+                  `- This should be saved as a living document that can be updated later`
+          }
+        }
+      ]
+    };
+
+  } else if (name === 'recall-context') {
+    const taskDescription = promptArgs?.taskDescription || 'general task';
+    const searchType = promptArgs?.searchType || 'semantic';
+    const limit = parseInt(promptArgs?.limit) || 5;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Before I start working on: "${taskDescription}"\n\n` +
+                  `Please recall relevant past conversations using recall_memories.\n\n` +
+                  `Search strategy: ${searchType}\n` +
+                  `Maximum results: ${limit}\n\n` +
+                  `Look for:\n` +
+                  `- Previous discussions about this topic or related features\n` +
+                  `- Decisions made that might affect this work\n` +
+                  `- Code patterns or approaches used before\n` +
+                  `- Any blockers or issues encountered in similar tasks\n\n` +
+                  `Summarize what you find so I have full context before starting.`
+          }
+        }
+      ]
+    };
+
+  } else if (name === 'weekly-summary') {
+    const includeStats = promptArgs?.includeStats !== 'false' && promptArgs?.includeStats !== false;
+    const projectFilter = promptArgs?.projectFilter || null;
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please create a weekly summary of my recent AI conversations.\n\n` +
+                  (includeStats ? `First, check memory://stats for overall statistics.\n` : '') +
+                  (projectFilter ? `Focus specifically on the "${projectFilter}" project.\n` : 'Cover all projects and topics.\n') +
+                  `\nThen recall recent memories and organize them by:\n` +
+                  `1. Key decisions made\n` +
+                  `2. Progress on ongoing projects\n` +
+                  `3. New learnings or insights\n` +
+                  `4. Open questions or blockers\n` +
+                  `5. Cross-platform activity (which AI tools were used)\n\n` +
+                  `Keep the summary concise but actionable.`
+          }
+        }
+      ]
+    };
+
+  } else {
+    throw new Error(`Unknown prompt: ${name}. Available prompts: ${PROMPTS.map(p => p.name).join(', ')}`);
+  }
+});
+
 // Start server
 const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
-    console.error('✅ Purmemo MCP Server v10.0.2-phase16.4-fix started successfully');
-    console.error(`   API URL: ${API_URL}`);
-    console.error(`   API Key: ${API_KEY ? 'Configured ✓' : 'NOT CONFIGURED ✗'}`);
-    console.error(`   Platform: ${PLATFORM}`);
-    console.error(`   Tools: ${TOOLS.length} available`);
-    console.error(`   🧠 Phase 15: Intelligent memory saving with auto-context extraction`);
-    console.error(`   🎯 Phase 15: Smart title generation (no more timestamps!)`);
-    console.error(`   📊 Phase 15: Automatic project/component/feature detection`);
-    console.error(`   🗺️ Phase 15: Roadmap tracking across AI tools`);
-    console.error(`   🌟 Phase 16.3: Wisdom Layer - AI-powered tool orchestration`);
-    console.error(`   🔮 Phase 16.3: Proactive next-tool suggestions with context`);
-    console.error(`   🌍 Cluster-powered discovery across ChatGPT, Claude, Gemini`);
-    console.error(`   🛡️ Phase 16.4: Unicode sanitization - fixes "no low surrogate" errors`);
+    structuredLog.info('Purmemo MCP Server started successfully', {
+      version: '12.3.0',
+      tier: '4-resources-prompts',
+      api_url: API_URL,
+      api_key_configured: !!API_KEY,
+      platform: PLATFORM,
+      tools_count: TOOLS.length,
+      circuit_breaker_enabled: true,
+      request_timeout_ms: 30000,
+      features: [
+        'Intelligent memory saving with auto-context extraction',
+        'Smart title generation (no more timestamps)',
+        'Automatic project/component/feature detection',
+        'Roadmap tracking across AI tools',
+        'Unicode sanitization',
+        'Structured JSON logging',
+        'Circuit breaker pattern for API resilience',
+        'Per-tool request timing and metrics',
+        'Safe error handling with fallbacks',
+        'MCP Resources (memory://recent, memory://stats, memory://{id})',
+        'MCP Prompts (save-session, recall-context, weekly-summary)'
+      ]
+    });
   })
   .catch((error) => {
-    console.error('❌ Failed to start MCP server:', error.message);
+    structuredLog.error('Failed to start MCP server', {
+      error_message: error.message,
+      error_type: error.constructor.name
+    });
     process.exit(1);
   });
