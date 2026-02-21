@@ -64,9 +64,15 @@ const detectPlatform = () => {
 
 const PLATFORM = detectPlatform();
 
+// Admin mode: enables get_acknowledged_errors + save_investigation_result
+// Only enabled when PURMEMO_ADMIN=1 is set in the environment.
+// Never set by default — npm package users never see these tools.
+const ADMIN_MODE = process.env.PURMEMO_ADMIN === '1';
+
 // Log detected platform for debugging (only in development)
 if (process.env.NODE_ENV !== 'production') {
   console.error(`[Purmemo MCP] Detected platform: ${PLATFORM}`);
+  console.error(`[Purmemo MCP] Admin mode: ${ADMIN_MODE ? 'ON' : 'off'}`);
 }
 
 // Session management for chunked captures
@@ -402,7 +408,8 @@ EXAMPLE USAGE:
       required: []
     }
   },
-  {
+  // Admin-only tools — only included when PURMEMO_ADMIN=1
+  ...(ADMIN_MODE ? [{
     name: 'get_acknowledged_errors',
     annotations: {
       title: 'Get Acknowledged Errors',
@@ -573,7 +580,7 @@ EXAMPLE USAGE:
       },
       required: ['incident_id']
     }
-  }
+  }] : [])
 ];
 
 const server = new Server(
@@ -1612,8 +1619,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case 'discover_related_conversations':
       return await handleDiscoverRelated(args);
     case 'get_acknowledged_errors':
+      if (!ADMIN_MODE) break;
       return await handleGetAcknowledgedErrors(args);
     case 'save_investigation_result':
+      if (!ADMIN_MODE) break;
       return await handleSaveInvestigation(args);
     case 'get_user_context':
       return await handleGetUserContext(args);
