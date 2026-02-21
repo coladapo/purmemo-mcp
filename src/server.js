@@ -333,19 +333,6 @@ const TOOLS = [
         }
       },
       required: ['conversationContent']
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        memoryId: { type: 'string', description: 'Unique ID of the saved or updated memory' },
-        conversationId: { type: 'string', description: 'Living document conversation ID (derived from title)' },
-        title: { type: 'string', description: 'Title of the saved memory' },
-        status: { type: 'string', description: 'Save status (created, updated, chunked)' },
-        characterCount: { type: 'integer', description: 'Total characters saved' },
-        chunkCount: { type: 'integer', description: 'Number of chunks (1 if not chunked)' },
-        isUpdate: { type: 'boolean', description: 'Whether this updated an existing living document' }
-      },
-      required: ['memoryId', 'status']
     }
   },
   {
@@ -439,31 +426,6 @@ const TOOLS = [
         }
       },
       required: ['query']
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        memories: {
-          type: 'array',
-          description: 'Array of matching memories ranked by relevance',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string', description: 'Memory unique ID' },
-              title: { type: 'string', description: 'Memory title' },
-              content: { type: 'string', description: 'Content preview or full content' },
-              platform: { type: 'string', description: 'Source platform (chatgpt, claude, gemini, etc.)' },
-              project: { type: 'string', description: 'Extracted project name if available' },
-              tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
-              created_at: { type: 'string', description: 'ISO timestamp of creation' },
-              updated_at: { type: 'string', description: 'ISO timestamp of last update' },
-              relevanceScore: { type: 'number', description: 'Search relevance score' }
-            }
-          }
-        },
-        totalCount: { type: 'integer', description: 'Total number of matching memories' }
-      },
-      required: ['memories']
     }
   },
   {
@@ -490,42 +452,6 @@ const TOOLS = [
         }
       },
       required: ['memoryId']
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: 'Memory unique ID' },
-        title: { type: 'string', description: 'Memory title' },
-        content: { type: 'string', description: 'Full memory content' },
-        platform: { type: 'string', description: 'Source platform' },
-        project: { type: 'string', description: 'Associated project name' },
-        tags: { type: 'array', items: { type: 'string' }, description: 'Memory tags' },
-        created_at: { type: 'string', description: 'ISO creation timestamp' },
-        updated_at: { type: 'string', description: 'ISO last update timestamp' },
-        linkedParts: {
-          type: 'array',
-          description: 'Linked chunk parts for multi-part memories',
-          items: {
-            type: 'object',
-            properties: {
-              partId: { type: 'string' },
-              partNumber: { type: 'integer' },
-              content: { type: 'string' }
-            }
-          }
-        },
-        metadata: {
-          type: 'object',
-          description: 'Extracted metadata (technologies, phase, status, etc.)',
-          properties: {
-            characterCount: { type: 'integer' },
-            wordCount: { type: 'integer' },
-            hasCodeBlocks: { type: 'boolean' },
-            hasArtifacts: { type: 'boolean' }
-          }
-        }
-      },
-      required: ['id', 'title', 'content']
     }
   },
   {
@@ -580,49 +506,6 @@ const TOOLS = [
         }
       },
       required: ['query']
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        clusters: {
-          type: 'array',
-          description: 'Semantic clusters of related conversations',
-          items: {
-            type: 'object',
-            properties: {
-              clusterName: { type: 'string', description: 'Topic cluster name' },
-              seedMemory: {
-                type: 'object',
-                description: 'Primary memory that seeded this cluster',
-                properties: {
-                  id: { type: 'string' },
-                  title: { type: 'string' },
-                  platform: { type: 'string' },
-                  relevanceScore: { type: 'number' },
-                  created_at: { type: 'string' }
-                }
-              },
-              relatedConversations: {
-                type: 'array',
-                description: 'Related conversations within this cluster',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'string' },
-                    title: { type: 'string' },
-                    platform: { type: 'string' },
-                    similarity: { type: 'number', description: 'Similarity score 0-100' },
-                    created_at: { type: 'string' }
-                  }
-                }
-              }
-            }
-          }
-        },
-        totalConversations: { type: 'integer', description: 'Total conversations found across all clusters' },
-        totalClusters: { type: 'integer', description: 'Number of semantic clusters' }
-      },
-      required: ['clusters']
     }
   },
   {
