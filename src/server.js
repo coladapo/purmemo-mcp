@@ -362,6 +362,47 @@ const TOOLS = [
     }
   },
   {
+    name: 'get_user_context',
+    annotations: {
+      title: 'Get User Context',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Get the current user's cognitive identity and active session context.
+
+Call this at the START of a conversation to understand who you're talking to —
+their role, expertise, current project, and recent memory themes.
+
+This is the core of Purmemo's identity layer: once set in the dashboard,
+your identity travels silently to every AI session so you're never explaining
+yourself from scratch again.
+
+WHAT IT RETURNS:
+- identity: role, expertise areas, primary domain, work style, preferred tools
+- current_session: what the user is working on right now (project, focus)
+- memory_summary: 2-3 sentence synthesis of the user's most recent memory themes
+
+WHEN TO CALL:
+- At the start of every new session (add to Claude system prompt)
+- When user says "load my context" or "what do you know about me?"
+- Before making recommendations that depend on knowing the user's background
+
+EXAMPLE USAGE:
+→ User starts new Claude session
+→ Claude calls get_user_context automatically
+→ Response: { role: "founder", expertise: ["product", "fullstack"],
+              project: "purmemo", focus: "identity layer",
+              memory_summary: "Chris has been building Purmemo's..." }
+→ Claude responds with full context already loaded — no re-explaining needed`,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
     name: 'get_acknowledged_errors',
     annotations: {
       title: 'Get Acknowledged Errors',
@@ -583,14 +624,23 @@ async function makeApiCall(endpoint, options = {}) {
   }
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s for high-latency connections
+
+    let response;
+    try {
+      response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     console.error(`[API_CALL] Response status: ${response.status} ${response.statusText}`);
 
@@ -1063,6 +1113,25 @@ async function handleSaveConversation(args) {
       ...relationships
     };
 
+    // Identity Layer: attach session context to new memories
+    try {
+      const sessionResp = await makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`);
+      const sess = sessionResp.session || {};
+      if (sess.id || sess.context || sess.project) {
+        metadata.session_context = {
+          session_id: sess.id,
+          project: sess.project,
+          context: sess.context,
+          focus: sess.focus,
+          platform: PLATFORM
+        };
+        console.error(`[IDENTITY] Attached session context to memory: project=${sess.project}`);
+      }
+    } catch (sessionErr) {
+      // Non-fatal — save proceeds without session context
+      console.error(`[IDENTITY] Could not fetch session context (non-fatal): ${sessionErr.message}`);
+    }
+
     console.error(`[Phase 15] Enriched metadata:`, JSON.stringify({
       project: intelligentContext.project_name,
       component: intelligentContext.project_component,
@@ -1442,6 +1511,91 @@ async function handleGetMemoryDetails(args) {
   }
 }
 
+async function handleGetUserContext(args) {
+  console.error(`[GET_USER_CONTEXT] Called for platform: ${PLATFORM}`);
+
+  try {
+    // Fetch identity profile and session context in parallel
+    const [identityResponse, sessionResponse] = await Promise.allSettled([
+      makeApiCall('/api/v1/auth/me'),
+      makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`)
+    ]);
+
+    // Extract identity from /me response
+    let identity = {};
+    let userEmail = null;
+    if (identityResponse.status === 'fulfilled') {
+      const me = identityResponse.value;
+      identity = me.identity || {};
+      userEmail = me.email;
+      console.error(`[GET_USER_CONTEXT] Identity loaded for ${userEmail}`);
+    } else {
+      console.error(`[GET_USER_CONTEXT] Identity fetch failed: ${identityResponse.reason}`);
+    }
+
+    // Extract session context
+    let session = {};
+    if (sessionResponse.status === 'fulfilled') {
+      session = sessionResponse.value.session || {};
+      console.error(`[GET_USER_CONTEXT] Session loaded: project=${session.project}, context=${session.context}`);
+    } else {
+      console.error(`[GET_USER_CONTEXT] Session fetch failed: ${sessionResponse.reason}`);
+    }
+
+    // Build output text
+    const hasIdentity = identity.role || (identity.expertise && identity.expertise.length > 0);
+    const hasSession = session.context || session.project || session.focus;
+
+    let output = `🧠 User Context for ${userEmail || 'this user'}\n\n`;
+
+    // Identity section
+    output += `👤 Identity Profile\n`;
+    if (identity.role) output += `   Role: ${identity.role}\n`;
+    if (identity.primary_domain) output += `   Domain: ${identity.primary_domain}\n`;
+    if (identity.work_style) output += `   Work style: ${identity.work_style}\n`;
+    if (identity.expertise && identity.expertise.length > 0) {
+      output += `   Expertise: ${identity.expertise.join(', ')}\n`;
+    }
+    if (identity.tools && identity.tools.length > 0) {
+      output += `   Tools: ${identity.tools.join(', ')}\n`;
+    }
+    if (!hasIdentity) {
+      output += `   (No identity profile set — user can configure at app.purmemo.ai/dashboard)\n`;
+    }
+
+    output += `\n🎯 Current Session (${PLATFORM})\n`;
+    if (session.project) output += `   Project: ${session.project}\n`;
+    if (session.context) output += `   Working on: ${session.context}\n`;
+    if (session.focus) output += `   Focus: ${session.focus}\n`;
+    if (session.updated_at) output += `   Last updated: ${session.updated_at}\n`;
+    if (!hasSession) {
+      output += `   (No active session context — user can set "What are you working on?" in the dashboard)\n`;
+    }
+
+    output += `\n💡 How to use this context:\n`;
+    output += `   - Address the user by their role and domain (not generically)\n`;
+    output += `   - Assume their current project context without them having to repeat it\n`;
+    output += `   - Tailor your responses to their expertise level and work style\n`;
+    output += `   - Ask targeted follow-ups based on their focus area\n`;
+
+    return {
+      content: [{
+        type: 'text',
+        text: output
+      }]
+    };
+
+  } catch (error) {
+    console.error(`[GET_USER_CONTEXT] Error: ${error.message}`);
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Failed to load user context: ${error.message}\n\nMake sure your Purmemo API key is configured.`
+      }]
+    };
+  }
+}
+
 // Setup server
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
@@ -1461,6 +1615,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return await handleGetAcknowledgedErrors(args);
     case 'save_investigation_result':
       return await handleSaveInvestigation(args);
+    case 'get_user_context':
+      return await handleGetUserContext(args);
     default:
       return {
         content: [{
