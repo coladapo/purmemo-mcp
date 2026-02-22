@@ -51,6 +51,8 @@ import TokenStore from './auth/token-store.js';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
 // Route subcommands: `npx purmemo-mcp setup|status|logout` → setup.js
 const _subcommand = process.argv[2];
@@ -62,6 +64,18 @@ if (_subcommand === 'setup' || _subcommand === 'status' || _subcommand === 'logo
 } else {
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
+
+// Read current Claude Code session_id from hook state file (written by session_start hook)
+// Returns null if not in a Claude Code session or state file unavailable
+function readCurrentSessionId() {
+  try {
+    const stateFile = path.join(os.homedir(), '.claude', 'hooks', 'purmemo_state.json');
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    return state.current_session_id || null;
+  } catch {
+    return null;
+  }
+}
 
 // API key resolution: env var wins, then ~/.purmemo/auth.json (set by `npx purmemo-mcp setup`)
 let resolvedApiKey = process.env.PURMEMO_API_KEY || null;
@@ -1209,6 +1223,7 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
       tags: [...tags, 'complete-conversation'],
       platform: PLATFORM,
       conversation_id: metadata.conversationId || null,
+      session_id: readCurrentSessionId(),  // Layer 0 coordination: links manual save to current Claude Code session
       metadata: {
         ...metadata,
         captureType: 'single',
