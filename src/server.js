@@ -1874,7 +1874,7 @@ async function handleGetUserContext(args) {
     // Fetch identity profile and session context in parallel
     const [identityResponse, sessionResponse] = await Promise.allSettled([
       makeApiCall('/api/v1/auth/me'),
-      makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`)
+      makeApiCall('/api/v1/identity/session')
     ]);
 
     // Extract identity from /me response
