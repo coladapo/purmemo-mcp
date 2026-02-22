@@ -121,7 +121,7 @@ Edit `~/.cursor/mcp.json` (macOS) or `%USERPROFILE%\.cursor\mcp.json` (Windows):
 <details>
 <summary><b>Windsurf IDE</b></summary>
 
-Edit `~/.windsurf/mcp.json` (macOS) or `%USERPROFILE%\.windsurf\mcp.json` (Windows):
+Edit `~/.codeium/windsurf/mcp_config.json`:
 
 ```json
 {
@@ -141,16 +141,18 @@ Edit `~/.windsurf/mcp.json` (macOS) or `%USERPROFILE%\.windsurf\mcp.json` (Windo
 <details>
 <summary><b>Zed Editor</b></summary>
 
-Edit `~/.config/zed/mcp.json`:
+Add to `~/.config/zed/settings.json` under the `context_servers` key:
 
 ```json
 {
-  "mcpServers": {
+  "context_servers": {
     "purmemo": {
-      "command": "npx",
-      "args": ["-y", "purmemo-mcp"],
-      "env": {
-        "PURMEMO_API_KEY": "your-api-key-here"
+      "command": {
+        "path": "npx",
+        "args": ["-y", "purmemo-mcp"],
+        "env": {
+          "PURMEMO_API_KEY": "your-api-key-here"
+        }
       }
     }
   }
@@ -216,8 +218,8 @@ Claude: ✅ Updated! (not duplicated)
 
 | Plan | Price | Recalls | Saves |
 |------|-------|---------|-------|
-| Free | $0 | 100/month | Unlimited |
-| Pro | $9/month | 1,000/month | Unlimited |
+| Free | $0 | 50/month | Unlimited |
+| Pro | $19/month | Unlimited | Unlimited |
 
 ## 🔗 Links
 
