@@ -48,6 +48,18 @@ import {
   extractRelationships
 } from './intelligent-memory.js';
 import TokenStore from './auth/token-store.js';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Route subcommands: `npx purmemo-mcp setup|status|logout` → setup.js
+const _subcommand = process.argv[2];
+if (_subcommand === 'setup' || _subcommand === 'status' || _subcommand === 'logout') {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const setupPath = path.join(__dirname, 'setup.js');
+  import(setupPath).catch(err => { console.error(err); process.exit(1); });
+  // setup.js manages its own process lifecycle
+} else {
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 
@@ -2479,3 +2491,5 @@ resolveApiKey().then(apiKey => {
     });
     process.exit(1);
   });
+
+} // end else (not a subcommand)
