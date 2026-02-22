@@ -1871,10 +1871,11 @@ async function handleGetUserContext(args) {
   structuredLog.info('get_user_context: called', { platform: PLATFORM });
 
   try {
-    // Fetch identity profile and session context in parallel
-    const [identityResponse, sessionResponse] = await Promise.allSettled([
+    // Fetch identity, session context, and recent memories in parallel
+    const [identityResponse, sessionResponse, recentResponse] = await Promise.allSettled([
       makeApiCall('/api/v1/auth/me'),
-      makeApiCall('/api/v1/identity/session')
+      makeApiCall('/api/v1/identity/session'),
+      makeApiCall('/api/v1/memories/recent?limit=7', { method: 'GET' })
     ]);
 
     // Extract identity from /me response
@@ -1896,6 +1897,21 @@ async function handleGetUserContext(args) {
       structuredLog.debug('Session loaded', { project: session.project, context: session.context });
     } else {
       structuredLog.warn('Session fetch failed', { error_message: String(sessionResponse.reason) });
+    }
+
+    // Build memory summary from recent memory titles
+    let memorySummary = null;
+    if (recentResponse.status === 'fulfilled') {
+      const memories = recentResponse.value.memories || [];
+      if (memories.length > 0) {
+        const titles = memories.map(m => m.title).filter(Boolean);
+        // Synthesise a 2-sentence summary from the titles — no extra API call needed,
+        // the titles themselves carry enough signal for the AI to contextualise.
+        memorySummary = titles.join(' · ');
+        structuredLog.debug('Recent memories loaded', { count: titles.length });
+      }
+    } else {
+      structuredLog.warn('Recent memories fetch failed', { error_message: String(recentResponse.reason) });
     }
 
     // Build output text
@@ -1925,6 +1941,13 @@ async function handleGetUserContext(args) {
     if (session.updated_at) output += `   Last updated: ${session.updated_at}\n`;
     if (!hasSession) {
       output += `   (No active session context — user can set "What are you working on?" in the dashboard)\n`;
+    }
+
+    output += `\n📚 Recent Memory Themes\n`;
+    if (memorySummary) {
+      output += `   ${memorySummary}\n`;
+    } else {
+      output += `   (No recent memories found)\n`;
     }
 
     output += `\n💡 How to use this context:\n`;
