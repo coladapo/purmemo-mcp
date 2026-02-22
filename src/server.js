@@ -761,23 +761,35 @@ BEST PRACTICES:
 
 const RESOURCES = [
   {
-    uri: 'memory://recent',
-    name: 'Recent Memories',
-    description: 'Last 10 saved memories with titles, dates, and tags',
-    mimeType: 'application/json'
+    uri: 'memory://me',
+    name: 'Who I Am',
+    description: 'Your cognitive fingerprint — role, expertise, domain, tools, work style, current session, and vault stats. Attach this at the start of any conversation so Claude knows who it\'s talking to without you having to explain yourself.',
+    mimeType: 'text/plain'
+  },
+  {
+    uri: 'memory://context',
+    name: 'My Recent Work Context',
+    description: 'A briefing of your 5 most recent memories — what you\'ve been working on, what decisions were made, what\'s in progress. Attach when starting a work session to skip the "catch me up" step.',
+    mimeType: 'text/plain'
+  },
+  {
+    uri: 'memory://projects',
+    name: 'My Active Projects',
+    description: 'Your active projects grouped by name, showing recent activity per project. Attach when switching between projects or planning what to work on next.',
+    mimeType: 'text/plain'
   },
   {
     uri: 'memory://stats',
-    name: 'Memory Statistics',
-    description: 'Account-level memory statistics including total memories, tags, and storage usage',
-    mimeType: 'application/json'
+    name: 'Memory Vault Stats',
+    description: 'How many memories you\'ve saved, which platforms they\'re from, and your activity this week.',
+    mimeType: 'text/plain'
   }
 ];
 
 const RESOURCE_TEMPLATES = [
   {
     uriTemplate: 'memory://{memoryId}',
-    name: 'Memory by ID',
+    name: 'Specific Memory',
     description: 'Retrieve full content of a specific memory by its unique ID',
     mimeType: 'application/json'
   }
@@ -789,62 +801,42 @@ const RESOURCE_TEMPLATES = [
 
 const PROMPTS = [
   {
-    name: 'save-session',
-    description: 'Generate a structured prompt for saving the current conversation as a living document',
+    name: 'load-context',
+    description: 'Load relevant memory context before starting work. Searches your vault for past conversations, decisions, and patterns related to what you\'re about to do.',
     arguments: [
       {
-        name: 'sessionContext',
-        description: 'Brief description of what was discussed or accomplished in this session',
-        required: true
-      },
-      {
-        name: 'includeCode',
-        description: 'Whether to emphasize including code blocks in the save (true/false)',
-        required: false
-      },
-      {
-        name: 'autoTitle',
-        description: 'Whether to let the system auto-generate a title from context (true/false)',
+        name: 'topic',
+        description: 'What you\'re about to work on (optional — omit to load general recent context)',
         required: false
       }
     ]
   },
   {
-    name: 'recall-context',
-    description: 'Generate a prompt for recalling relevant past conversations before starting a new task',
+    name: 'save-this-conversation',
+    description: 'Save this conversation to your memory vault as a living document. Updates an existing memory if the same topic was saved before.',
     arguments: [
       {
-        name: 'taskDescription',
-        description: 'Description of the task you are about to work on',
-        required: true
-      },
-      {
-        name: 'searchType',
-        description: 'Type of search to perform: semantic (default), exact, or hybrid',
-        required: false
-      },
-      {
-        name: 'limit',
-        description: 'Maximum number of memories to recall (default: 5)',
+        name: 'note',
+        description: 'Optional note about what was most important in this conversation',
         required: false
       }
     ]
   },
   {
-    name: 'weekly-summary',
-    description: 'Generate a prompt for creating a weekly summary of saved conversations and progress',
+    name: 'catch-me-up',
+    description: 'Catch me up on a project — what\'s been done, what decisions were made, what\'s next.',
     arguments: [
       {
-        name: 'includeStats',
-        description: 'Whether to include memory statistics in the summary (true/false)',
-        required: false
-      },
-      {
-        name: 'projectFilter',
-        description: 'Optional project name to filter the summary to a specific project',
-        required: false
+        name: 'project',
+        description: 'Project name to summarize',
+        required: true
       }
     ]
+  },
+  {
+    name: 'weekly-review',
+    description: 'What have I been working on this week? Summarizes recent memory activity across all projects and platforms.',
+    arguments: []
   }
 ];
 
@@ -1875,7 +1867,7 @@ async function handleGetUserContext(args) {
     const [identityResponse, sessionResponse, recentResponse] = await Promise.allSettled([
       makeApiCall('/api/v1/auth/me'),
       makeApiCall('/api/v1/identity/session'),
-      makeApiCall('/api/v1/memories/recent?limit=7', { method: 'GET' })
+      makeApiCall('/api/v1/memories/?limit=20&sort=created_at&order=desc', { method: 'GET' })
     ]);
 
     // Extract identity from /me response
@@ -1899,16 +1891,35 @@ async function handleGetUserContext(args) {
       structuredLog.warn('Session fetch failed', { error_message: String(sessionResponse.reason) });
     }
 
-    // Build memory summary from recent memory titles
+    // Build memory summary — frequency-weighted across 20 recent memories
+    // Projects with ≥2 occurrences are genuinely active; single saves are noise
     let memorySummary = null;
     if (recentResponse.status === 'fulfilled') {
-      const memories = recentResponse.value.memories || [];
+      const data = recentResponse.value;
+      const memories = Array.isArray(data) ? data : (data.memories || []);
       if (memories.length > 0) {
-        const titles = memories.map(m => m.title).filter(Boolean);
-        // Synthesise a 2-sentence summary from the titles — no extra API call needed,
-        // the titles themselves carry enough signal for the AI to contextualise.
-        memorySummary = titles.join(' · ');
-        structuredLog.debug('Recent memories loaded', { count: titles.length });
+        const projectCounts = {};
+        const projectLatestTitle = {};
+        for (const m of memories) {
+          const proj = (m.project_name || '').trim();
+          const title = (m.title || '').trim();
+          if (!proj || !title) continue;
+          projectCounts[proj] = (projectCounts[proj] || 0) + 1;
+          if (!projectLatestTitle[proj]) projectLatestTitle[proj] = title;
+        }
+        // Only projects appearing ≥2 times, sorted by count desc
+        const ranked = Object.entries(projectCounts)
+          .filter(([, count]) => count >= 2)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        if (ranked.length > 0) {
+          const parts = ranked.map(([proj]) => {
+            const latest = projectLatestTitle[proj] || '';
+            return latest ? `${proj} — ${latest}` : proj;
+          });
+          memorySummary = 'Recently working on: ' + parts.join('; ') + '.';
+        }
+        structuredLog.debug('Recent memories loaded', { count: memories.length, ranked_projects: ranked.length });
       }
     } else {
       structuredLog.warn('Recent memories fetch failed', { error_message: String(recentResponse.reason) });
@@ -2169,75 +2180,141 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     let data;
     let resourceUri = uri;
 
-    if (uri === 'memory://recent') {
-      // Fetch recent memories via dedicated endpoint
-      data = await makeApiCall('/api/v1/memories/recent?limit=10', {
-        method: 'GET'
-      });
-      const memories = (data.memories || []).map(m => ({
-        id: m.id,
-        title: m.title || 'Untitled',
-        created_at: m.created_at,
-        updated_at: m.updated_at,
-        tags: m.tags || [],
-        platform: m.platform || 'unknown'
-      }));
+    if (uri === 'memory://me') {
+      // Cognitive fingerprint — identity + session + vault stats + recent work
+      const [meResp, statsResp, memoriesResp, sessionResp] = await Promise.allSettled([
+        makeApiCall('/api/v1/auth/me'),
+        makeApiCall('/api/v1/stats/'),
+        makeApiCall('/api/v1/memories/?limit=20&sort=created_at&order=desc'),
+        makeApiCall('/api/v1/identity/session'),
+      ]);
 
-      structuredLog.info('resources/read completed', {
-        request_id: requestId,
-        uri,
-        duration_ms: Date.now() - startTime,
-        memory_count: memories.length
-      });
+      const me = meResp.status === 'fulfilled' ? meResp.value : null;
+      if (!me) throw new Error('Unable to load profile.');
+
+      const identity = me.identity || {};
+      const email = me.email || '';
+      const name = me.full_name || email.split('@')[0] || 'You';
+      const sessionData = sessionResp.status === 'fulfilled' ? (sessionResp.value.session || {}) : {};
+
+      const lines = [`## About Me — ${name}\n`];
+      if (identity.role) lines.push(`**Role:** ${identity.role.charAt(0).toUpperCase() + identity.role.slice(1)}`);
+      if (identity.primary_domain) lines.push(`**Domain:** ${identity.primary_domain}`);
+      if (identity.expertise && identity.expertise.length) lines.push(`**Expertise:** ${identity.expertise.join(', ')}`);
+      if (identity.tools && identity.tools.length) lines.push(`**Tools I use:** ${identity.tools.join(', ')}`);
+      if (identity.work_style) lines.push(`**Work style:** ${identity.work_style}`);
+      if (sessionData.context) lines.push(`**Working on:** ${sessionData.context}`);
+
+      if (statsResp.status === 'fulfilled') {
+        const stats = statsResp.value;
+        const total = stats.total_memories || 0;
+        const thisWeek = stats.memories_this_week || 0;
+        const platforms = (stats.platforms || []).filter(p => p && !['user', 'purmemo-web'].includes(p.toLowerCase()) && !p.includes(' '));
+        lines.push(`\n**Memory vault:** ${total.toLocaleString()} memories across ${platforms.slice(0, 6).join(', ')}`);
+        lines.push(`**This week:** ${thisWeek} memories saved`);
+      }
+
+      // Frequency-weighted recent work — projects with ≥2 occurrences only
+      if (memoriesResp.status === 'fulfilled') {
+        const mems = Array.isArray(memoriesResp.value) ? memoriesResp.value : (memoriesResp.value.memories || []);
+        const projectCounts = {};
+        for (const m of mems) {
+          const proj = (m.project_name || '').trim();
+          if (proj) projectCounts[proj] = (projectCounts[proj] || 0) + 1;
+        }
+        const ranked = Object.entries(projectCounts)
+          .filter(([, c]) => c >= 2)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        if (ranked.length > 0) {
+          lines.push(`\n**Recent work:** ${ranked.map(([p, c]) => `${p} (${c} recent)`).join('; ')}`);
+        }
+      }
 
       return {
-        contents: [{
-          uri: resourceUri,
-          mimeType: 'application/json',
-          text: JSON.stringify({ memories, count: memories.length }, null, 2)
-        }]
+        contents: [{ uri: resourceUri, mimeType: 'text/plain', text: lines.join('\n') }]
+      };
+
+    } else if (uri === 'memory://context') {
+      // 5 most recent memories as a human-readable briefing
+      data = await makeApiCall('/api/v1/memories/?limit=5&sort=created_at&order=desc');
+      const mems = Array.isArray(data) ? data : (data.memories || []);
+      const skipPrefixes = ['===', '[', 'USER:', 'ASSISTANT:', 'user:', 'assistant:', '# ', '## '];
+      const lines = ['## My Recent Work Context\n'];
+      for (const m of mems) {
+        if (!m.title) continue;
+        lines.push(`### ${m.title}`);
+        if (m.project_name) lines.push(`Project: ${m.project_name}`);
+        if (m.platform) lines.push(`Platform: ${m.platform}`);
+        if (m.content) {
+          const preview = m.content.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 20 && !skipPrefixes.some(p => l.startsWith(p)))
+            .slice(0, 3)
+            .join(' ');
+          if (preview) lines.push(preview);
+        }
+        lines.push('');
+      }
+
+      return {
+        contents: [{ uri: resourceUri, mimeType: 'text/plain', text: lines.join('\n') }]
+      };
+
+    } else if (uri === 'memory://projects') {
+      // Active projects grouped by name, sorted by most recent activity
+      data = await makeApiCall('/api/v1/memories/?limit=20&sort=created_at&order=desc');
+      const mems = Array.isArray(data) ? data : (data.memories || []);
+      const projectMap = {};
+      for (const m of mems) {
+        const proj = (m.project_name || '').trim();
+        if (!proj) continue;
+        if (!projectMap[proj]) projectMap[proj] = { count: 0, latest: null, latestDate: null };
+        projectMap[proj].count++;
+        if (!projectMap[proj].latest) {
+          projectMap[proj].latest = m.title || '';
+          projectMap[proj].latestDate = m.created_at || '';
+        }
+      }
+      const sorted = Object.entries(projectMap).sort((a, b) => {
+        return new Date(b[1].latestDate || 0) - new Date(a[1].latestDate || 0);
+      });
+      const lines = ['## My Active Projects\n'];
+      for (const [proj, info] of sorted) {
+        lines.push(`**${proj}** — ${info.count} recent memories`);
+        if (info.latest) lines.push(`  Latest: ${info.latest}`);
+        lines.push('');
+      }
+      if (sorted.length === 0) lines.push('No project-tagged memories found in recent activity.');
+
+      return {
+        contents: [{ uri: resourceUri, mimeType: 'text/plain', text: lines.join('\n') }]
       };
 
     } else if (uri === 'memory://stats') {
-      // Fetch memory statistics
       data = await makeApiCall('/api/v1/stats/', { method: 'GET' });
-
-      structuredLog.info('resources/read completed', {
-        request_id: requestId,
-        uri,
-        duration_ms: Date.now() - startTime
-      });
+      const total = data.total_memories || 0;
+      const thisWeek = data.memories_this_week || 0;
+      const platforms = (data.platforms || []).filter(p => p && !['user', 'purmemo-web'].includes(p.toLowerCase()) && !p.includes(' '));
+      const text = [
+        '## Memory Vault Stats\n',
+        `**Total memories:** ${total.toLocaleString()}`,
+        `**This week:** ${thisWeek} saved`,
+        `**Platforms:** ${platforms.join(', ') || 'none'}`,
+      ].join('\n');
 
       return {
-        contents: [{
-          uri: resourceUri,
-          mimeType: 'application/json',
-          text: JSON.stringify(data, null, 2)
-        }]
+        contents: [{ uri: resourceUri, mimeType: 'text/plain', text }]
       };
 
     } else if (uri.startsWith('memory://')) {
       // Fetch specific memory by ID
       const memoryId = uri.replace('memory://', '');
-      if (!memoryId || memoryId === '') {
-        throw new Error('Memory ID is required in URI: memory://{memoryId}');
-      }
-
+      if (!memoryId) throw new Error('Memory ID is required in URI: memory://{memoryId}');
       data = await makeApiCall(`/api/v1/memories/${memoryId}/`, { method: 'GET' });
 
-      structuredLog.info('resources/read completed', {
-        request_id: requestId,
-        uri,
-        duration_ms: Date.now() - startTime,
-        memory_id: memoryId
-      });
-
       return {
-        contents: [{
-          uri: resourceUri,
-          mimeType: 'application/json',
-          text: JSON.stringify(data, null, 2)
-        }]
+        contents: [{ uri: resourceUri, mimeType: 'application/json', text: JSON.stringify(data, null, 2) }]
       };
 
     } else {
@@ -2271,79 +2348,63 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 
   structuredLog.info('prompts/get called', { request_id: requestId, prompt_name: name });
 
-  if (name === 'save-session') {
-    const sessionContext = promptArgs?.sessionContext || 'No context provided';
-    const includeCode = promptArgs?.includeCode === 'true' || promptArgs?.includeCode === true;
-    const autoTitle = promptArgs?.autoTitle !== 'false' && promptArgs?.autoTitle !== false;
+  if (name === 'load-context') {
+    const topic = promptArgs?.topic || '';
 
     return {
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Please save our current conversation using the save_conversation tool.\n\n` +
-                  `Session context: ${sessionContext}\n\n` +
-                  `Instructions:\n` +
-                  `- Include the COMPLETE conversation content (every message verbatim)\n` +
-                  (includeCode ? `- Make sure to include ALL code blocks and their full content\n` : '') +
-                  (autoTitle ? `- Let the system auto-generate an intelligent title from the content\n` : `- Use a descriptive title based on the session context\n`) +
-                  `- Tag with relevant project names and technologies discussed\n` +
-                  `- This should be saved as a living document that can be updated later`
-          }
+      messages: [{
+        role: 'user',
+        content: {
+          type: 'text',
+          text: topic
+            ? `Before I start working on "${topic}", please recall relevant past conversations using recall_memories.\n\nSearch for:\n- Previous discussions about "${topic}"\n- Decisions made that might affect this work\n- Code patterns or approaches used before\n- Any blockers or issues encountered in similar tasks\n\nSummarize what you find so I have full context before starting.`
+            : `Please load my recent context using recall_memories. Search for my most recent work across all projects and summarize:\n- What I was last working on\n- Any open threads or decisions pending\n- Key patterns or approaches from recent sessions\n\nKeep it brief — just enough for me to pick up where I left off.`
         }
-      ]
+      }]
     };
 
-  } else if (name === 'recall-context') {
-    const taskDescription = promptArgs?.taskDescription || 'general task';
-    const searchType = promptArgs?.searchType || 'semantic';
-    const limit = parseInt(promptArgs?.limit) || 5;
+  } else if (name === 'save-this-conversation') {
+    const note = promptArgs?.note || '';
 
     return {
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Before I start working on: "${taskDescription}"\n\n` +
-                  `Please recall relevant past conversations using recall_memories.\n\n` +
-                  `Search strategy: ${searchType}\n` +
-                  `Maximum results: ${limit}\n\n` +
-                  `Look for:\n` +
-                  `- Previous discussions about this topic or related features\n` +
-                  `- Decisions made that might affect this work\n` +
-                  `- Code patterns or approaches used before\n` +
-                  `- Any blockers or issues encountered in similar tasks\n\n` +
-                  `Summarize what you find so I have full context before starting.`
-          }
+      messages: [{
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `Please save our current conversation using the save_conversation tool.\n\n` +
+                `Instructions:\n` +
+                `- Include the COMPLETE conversation content (every message verbatim)\n` +
+                `- Include ALL code blocks with full syntax\n` +
+                `- Auto-generate an intelligent title from the content (format: Project - Feature - Type)\n` +
+                `- Use the same title if this topic was saved before (living document — it will update, not duplicate)\n` +
+                `- Tag with relevant project names and technologies\n` +
+                (note ? `- Extra note to include: ${note}\n` : '')
         }
-      ]
+      }]
     };
 
-  } else if (name === 'weekly-summary') {
-    const includeStats = promptArgs?.includeStats !== 'false' && promptArgs?.includeStats !== false;
-    const projectFilter = promptArgs?.projectFilter || null;
+  } else if (name === 'catch-me-up') {
+    const project = promptArgs?.project || 'this project';
 
     return {
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Please create a weekly summary of my recent AI conversations.\n\n` +
-                  (includeStats ? `First, check memory://stats for overall statistics.\n` : '') +
-                  (projectFilter ? `Focus specifically on the "${projectFilter}" project.\n` : 'Cover all projects and topics.\n') +
-                  `\nThen recall recent memories and organize them by:\n` +
-                  `1. Key decisions made\n` +
-                  `2. Progress on ongoing projects\n` +
-                  `3. New learnings or insights\n` +
-                  `4. Open questions or blockers\n` +
-                  `5. Cross-platform activity (which AI tools were used)\n\n` +
-                  `Keep the summary concise but actionable.`
-          }
+      messages: [{
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `Please catch me up on "${project}" using recall_memories.\n\nSearch for all recent conversations about "${project}" and summarize:\n1. What has been built or decided\n2. What is currently in progress\n3. Any open questions or blockers\n4. What the logical next step is\n\nBe specific — reference actual decisions and implementations, not just topics.`
         }
-      ]
+      }]
+    };
+
+  } else if (name === 'weekly-review') {
+    return {
+      messages: [{
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `Please give me a weekly review of my work using recall_memories.\n\nSearch for conversations from the past 7 days and organize them by:\n1. Projects worked on (with brief status per project)\n2. Key decisions made\n3. Things completed\n4. Open threads / next steps\n5. Which AI tools were used (cross-platform activity)\n\nKeep it scannable — use headers and bullets, not paragraphs.`
+        }
+      }]
     };
 
   } else {
@@ -2406,8 +2467,8 @@ resolveApiKey().then(apiKey => {
         'Circuit breaker pattern for API resilience',
         'Per-tool request timing and metrics',
         'Safe error handling with fallbacks',
-        'MCP Resources (memory://recent, memory://stats, memory://{id})',
-        'MCP Prompts (save-session, recall-context, weekly-summary)'
+        'MCP Resources (memory://me, memory://context, memory://projects, memory://stats, memory://{id})',
+        'MCP Prompts (load-context, save-this-conversation, catch-me-up, weekly-review)'
       ]
     });
   })
