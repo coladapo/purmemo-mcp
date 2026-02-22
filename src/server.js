@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v12.5.1 - Tier 4 Resources & Prompts
+ * pūrmemo MCP Server v12.5.2 - Tier 4 Resources & Prompts
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -47,9 +47,12 @@ import {
   extractProgressIndicators,
   extractRelationships
 } from './intelligent-memory.js';
+import TokenStore from './auth/token-store.js';
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
-const API_KEY = process.env.PURMEMO_API_KEY;
+
+// API key resolution: env var wins, then ~/.purmemo/auth.json (set by `npx purmemo-mcp setup`)
+let resolvedApiKey = process.env.PURMEMO_API_KEY || null;
 
 // ============================================================================
 // TIER 3: Structured Logging System
@@ -75,8 +78,8 @@ const structuredLog = {
 // Log API configuration
 structuredLog.info('API configuration loaded', {
   api_url: API_URL,
-  api_key_present: !!API_KEY,
-  api_key_length: API_KEY ? API_KEY.length : 0
+  api_key_present: !!resolvedApiKey,
+  api_key_source: resolvedApiKey ? 'env' : 'pending'
 });
 
 // ============================================================================
@@ -182,7 +185,7 @@ function safeErrorMessage(error) {
     return 'Service temporarily unavailable. Please try again in a moment.';
   }
   if (error.message?.includes('API Error 401') || error.message?.includes('API Error 403')) {
-    return 'Invalid or missing API key.\n\nTo fix:\n  claude mcp remove purmemo\n  claude mcp add purmemo -e PURMEMO_API_KEY=your-key -- npx -y purmemo-mcp\n\nGet your API key at: https://app.purmemo.ai';
+    return 'Invalid or missing API key.\n\nOption 1 — Easy setup (opens browser):\n  npx purmemo-mcp setup\n\nOption 2 — Manual:\n  claude mcp remove purmemo\n  claude mcp add purmemo -e PURMEMO_API_KEY=your-key -- npx -y purmemo-mcp\n\nGet your key at: https://app.purmemo.ai';
   }
   return 'An error occurred while processing your request. Please try again.';
 }
@@ -885,12 +888,12 @@ async function makeApiCall(endpoint, options = {}) {
     method,
     endpoint,
     api_url: API_URL,
-    api_key_configured: !!API_KEY
+    api_key_configured: !!resolvedApiKey
   });
 
-  if (!API_KEY) {
-    structuredLog.error('PURMEMO_API_KEY not configured', { request_id: requestId });
-    throw new Error('PURMEMO_API_KEY not configured');
+  if (!resolvedApiKey) {
+    structuredLog.error('No API key configured', { request_id: requestId });
+    throw new Error('API Error 401: No API key configured. Run `npx purmemo-mcp setup` to connect, or set PURMEMO_API_KEY.');
   }
 
   return await apiCircuitBreaker.execute(async () => {
@@ -902,7 +905,7 @@ async function makeApiCall(endpoint, options = {}) {
         ...options,
         signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
+          'Authorization': `Bearer ${resolvedApiKey}`,
           'Content-Type': 'application/json',
           ...options.headers
         }
@@ -1375,6 +1378,24 @@ async function handleSaveConversation(args) {
               ...relationships
             }
           };
+
+          // Identity Layer: attach session context to living document updates
+          try {
+            const sessionResp = await makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`);
+            const sess = sessionResp.session || {};
+            if (sess.id || sess.context || sess.project) {
+              updateMetadata.session_context = {
+                session_id: sess.id,
+                project: sess.project,
+                context: sess.context,
+                focus: sess.focus,
+                platform: PLATFORM
+              };
+              structuredLog.debug('Attached session context to living document update', { project: sess.project });
+            }
+          } catch (sessionErr) {
+            structuredLog.warn('Could not fetch session context for update (non-fatal)', { error_message: sessionErr.message });
+          }
 
           const updateResponse = await makeApiCall(`/api/v1/memories/${memoryId}/`, {
             method: 'PATCH',
@@ -2307,15 +2328,47 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   }
 });
 
+// ============================================================================
+// Startup: resolve API key (env var → ~/.purmemo/auth.json) then connect
+// ============================================================================
+
+async function resolveApiKey() {
+  // Priority 1: explicit env var
+  if (process.env.PURMEMO_API_KEY) {
+    structuredLog.info('API key resolved from environment variable');
+    return process.env.PURMEMO_API_KEY;
+  }
+
+  // Priority 2: token saved by `npx purmemo-mcp setup`
+  try {
+    const tokenStore = new TokenStore();
+    const token = await tokenStore.getToken();
+    if (token?.access_token) {
+      structuredLog.info('API key resolved from ~/.purmemo/auth.json (run via npx purmemo-mcp setup)');
+      return token.access_token;
+    }
+  } catch (err) {
+    structuredLog.warn('Could not read ~/.purmemo/auth.json', { error: err.message });
+  }
+
+  return null;
+}
+
 // Start server
 const transport = new StdioServerTransport();
-server.connect(transport)
+
+// Resolve API key first (async), then connect
+resolveApiKey().then(apiKey => {
+  resolvedApiKey = apiKey;
+  return server.connect(transport);
+})
   .then(() => {
     structuredLog.info('Purmemo MCP Server started successfully', {
-      version: '12.5.1',
+      version: '12.5.2',
       tier: '4-resources-prompts',
       api_url: API_URL,
-      api_key_configured: !!API_KEY,
+      api_key_configured: !!resolvedApiKey,
+      api_key_source: process.env.PURMEMO_API_KEY ? 'env_var' : (resolvedApiKey ? 'token_store' : 'none'),
       platform: PLATFORM,
       tools_count: TOOLS.length,
       circuit_breaker_enabled: true,
