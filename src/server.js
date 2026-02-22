@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v12.3.0 - Tier 4 Resources & Prompts
+ * pūrmemo MCP Server v12.5.1 - Tier 4 Resources & Prompts
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -180,6 +180,9 @@ function safeErrorMessage(error) {
   }
   if (error instanceof CircuitBreakerOpenError) {
     return 'Service temporarily unavailable. Please try again in a moment.';
+  }
+  if (error.message?.includes('API Error 401') || error.message?.includes('API Error 403')) {
+    return 'Invalid or missing API key.\n\nTo fix:\n  claude mcp remove purmemo\n  claude mcp add purmemo -e PURMEMO_API_KEY=your-key -- npx -y purmemo-mcp\n\nGet your API key at: https://app.purmemo.ai';
   }
   return 'An error occurred while processing your request. Please try again.';
 }
@@ -725,7 +728,7 @@ EXAMPLE USAGE:
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '12.4.1' },
+  { name: 'purmemo-mcp', version: '12.5.1' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2309,7 +2312,7 @@ const transport = new StdioServerTransport();
 server.connect(transport)
   .then(() => {
     structuredLog.info('Purmemo MCP Server started successfully', {
-      version: '12.3.0',
+      version: '12.5.1',
       tier: '4-resources-prompts',
       api_url: API_URL,
       api_key_configured: !!API_KEY,
