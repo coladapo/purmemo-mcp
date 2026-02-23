@@ -1972,7 +1972,8 @@ async function handleGetUserContext(args) {
       output += `   (No identity profile set — user can configure at app.purmemo.ai/dashboard)\n`;
     }
 
-    output += `\n🎯 Current Session (${PLATFORM})\n`;
+    const autoTag = session.auto ? ' • auto' : '';
+    output += `\n🎯 Current Session (${PLATFORM}${autoTag})\n`;
     if (session.project) output += `   Project: ${session.project}\n`;
     if (session.context) output += `   Working on: ${session.context}\n`;
     if (session.focus) output += `   Focus: ${session.focus}\n`;

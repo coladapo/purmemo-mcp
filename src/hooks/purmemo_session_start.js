@@ -62,6 +62,33 @@ function loadApiKey() {
   } catch { return null; }
 }
 
+function postSessionContext(apiKey, project, platform) {
+  return new Promise((resolve) => {
+    const body = JSON.stringify({ project, platform, auto: true });
+    const url  = new URL('/api/v1/identity/session', API_URL);
+    const options = {
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+      timeout: 5000,
+    };
+    const req = https.request(options, (res) => {
+      res.resume(); // drain response
+      resolve(res.statusCode);
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
 function searchMemories(apiKey, query) {
   return new Promise((resolve) => {
     const params = new URLSearchParams({ q: query, limit: String(MAX_MEMORIES), platform: 'claude-code' });
@@ -138,6 +165,12 @@ async function main() {
   if (!apiKey) { dbg('skip — no api key'); return; }
 
   const projectName = path.basename(cwd || process.cwd());
+
+  // Fire auto session context update — best-effort, never blocks
+  postSessionContext(apiKey, projectName, 'claude-code').then(status => {
+    dbg(`auto session context POST → ${status ?? 'error'}`);
+  });
+
   const memories    = await searchMemories(apiKey, projectName);
   dbg(`recalled ${memories.length} memories for query="${projectName}"`);
 
