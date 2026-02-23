@@ -193,3 +193,4 @@ utils/
 
 # Cursor IDE
 .cursor/
+bundle/

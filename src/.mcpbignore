@@ -1,0 +1,10 @@
+server/tests/
+server/scripts/
+server/docs/
+server/ARCHITECTURE.md
+server/CONTRIBUTING.md
+server/SECURITY.md
+server/README.md
+server/package-lock.json
+server/src/setup.js
+server/src/hooks/

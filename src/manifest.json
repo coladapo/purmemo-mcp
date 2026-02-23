@@ -1,0 +1,69 @@
+{
+  "manifest_version": "0.3",
+  "name": "purmemo-mcp",
+  "display_name": "pūrmemo — AI Memory",
+  "version": "12.9.0",
+  "description": "Persistent AI memory for Claude. Save conversations automatically and recall past context across every session.",
+  "long_description": "pūrmemo gives Claude a memory that persists across sessions and surfaces the right context at the right time.\n\n**What it does:**\n- **Save** — Store conversations as living documents that update over time\n- **Recall** — Search and surface relevant memories when you need them\n- **Auto-capture** — Works silently in the background, capturing every session\n- **Cross-platform** — Memories from Claude Desktop, Claude Code, Chrome extension, and more — all in one place\n\n**Tools included:**\n- `save_conversation` — Save any conversation to your memory\n- `recall_memories` — Search your memory with natural language\n- `get_memory_details` — Retrieve a full conversation by ID\n- `discover_related_conversations` — Find related memories across all platforms\n- `get_user_context` — See your memory stats and recent activity",
+  "author": {
+    "name": "pūrmemo",
+    "email": "support@purmemo.ai",
+    "url": "https://purmemo.ai"
+  },
+  "homepage": "https://purmemo.ai",
+  "documentation": "https://purmemo.ai/docs",
+  "support": "https://github.com/coladapo/purmemo-mcp/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coladapo/purmemo-mcp"
+  },
+  "license": "MIT",
+  "keywords": ["memory", "ai", "claude", "mcp", "conversation", "recall", "second-brain"],
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "PURMEMO_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "pūrmemo API Key",
+      "description": "Your API key from app.purmemo.ai. Go to Settings → API Keys to generate one.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "save_conversation",
+      "description": "Save a complete conversation as a persistent memory"
+    },
+    {
+      "name": "recall_memories",
+      "description": "Search your memory with natural language queries"
+    },
+    {
+      "name": "get_memory_details",
+      "description": "Retrieve the full content of a saved memory"
+    },
+    {
+      "name": "discover_related_conversations",
+      "description": "Find related memories across all platforms"
+    },
+    {
+      "name": "get_user_context",
+      "description": "View memory stats and recent activity"
+    }
+  ],
+  "tools_generated": false,
+  "privacy_policies": [
+    "https://purmemo.ai/privacy"
+  ]
+}
