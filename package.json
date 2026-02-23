@@ -1,12 +1,13 @@
 {
   "name": "purmemo-mcp",
-  "version": "12.7.0",
+  "version": "12.8.0",
   "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "main": "src/server.js",
   "type": "module",
   "bin": {
     "purmemo-mcp": "./src/server.js",
-    "purmemo-mcp-setup": "./src/setup.js"
+    "purmemo-mcp-setup": "./src/setup.js",
+    "purmemo-mcp-hooks": "./src/setup.js"
   },
   "files": [
     "src/",
@@ -18,6 +19,7 @@
     "setup": "node src/setup.js setup",
     "status": "node src/setup.js status",
     "logout": "node src/setup.js logout",
+    "hooks": "node src/setup.js hooks",
     "test": "node --test tests/*.test.js",
     "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp setup\\\\n')\""
   },
