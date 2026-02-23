@@ -1894,7 +1894,7 @@ async function handleGetUserContext(args) {
     const [identityResponse, sessionResponse, recentResponse] = await Promise.allSettled([
       makeApiCall('/api/v1/auth/me'),
       makeApiCall('/api/v1/identity/session'),
-      makeApiCall('/api/v1/memories/?limit=20&sort=created_at&order=desc', { method: 'GET' })
+      makeApiCall('/api/v1/memories/?limit=20&sort=created_at&order=desc&include_source_types=desktop_clipboard,manual,chrome_extension', { method: 'GET' })
     ]);
 
     // Extract identity from /me response
