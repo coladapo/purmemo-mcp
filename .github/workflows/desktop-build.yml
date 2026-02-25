@@ -9,6 +9,8 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: purmemo-desktop
