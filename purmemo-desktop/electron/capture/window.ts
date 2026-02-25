@@ -9,7 +9,7 @@
  * no manual copy/paste of identity info ever again.
  */
 
-import { clipboard, Notification, BrowserWindow } from 'electron';
+import { clipboard, Notification, BrowserWindow, systemPreferences } from 'electron';
 import Store from 'electron-store';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const activeWin = require('active-win') as (options?: object) => Promise<ActiveWinResult | undefined>;
@@ -152,8 +152,31 @@ export function startWindowMonitor(
 ): void {
   if (pollInterval) return;
 
+  // Only start if accessibility is already granted.
+  // isTrustedAccessibilityClient(false) = check silently, no system prompt.
+  // This prevents active-win from triggering the TCC dialog on startup.
+  // The user can grant access via System Settings > Privacy & Security >
+  // Accessibility and then restart Purmemo to enable AI context injection.
+  if (process.platform === 'darwin') {
+    const trusted = systemPreferences.isTrustedAccessibilityClient(false);
+    if (!trusted) {
+      console.log('[purmemo] window monitor: accessibility not granted — skipping AI context injection. Grant in System Settings > Privacy & Security > Accessibility to enable.');
+      return;
+    }
+  }
+
   pollInterval = setInterval(async () => {
     try {
+      // Re-check on each poll — if the user revokes permission mid-session, stop.
+      if (process.platform === 'darwin') {
+        const trusted = systemPreferences.isTrustedAccessibilityClient(false);
+        if (!trusted) {
+          console.log('[purmemo] window monitor: accessibility revoked, stopping');
+          stopWindowMonitor();
+          return;
+        }
+      }
+
       const win = await activeWin();
       if (!win) return;
 
