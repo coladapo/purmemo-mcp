@@ -1,0 +1,72 @@
+{
+  "name": "purmemo-mcp",
+  "version": "12.9.2",
+  "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
+  "main": "src/server.js",
+  "type": "module",
+  "bin": {
+    "purmemo-mcp": "./src/server.js",
+    "purmemo-mcp-setup": "./src/setup.js",
+    "purmemo-mcp-hooks": "./src/setup.js"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node src/server.js",
+    "setup": "node src/setup.js setup",
+    "status": "node src/setup.js status",
+    "logout": "node src/setup.js logout",
+    "hooks": "node src/setup.js hooks",
+    "test": "node --test tests/*.test.js",
+    "build:mcpb": "node scripts/build-mcpb.js",
+    "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp setup\\\\n')\""
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "memory",
+    "ai",
+    "claude",
+    "cursor",
+    "chatgpt",
+    "gemini",
+    "windsurf",
+    "zed",
+    "purmemo",
+    "second-brain",
+    "conversation-memory",
+    "chrome-extension",
+    "ai-memory"
+  ],
+  "author": "pūrmemo <support@purmemo.ai>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coladapo/purmemo-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/coladapo/purmemo-mcp/issues",
+    "email": "support@purmemo.ai"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/coladapo"
+  },
+  "support": "https://github.com/coladapo/purmemo-mcp/discussions",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "express": "^4.18.2",
+    "inquirer": "^9.2.12",
+    "node-fetch": "^3.3.2",
+    "open": "^10.0.0",
+    "ora": "^7.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
