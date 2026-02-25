@@ -21,6 +21,7 @@
     "logout": "node src/setup.js logout",
     "hooks": "node src/setup.js hooks",
     "test": "node --test tests/*.test.js",
+    "build:mcpb": "node scripts/build-mcpb.js",
     "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp setup\\\\n')\""
   },
   "keywords": [
