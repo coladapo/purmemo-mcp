@@ -31,37 +31,29 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Build DMG (unsigned)
-        run: npx electron-builder --mac --publish never
+      - name: Build app (unsigned)
+        run: npx electron-builder --mac --dir --publish never
         env:
-          # Skip code signing for now — add APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
+          # Skip code signing — add APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
           # APPLE_TEAM_ID secrets when ready for notarization
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Strip broken signature and repackage DMG
+      - name: Package as zip
         run: |
-          DMG=$(find dist -name "*.dmg" | head -1)
-          hdiutil attach "$DMG" -mountpoint /tmp/purmemo-mount -nobrowse
-          cp -R "/tmp/purmemo-mount/Purmemo.app" /tmp/Purmemo.app
-          hdiutil detach /tmp/purmemo-mount
-          codesign --remove-signature /tmp/Purmemo.app || true
-          find /tmp/Purmemo.app -name "*.dylib" -o -name "*.so" -o -name "*.node" | xargs -I{} codesign --remove-signature {} 2>/dev/null || true
-          hdiutil create \
-            -volname "Install Purmemo" \
-            -srcfolder /tmp/Purmemo.app \
-            -ov -format UDZO \
-            dist/purmemo-desktop.dmg
+          APP=$(find dist -name "Purmemo.app" -maxdepth 3 | head -1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/purmemo-desktop.zip
 
-      - name: Upload DMG artifact
+      - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: purmemo-desktop-macos
-          path: purmemo-desktop/dist/purmemo-desktop.dmg
+          path: purmemo-desktop/dist/purmemo-desktop.zip
 
-      - name: Attach DMG to GitHub Release
+      - name: Attach zip to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: purmemo-desktop/dist/purmemo-desktop.dmg
+          files: purmemo-desktop/dist/purmemo-desktop.zip
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
