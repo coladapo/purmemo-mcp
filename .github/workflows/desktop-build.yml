@@ -38,9 +38,26 @@ jobs:
           # APPLE_TEAM_ID secrets when ready for notarization
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: Strip broken signature from app
+        run: |
+          DMG=$(find dist -name "*.dmg" | grep -v purmemo-desktop.dmg | head -1)
+          hdiutil attach "$DMG" -mountpoint /tmp/purmemo-mount -nobrowse
+          cp -R "/tmp/purmemo-mount/Purmemo.app" /tmp/Purmemo.app
+          hdiutil detach /tmp/purmemo-mount
+          codesign --remove-signature /tmp/Purmemo.app || true
+          find /tmp/Purmemo.app -name "*.dylib" -o -name "*.so" -o -name "*.node" | xargs -I{} codesign --remove-signature {} 2>/dev/null || true
+
+      - name: Repackage DMG without signature
+        run: |
+          hdiutil create \
+            -volname "Install Purmemo" \
+            -srcfolder /tmp/Purmemo.app \
+            -ov -format UDZO \
+            dist/purmemo-desktop.dmg
+
       - name: Rename DMG to stable filename
         run: |
-          find dist -name "*.dmg" -exec cp {} dist/purmemo-desktop.dmg \;
+          find dist -name "*.dmg" ! -name "purmemo-desktop.dmg" -exec cp {} dist/purmemo-desktop.dmg \; 2>/dev/null || true
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
