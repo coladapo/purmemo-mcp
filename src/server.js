@@ -65,6 +65,46 @@ if (_subcommand === 'setup' || _subcommand === 'status' || _subcommand === 'logo
 
 const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 
+// ============================================================================
+// Version check — runs once on startup, non-blocking
+// If the server reports this client is below min_required_version, every tool
+// response will include an update notice at the top.
+// ============================================================================
+
+const require = createRequire(import.meta.url);
+const { version: CLIENT_VERSION } = require('../package.json');
+
+let _updateNotice = null; // set to a string if an update is required
+
+function semverLt(a, b) {
+  // Returns true if version string a is less than b (simple numeric comparison)
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) < (pb[i] || 0)) return true;
+    if ((pa[i] || 0) > (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
+async function checkForUpdates() {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/mcp/version`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    const { latest_version, min_required_version, update_instructions } = data;
+    if (semverLt(CLIENT_VERSION, min_required_version)) {
+      _updateNotice = `⚠️ pūrmemo MCP update required (you: v${CLIENT_VERSION}, required: v${min_required_version}). ${update_instructions}`;
+      structuredLog.warn('MCP client below minimum required version', { client: CLIENT_VERSION, required: min_required_version });
+    } else if (semverLt(CLIENT_VERSION, latest_version)) {
+      _updateNotice = `ℹ️ pūrmemo MCP update available (you: v${CLIENT_VERSION}, latest: v${latest_version}). ${update_instructions}`;
+      structuredLog.info('MCP client update available', { client: CLIENT_VERSION, latest: latest_version });
+    }
+  } catch {
+    // Version check is best-effort — never block startup
+  }
+}
+
 // Read current Claude Code session_id from hook state file (written by session_start hook)
 // Returns null if not in a Claude Code session or state file unavailable
 function readCurrentSessionId() {
@@ -2155,26 +2195,35 @@ async function handleSaveInvestigation(args) {
 // Setup server
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
+// Prepend update notice to a tool result if one is set
+function withUpdateNotice(result) {
+  if (!_updateNotice || !result?.content?.length) return result;
+  return {
+    ...result,
+    content: [{ type: 'text', text: _updateNotice }, ...result.content]
+  };
+}
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   switch (name) {
     case 'save_conversation':
-      return await handleSaveConversation(args);
+      return withUpdateNotice(await handleSaveConversation(args));
     case 'recall_memories':
-      return await handleRecallMemories(args);
+      return withUpdateNotice(await handleRecallMemories(args));
     case 'get_memory_details':
-      return await handleGetMemoryDetails(args);
+      return withUpdateNotice(await handleGetMemoryDetails(args));
     case 'discover_related_conversations':
-      return await handleDiscoverRelated(args);
+      return withUpdateNotice(await handleDiscoverRelated(args));
     case 'get_user_context':
-      return await handleGetUserContext(args);
+      return withUpdateNotice(await handleGetUserContext(args));
     case 'get_acknowledged_errors':
       if (!ADMIN_MODE) break;
-      return await handleGetAcknowledgedErrors(args);
+      return withUpdateNotice(await handleGetAcknowledgedErrors(args));
     case 'save_investigation_result':
       if (!ADMIN_MODE) break;
-      return await handleSaveInvestigation(args);
+      return withUpdateNotice(await handleSaveInvestigation(args));
     default:
       return {
         content: [{
@@ -2475,6 +2524,8 @@ resolveApiKey().then(apiKey => {
   return server.connect(transport);
 })
   .then(() => {
+    // Non-blocking version check — sets _updateNotice if client is outdated
+    checkForUpdates();
     structuredLog.info('Purmemo MCP Server started successfully', {
       version: '12.5.2',
       tier: '4-resources-prompts',
