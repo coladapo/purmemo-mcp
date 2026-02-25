@@ -1,9 +1,6 @@
 name: Publish to npm
 
 on:
-  push:
-    tags:
-      - 'v*'
   release:
     types: [published]
 
@@ -32,11 +29,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Build .mcpb bundle
-        if: github.event_name == 'release'
         run: node scripts/build-mcpb.js
 
       - name: Upload .mcpb to GitHub Release
-        if: github.event_name == 'release'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
