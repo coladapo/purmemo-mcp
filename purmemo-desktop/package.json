@@ -39,6 +39,7 @@
       "dist/**/*",
       "assets/**/*"
     ],
+    "artifactName": "purmemo-desktop-${arch}.${ext}",
     "mac": {
       "identity": null,
       "target": [
@@ -49,9 +50,6 @@
       "category": "public.app-category.productivity",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
-    },
-    "zip": {
-      "artifactName": "purmemo-desktop-${arch}.zip"
     },
     "win": {
       "target": "nsis",
