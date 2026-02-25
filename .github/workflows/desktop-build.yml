@@ -1,0 +1,55 @@
+name: Build Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: purmemo-desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: purmemo-desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Build DMG (unsigned)
+        run: npx electron-builder --mac --publish never
+        env:
+          # Skip code signing for now — add APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
+          # APPLE_TEAM_ID secrets when ready for notarization
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Rename DMG to stable filename
+        run: |
+          find dist -name "*.dmg" -exec cp {} dist/purmemo-desktop.dmg \;
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: purmemo-desktop-macos
+          path: purmemo-desktop/dist/purmemo-desktop.dmg
+
+      - name: Attach DMG to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: purmemo-desktop/dist/purmemo-desktop.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

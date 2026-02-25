@@ -1,0 +1,80 @@
+{
+  "name": "purmemo-desktop",
+  "version": "1.0.0",
+  "description": "Purmemo Desktop — always-on memory presence for macOS",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "tsc --watch & electron .",
+    "build:ts": "tsc",
+    "build": "npm run build:ts && electron-builder --mac",
+    "build:win": "npm run build:ts && electron-builder --win",
+    "build:linux": "npm run build:ts && electron-builder --linux",
+    "pack": "npm run build:ts && electron-builder --dir"
+  },
+  "keywords": [
+    "purmemo",
+    "memory",
+    "electron",
+    "desktop"
+  ],
+  "author": "Purmemo <hello@purmemo.ai>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "active-win": "^8.2.1",
+    "electron-store": "^8.1.0",
+    "keytar": "^7.9.0"
+  },
+  "build": {
+    "appId": "ai.purmemo.desktop",
+    "productName": "Purmemo",
+    "copyright": "Copyright © 2026 Purmemo",
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "dmg": {
+      "artifactName": "purmemo-desktop.dmg",
+      "title": "Install Purmemo"
+    },
+    "nsis": {
+      "artifactName": "purmemo-desktop-setup.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "coladapo",
+      "repo": "purmemo-mcp"
+    }
+  }
+}
