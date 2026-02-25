@@ -31,29 +31,34 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Build app (unsigned)
-        run: npx electron-builder --mac --dir --publish never
+      - name: Build app (unsigned, fully unsigned via identity=null)
+        run: npx electron-builder --mac --publish never
         env:
-          # Skip code signing — add APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
-          # APPLE_TEAM_ID secrets when ready for notarization
+          # identity=null in package.json forces fully unsigned build.
+          # Partial signature (electron-builder default) causes NSPOSIXErrorDomain Code=153.
+          # Add APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, CSC_LINK, CSC_KEY_PASSWORD
+          # secrets when ready for notarization (Phase 2 per ADR-011).
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Package as zip
-        run: |
-          APP=$(find dist -name "Purmemo.app" -maxdepth 3 | head -1)
-          ditto -c -k --sequesterRsrc --keepParent "$APP" dist/purmemo-desktop.zip
-
-      - name: Upload zip artifact
+      - name: Upload arm64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: purmemo-desktop-macos
-          path: purmemo-desktop/dist/purmemo-desktop.zip
+          name: purmemo-desktop-macos-arm64
+          path: purmemo-desktop/dist/purmemo-desktop-arm64.zip
 
-      - name: Attach zip to GitHub Release
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: purmemo-desktop-macos-x64
+          path: purmemo-desktop/dist/purmemo-desktop-x64.zip
+
+      - name: Attach zips to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: purmemo-desktop/dist/purmemo-desktop.zip
+          files: |
+            purmemo-desktop/dist/purmemo-desktop-arm64.zip
+            purmemo-desktop/dist/purmemo-desktop-x64.zip
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
