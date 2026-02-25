@@ -326,4 +326,6 @@ See our [Privacy Policy](https://purmemo.ai/privacy) for details.
 
 ## License
 
-MIT
+This MCP client package is [MIT licensed](./LICENSE) — you can use, fork, and modify it freely.
+
+The **pūrmemo platform, API, and backend** are proprietary and closed-source. MIT applies only to the connector code in this repository, not to the service it connects to.
