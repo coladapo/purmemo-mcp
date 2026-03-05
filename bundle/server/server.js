@@ -72,7 +72,12 @@ const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 // ============================================================================
 
 const require = createRequire(import.meta.url);
-const { version: CLIENT_VERSION } = require('../package.json');
+// In .mcpb bundles, package.json is at ./package.json (same dir as server.js)
+// In npx installs, it's at ../package.json — try both
+let CLIENT_VERSION = '0.0.0';
+try { CLIENT_VERSION = require('./package.json').version; } catch {
+  try { CLIENT_VERSION = require('../package.json').version; } catch { /* unknown */ }
+}
 
 let _updateNotice = null; // set to a string if an update is required
 
@@ -1760,7 +1765,7 @@ async function handleRecallMemories(args) {
 
     const responseText = data.content[0].text;
 
-    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**'));
+    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**') && block.includes('ID:'));
 
     if (memoryBlocks.length === 0) {
       structuredLog.info(`${toolName}: completed`, {
