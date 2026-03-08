@@ -57,3 +57,7 @@ teleprompter.html
 
 # Git worktrees (parallel Claude Code sessions)
 .worktrees/
+# Sensitive files - never commit
+NPM Recovery Codes.txt
+*.recovery-codes*
+2fa-backup-codes*.txt
