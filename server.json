@@ -1,12 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.coladapo/purmemo",
+  "name": "io.github.purmemo-ai/purmemo",
   "description": "AI memory across Claude, ChatGPT, Gemini, and Cursor. Save, search, and recall context everywhere.",
   "repository": {
-    "url": "https://github.com/coladapo/purmemo-mcp",
+    "url": "https://github.com/purmemo-ai/purmemo-mcp",
     "source": "github"
   },
-  "version": "12.9.4",
+  "version": "12.9.5",
   "icon": {
     "src": "https://purmemo.ai/favicon.png"
   },
@@ -14,19 +14,10 @@
     {
       "registryType": "npm",
       "identifier": "purmemo-mcp",
-      "version": "12.9.4",
+      "version": "12.9.5",
       "runtimeHint": "node",
       "transport": {
         "type": "stdio"
-      }
-    },
-    {
-      "registryType": "remote",
-      "identifier": "purmemo-remote",
-      "version": "12.9.4",
-      "transport": {
-        "type": "streamable-http",
-        "url": "https://mcp.purmemo.ai/mcp/messages"
       }
     }
   ]

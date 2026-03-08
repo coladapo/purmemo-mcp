@@ -1,7 +1,7 @@
 {
   "name": "purmemo-mcp",
-  "version": "12.9.4",
-  "mcpName": "io.github.coladapo/purmemo",
+  "version": "12.9.5",
+  "mcpName": "io.github.purmemo-ai/purmemo",
   "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "main": "src/server.js",
   "type": "module",
@@ -46,17 +46,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/coladapo/purmemo-mcp.git"
+    "url": "git+https://github.com/purmemo-ai/purmemo-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/coladapo/purmemo-mcp/issues",
+    "url": "https://github.com/purmemo-ai/purmemo-mcp/issues",
     "email": "support@purmemo.ai"
   },
   "funding": {
     "type": "github",
-    "url": "https://github.com/sponsors/coladapo"
+    "url": "https://github.com/sponsors/purmemo-ai"
   },
-  "support": "https://github.com/coladapo/purmemo-mcp/discussions",
+  "support": "https://github.com/purmemo-ai/purmemo-mcp/discussions",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
     "chalk": "^5.3.0",
