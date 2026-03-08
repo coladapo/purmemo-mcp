@@ -60,7 +60,10 @@ const AI_APPS: Array<{ bundleId?: string; titleKeyword?: string; displayName: st
 const POLL_INTERVAL_MS = 2000;
 const API_BASE = 'https://api.purmemo.ai';
 
+const CURSOR_BUNDLE_ID = 'com.todesktop.230313mzl4w4u92';
+
 let lastActiveKey = '';
+let lastWasCursor = false;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 function matchAiApp(bundleId: string, title: string): string | null {
@@ -148,7 +151,8 @@ export async function triggerContextInject(token: string, appName: string): Prom
 
 export function startWindowMonitor(
   getToken: () => Promise<string>,
-  _getWindow: () => BrowserWindow | null
+  _getWindow: () => BrowserWindow | null,
+  onCursorFocusLoss?: () => void
 ): void {
   if (pollInterval) return;
 
@@ -186,6 +190,13 @@ export function startWindowMonitor(
       const key = bundleId || title;
 
       if (key === lastActiveKey) return;
+
+      // Detect Cursor focus-loss: previous window was Cursor, now it's something else
+      const isCursor = bundleId === CURSOR_BUNDLE_ID || title.includes('Cursor');
+      if (lastWasCursor && !isCursor && onCursorFocusLoss) {
+        onCursorFocusLoss();
+      }
+      lastWasCursor = isCursor;
       lastActiveKey = key;
 
       const appName = matchAiApp(bundleId, title);

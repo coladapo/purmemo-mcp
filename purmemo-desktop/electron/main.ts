@@ -17,6 +17,11 @@ import {
   startWindowMonitor,
   stopWindowMonitor,
 } from './capture/window';
+import {
+  syncCursorHistory,
+  triggerCursorSync,
+  getCursorTrayLabel,
+} from './capture/cursor';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +33,11 @@ const API_BASE = 'https://api.purmemo.ai';
 interface ConfigSchema {
   userEmail: string;
   clipboardCaptureEnabled: boolean;
+  // Cursor auto-sync state (Phase 5)
+  cursorLastSyncedAt: string | null;
+  cursorSyncedIds: string[];
+  cursorTotalMemories: number;
+  cursorFirstSyncDone: boolean;
 }
 
 const config = new Store<ConfigSchema>({
@@ -285,6 +295,11 @@ function updateTrayMenu() {
         updateTrayMenu();
       },
     },
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      label: getCursorTrayLabel(config as any),
+      enabled: false,
+    },
     { type: 'separator' as const },
     ...(isLoggedIn ? [{
       label: 'Sign out',
@@ -353,12 +368,22 @@ app.whenReady().then(async () => {
   startClipboardMonitor(config as any, () => mainWindow);
 
   // Start window monitor — injects Purmemo context when user switches to an AI app
-  startWindowMonitor(getAccessToken, () => mainWindow);
+  // Also fires onCursorFocusLoss when user leaves Cursor, triggering incremental sync
+  startWindowMonitor(getAccessToken, () => mainWindow, () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    triggerCursorSync(getAccessToken, config as any, updateTrayMenu);
+  });
 
-  // If already authenticated from a previous session, start refresh timer
+  // If already authenticated from a previous session, start refresh timer + catch-up sync
   const token = await getAccessToken();
   if (token) {
     startTokenRefreshTimer();
+    // Startup catch-up: sync any Cursor conversations since last sync
+    // (covers sessions that ran while the desktop app was closed)
+    setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      syncCursorHistory(getAccessToken, config as any, updateTrayMenu).catch(() => {});
+    }, 5000); // 5s delay — let app fully initialize first
   }
 
   app.on('activate', () => {

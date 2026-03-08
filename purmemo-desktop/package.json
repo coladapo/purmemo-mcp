@@ -21,6 +21,7 @@
   "author": "Purmemo <hello@purmemo.ai>",
   "license": "MIT",
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.0.0",
@@ -28,6 +29,7 @@
   },
   "dependencies": {
     "active-win": "^8.2.1",
+    "better-sqlite3": "^12.6.2",
     "electron-store": "^8.1.0",
     "keytar": "^7.9.0"
   },
@@ -43,8 +45,18 @@
     "mac": {
       "identity": null,
       "target": [
-        { "target": "zip", "arch": ["arm64"] },
-        { "target": "zip", "arch": ["x64"] }
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.productivity",
