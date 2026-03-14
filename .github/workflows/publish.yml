@@ -28,8 +28,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Build .mcpb bundle
-        run: node scripts/build-mcpb.js
+      - name: Build .mcpb bundle (with dependencies)
+        run: |
+          # Install bundle server dependencies (gitignored, so missing in CI)
+          cd bundle/server && npm ci && cd ../..
+          # Build the .mcpb (syncs version, copies source, zips)
+          node scripts/build-mcpb.js
 
       - name: Upload .mcpb to GitHub Release
         uses: actions/upload-release-asset@v1
@@ -40,3 +44,12 @@ jobs:
           asset_path: ./purmemo-mcp.mcpb
           asset_name: purmemo-mcp.mcpb
           asset_content_type: application/octet-stream
+
+      - name: Trigger Remote MCP redeploy
+        run: |
+          curl -s -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_MCP_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": "do_not_clear"}' \
+            && echo "✅ Remote MCP redeploy triggered" \
+            || echo "⚠️ Remote MCP redeploy failed (non-blocking)"

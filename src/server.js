@@ -309,6 +309,69 @@ const sessions = {
 // WORKFLOW ENGINE — Memory-powered workflows via MCP
 // ============================================================================
 
+// ============================================================================
+// WORKFLOW QUERY PREPROCESSING — Extract search terms from long user input
+// ============================================================================
+
+const SEARCH_STOP_WORDS = new Set([
+  // Articles, prepositions, conjunctions
+  'a','an','the','is','are','was','were','be','been','being',
+  'have','has','had','do','does','did','will','would','could',
+  'should','may','might','can','need','to','of','in','for',
+  'on','with','at','by','from','as','into','through','during',
+  'before','after','above','below','between','out','off','over',
+  'under','again','then','once','here','there','when','where',
+  'why','how','all','each','every','both','few','more','most',
+  'other','some','such','no','not','only','own','same','so',
+  'than','too','very','just','because','but','and','or','if',
+  'while','about','against','up','down',
+  // Pronouns
+  'i','me','my','we','our','you','your','he','she','it',
+  'they','them','their','this','that','these','those',
+  'what','which','who','whom',
+  // Common verbs that don't carry search meaning
+  'want','wants','need','needs','let','lets','get','got',
+  'make','made','like','also','new','way','going','thing',
+  'things','dont','doesnt','really','see','show','know',
+  // Generic adjectives
+  'existing','currently','available','using','many','much',
+  'right','good','best','first','last','next','able'
+]);
+
+function extractSearchTerms(input, maxTerms = 5) {
+  const words = input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !SEARCH_STOP_WORDS.has(w));
+
+  // Deduplicate preserving first-occurrence order
+  const unique = [...new Set(words)];
+  return unique.slice(0, maxTerms).join(' ');
+}
+
+function buildMemoryQueries(template, input) {
+  const wordCount = input.trim().split(/\s+/).length;
+
+  // Short input (≤6 words): use directly — already a good query
+  if (wordCount <= 6) {
+    return template.memory_queries.map(q =>
+      q.replace('[INPUT]', input.trim())
+    );
+  }
+
+  // Long input (>6 words): extract key terms first
+  const keywords = extractSearchTerms(input, 5);
+
+  // Fallback: if extraction produced nothing, use first 5 words
+  const fallback = input.trim().split(/\s+/).slice(0, 5).join(' ');
+  const searchTerms = keywords.length > 0 ? keywords : fallback;
+
+  return template.memory_queries.map(q =>
+    q.replace('[INPUT]', searchTerms)
+  );
+}
+
 const WORKFLOW_TEMPLATES = {
   prd: {
     name: 'prd',
@@ -1247,7 +1310,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.1.1' },
+  { name: 'purmemo-mcp', version: '13.2.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2563,9 +2626,9 @@ async function handleRunWorkflow(args) {
     const template = WORKFLOW_TEMPLATES[workflowName];
 
     // Pre-load memories and identity in parallel
-    const memoryQueries = template.memory_queries.map(q =>
-      q.replace('[INPUT]', input.substring(0, 100))
-    );
+    // Uses buildMemoryQueries to extract keywords from long input
+    // Short input (≤6 words) passes through directly; long input gets keyword extraction
+    const memoryQueries = buildMemoryQueries(template, input);
 
     const [identityResult, ...memoryResults] = await Promise.allSettled([
       // Identity
