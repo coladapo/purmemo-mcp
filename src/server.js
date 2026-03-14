@@ -1094,8 +1094,7 @@ If no specific workflow is named, the system auto-routes based on the user's int
       properties: {
         workflow: {
           type: 'string',
-          enum: Object.keys(WORKFLOW_TEMPLATES),
-          description: 'Workflow name (e.g., "prd", "debug", "sprint"). Optional — if omitted, auto-routes from input.'
+          description: 'Workflow name (e.g., "prd", "debug", "sprint"). Use list_workflows to see all available options including custom workflows. Optional — if omitted, auto-routes from input.'
         },
         input: {
           type: 'string',
@@ -1310,7 +1309,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.1.3' },
+  { name: 'purmemo-mcp', version: '13.3.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2606,8 +2605,11 @@ async function handleRunWorkflow(args) {
       });
     }
 
-    if (!workflowName || !WORKFLOW_TEMPLATES[workflowName]) {
-      // Could not route — return the catalog with a suggestion
+    // Resolve template: check hardcoded first, then database for user-created workflows
+    let template = workflowName ? WORKFLOW_TEMPLATES[workflowName] : null;
+
+    if (!workflowName) {
+      // Could not route — return the catalog
       const catalogLines = Object.values(WORKFLOW_TEMPLATES)
         .map(wf => `  ${wf.name.padEnd(12)} — ${wf.description}`)
         .join('\n');
@@ -2623,11 +2625,56 @@ async function handleRunWorkflow(args) {
       };
     }
 
-    const template = WORKFLOW_TEMPLATES[workflowName];
+    // If workflow not in hardcoded templates, it might be a user-created workflow
+    // Check the database for it
+    if (!template) {
+      try {
+        const userConfig = await makeApiCall(`/api/v1/workflow-dashboard/${workflowName}/user-config`);
+        if (userConfig?.has_custom && userConfig?.prompt) {
+          template = {
+            name: workflowName,
+            display_name: workflowName,
+            description: '',
+            memory_queries: ['[INPUT]'],
+            route_chain: [],
+            prompt: userConfig.prompt
+          };
+          structuredLog.info(`${toolName}: using user-created workflow`, {
+            request_id: requestId,
+            workflow: workflowName
+          });
+        }
+      } catch {
+        // Database unavailable — workflow not found
+      }
+    }
+
+    if (!template) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Unknown workflow: "${workflowName}". Use list_workflows to see available options.`
+        }]
+      };
+    }
+
+    // Check if the user has a custom prompt for this workflow (edits from dashboard)
+    // User's custom prompt always wins over hardcoded default
+    let workflowPrompt = template.prompt;
+    try {
+      const userConfig = await makeApiCall(`/api/v1/workflow-dashboard/${workflowName}/user-config`);
+      if (userConfig?.has_custom && userConfig?.prompt) {
+        workflowPrompt = userConfig.prompt;
+        structuredLog.info(`${toolName}: using user's custom prompt`, {
+          request_id: requestId,
+          workflow: workflowName
+        });
+      }
+    } catch {
+      // Database unavailable — use hardcoded default
+    }
 
     // Pre-load memories and identity in parallel
-    // Uses buildMemoryQueries to extract keywords from long input
-    // Short input (≤6 words) passes through directly; long input gets keyword extraction
     const memoryQueries = buildMemoryQueries(template, input);
 
     const [identityResult, ...memoryResults] = await Promise.allSettled([
@@ -2721,7 +2768,7 @@ async function handleRunWorkflow(args) {
     const assembled = [
       transparencyBlock,
       '',
-      template.prompt,
+      workflowPrompt,
       '',
       identityBlock,
       `## User Input\n${input}`,
