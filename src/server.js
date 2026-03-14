@@ -1244,7 +1244,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.0.0' },
+  { name: 'purmemo-mcp', version: '13.1.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2620,16 +2620,22 @@ async function handleRunWorkflow(args) {
       }
     }
 
-    // Assemble the memory context
+    // Assemble the memory context with transparency
     const memoryTexts = memoryResults
       .filter(r => r.status === 'fulfilled' && r.value)
       .map(r => r.value);
 
-    let memoryBlock = '';
+    // Build transparency block — shows users exactly what memories are being used
+    let transparencyBlock = '';
     if (memoryTexts.length > 0) {
-      memoryBlock = `## Pre-loaded Memories\n${memoryTexts.join('\n\n---\n\n')}\n`;
+      transparencyBlock = `## ⚡ Memories Powering This Workflow\n`;
+      transparencyBlock += `The following memories were automatically pre-loaded from your vault to personalize this workflow.\n`;
+      transparencyBlock += `Review them before reading the output — if any are outdated or irrelevant, tell the AI to disregard them.\n\n`;
+      transparencyBlock += memoryTexts.join('\n\n---\n\n');
+      transparencyBlock += `\n\n---\n`;
+      transparencyBlock += `💡 **Memory quality feedback:** If any memory above is wrong, outdated, or irrelevant to this task, say so and the workflow will adapt. Your feedback helps improve future workflows.\n`;
     } else {
-      memoryBlock = `## Pre-loaded Memories\nNo relevant memories found. Proceeding with the workflow using the user's input only.\n`;
+      transparencyBlock = `## ⚡ Memories Powering This Workflow\nNo relevant memories found in your vault for this topic. This workflow is running without historical context — the output will be generic rather than personalized.\n`;
     }
 
     // Build the chain suggestion
@@ -2645,15 +2651,16 @@ async function handleRunWorkflow(args) {
       }
     }
 
-    // Assemble the full response
+    // Assemble the full response — transparency block FIRST so user sees context before output
     const assembled = [
+      transparencyBlock,
+      '',
       template.prompt,
       '',
       identityBlock,
-      memoryBlock,
       `## User Input\n${input}`,
       chainBlock,
-      `\nNow execute the workflow above. Follow the process steps, use the pre-loaded memories for context, and adapt to the user's identity and input.`
+      `\nNow execute the workflow above. Use the pre-loaded memories shown at the top for context. If the user flags any memory as irrelevant or outdated, disregard it. Adapt to the user's identity and input.`
     ].filter(Boolean).join('\n\n');
 
     structuredLog.info(`${toolName}: assembled`, {
