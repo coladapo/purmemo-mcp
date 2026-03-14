@@ -38,6 +38,9 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -1309,7 +1312,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.4.0' },
+  { name: 'purmemo-mcp', version: '14.0.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -3354,48 +3357,273 @@ async function resolveApiKey() {
   return null;
 }
 
-// Start server
-const transport = new StdioServerTransport();
+// ============================================================================
+// STARTUP — Stdio (default) or Remote HTTP (--remote / PURMEMO_REMOTE=1)
+// ============================================================================
 
-// Resolve API key first (async), then connect
-resolveApiKey().then(apiKey => {
-  resolvedApiKey = apiKey;
-  return server.connect(transport);
-})
-  .then(() => {
-    // Non-blocking version check — sets _updateNotice if client is outdated
+const REMOTE_MODE = process.argv.includes('--remote') || process.env.PURMEMO_REMOTE === '1';
+
+if (REMOTE_MODE) {
+  // ========================================================================
+  // REMOTE MODE — Express + Streamable HTTP + SSE (replaces Python server)
+  // ========================================================================
+  const { default: express } = await import('express');
+  const { randomUUID } = await import('node:crypto');
+
+  const app = express();
+  app.use(express.json());
+
+  // CORS — allow Claude.ai, ChatGPT, and other MCP clients
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+    res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
+  // Session/transport management
+  const transports = {};
+  const startTime = Date.now();
+  let connectionCount = 0;
+  let toolCallCounts = {};
+
+  // Health endpoint
+  app.get('/health', async (req, res) => {
+    const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+    const hours = Math.floor(uptimeSeconds / 3600);
+    const mins = Math.floor((uptimeSeconds % 3600) / 60);
+    const secs = uptimeSeconds % 60;
+
+    let backendStatus = 'unknown';
+    let backendLatency = null;
+    try {
+      const t0 = Date.now();
+      const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
+      backendLatency = Date.now() - t0;
+      backendStatus = resp.ok ? 'healthy' : 'unhealthy';
+    } catch { backendStatus = 'unreachable'; }
+
+    res.json({
+      status: 'healthy',
+      version: '14.0.0',
+      timestamp: new Date().toISOString(),
+      active_connections: Object.keys(transports).length,
+      metrics: {
+        uptime_seconds: uptimeSeconds,
+        uptime_human: `${hours}h ${mins}m ${secs}s`,
+        total_connections: connectionCount
+      },
+      tool_usage: toolCallCounts,
+      backend_api: {
+        url: API_URL,
+        status: backendStatus,
+        latency_ms: backendLatency
+      },
+      service_info: {
+        version: '14.0.0',
+        runtime: 'node',
+        api_backend: API_URL,
+        environment: process.env.NODE_ENV || 'production',
+        capabilities: ['tools', 'resources', 'prompts', 'streamable-http', 'sse']
+      }
+    });
+  });
+
+  // ── Streamable HTTP transport (/mcp) ──
+  app.all('/mcp', async (req, res) => {
+    try {
+      const sessionId = req.headers['mcp-session-id'];
+      let transport;
+
+      if (sessionId && transports[sessionId]) {
+        const existing = transports[sessionId];
+        if (existing instanceof StreamableHTTPServerTransport) {
+          transport = existing;
+        } else {
+          return res.status(400).json({
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Session uses a different transport protocol' },
+            id: null
+          });
+        }
+      } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (sid) => {
+            transports[sid] = transport;
+            connectionCount++;
+            structuredLog.info('StreamableHTTP session initialized', { session_id: sid });
+          }
+        });
+        transport.onclose = () => {
+          const sid = transport.sessionId;
+          if (sid && transports[sid]) {
+            delete transports[sid];
+            structuredLog.info('StreamableHTTP session closed', { session_id: sid });
+          }
+        };
+        await server.connect(transport);
+      } else {
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
+          id: null
+        });
+      }
+
+      await transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      structuredLog.error('Error handling /mcp request', { error_message: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null
+        });
+      }
+    }
+  });
+
+  // ── Deprecated SSE transport (/sse + /messages) ──
+  app.get('/sse', async (req, res) => {
+    structuredLog.info('SSE connection established (deprecated transport)');
+    const transport = new SSEServerTransport('/messages', res);
+    transports[transport.sessionId] = transport;
+    connectionCount++;
+    res.on('close', () => {
+      delete transports[transport.sessionId];
+      structuredLog.info('SSE connection closed', { session_id: transport.sessionId });
+    });
+    await server.connect(transport);
+  });
+
+  app.post('/messages', async (req, res) => {
+    const sessionId = req.query.sessionId;
+    const transport = transports[sessionId];
+    if (transport instanceof SSEServerTransport) {
+      await transport.handlePostMessage(req, res, req.body);
+    } else {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'No SSE transport found for this session' },
+        id: null
+      });
+    }
+  });
+
+  // ── MCP well-known endpoints (for OAuth discovery) ──
+  app.get('/.well-known/oauth-protected-resource', (req, res) => {
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      resource: serverUrl,
+      authorization_servers: [serverUrl],
+      bearer_methods_supported: ['header']
+    });
+  });
+
+  app.get('/.well-known/oauth-authorization-server', (req, res) => {
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      issuer: serverUrl,
+      authorization_endpoint: `${serverUrl}/oauth/authorize`,
+      token_endpoint: `${serverUrl}/oauth/token`,
+      registration_endpoint: `${serverUrl}/oauth/register`,
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code'],
+      code_challenge_methods_supported: ['S256'],
+      token_endpoint_auth_methods_supported: ['none']
+    });
+  });
+
+  // Start
+  const PORT = parseInt(process.env.PORT || '8000', 10);
+
+  resolveApiKey().then(apiKey => {
+    resolvedApiKey = apiKey;
     checkForUpdates();
-    structuredLog.info('Purmemo MCP Server started successfully', {
-      version: '12.5.2',
-      tier: '4-resources-prompts',
-      api_url: API_URL,
-      api_key_configured: !!resolvedApiKey,
-      api_key_source: process.env.PURMEMO_API_KEY ? 'env_var' : (resolvedApiKey ? 'token_store' : 'none'),
-      platform: PLATFORM,
-      tools_count: TOOLS.length,
-      circuit_breaker_enabled: true,
-      request_timeout_ms: 30000,
-      features: [
-        'Intelligent memory saving with auto-context extraction',
-        'Smart title generation (no more timestamps)',
-        'Automatic project/component/feature detection',
-        'Roadmap tracking across AI tools',
-        'Unicode sanitization',
-        'Structured JSON logging',
-        'Circuit breaker pattern for API resilience',
-        'Per-tool request timing and metrics',
-        'Safe error handling with fallbacks',
-        'MCP Resources (memory://me, memory://context, memory://projects, memory://stats, memory://{id})',
-        'MCP Prompts (load-context, save-this-conversation, catch-me-up, weekly-review)'
-      ]
+
+    app.listen(PORT, () => {
+      structuredLog.info('Purmemo Remote MCP Server started', {
+        mode: 'remote',
+        version: '14.0.0',
+        port: PORT,
+        api_url: API_URL,
+        api_key_configured: !!resolvedApiKey,
+        tools_count: TOOLS.length,
+        transports: ['streamable-http', 'sse'],
+        endpoints: {
+          mcp: '/mcp (Streamable HTTP — POST/GET/DELETE)',
+          sse: '/sse (deprecated SSE — GET)',
+          messages: '/messages (deprecated SSE — POST)',
+          health: '/health'
+        }
+      });
     });
-  })
-  .catch((error) => {
-    structuredLog.error('Failed to start MCP server', {
-      error_message: error.message,
-      error_type: error.constructor.name
-    });
+  }).catch(error => {
+    structuredLog.error('Failed to start remote MCP server', { error_message: error.message });
     process.exit(1);
   });
+
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    structuredLog.info('Shutting down remote server...');
+    for (const sid in transports) {
+      try { await transports[sid].close(); } catch {}
+      delete transports[sid];
+    }
+    process.exit(0);
+  });
+
+} else {
+  // ========================================================================
+  // STDIO MODE — Standard local MCP (default for npm/Claude Desktop/Claude Code)
+  // ========================================================================
+  const transport = new StdioServerTransport();
+
+  resolveApiKey().then(apiKey => {
+    resolvedApiKey = apiKey;
+    return server.connect(transport);
+  })
+    .then(() => {
+      checkForUpdates();
+      structuredLog.info('Purmemo MCP Server started successfully', {
+        mode: 'stdio',
+        version: '14.0.0',
+        tier: '4-resources-prompts',
+        api_url: API_URL,
+        api_key_configured: !!resolvedApiKey,
+        api_key_source: process.env.PURMEMO_API_KEY ? 'env_var' : (resolvedApiKey ? 'token_store' : 'none'),
+        platform: PLATFORM,
+        tools_count: TOOLS.length,
+        circuit_breaker_enabled: true,
+        request_timeout_ms: 30000,
+        features: [
+          'Intelligent memory saving with auto-context extraction',
+          'Smart title generation (no more timestamps)',
+          'Automatic project/component/feature detection',
+          'Roadmap tracking across AI tools',
+          'Unicode sanitization',
+          'Structured JSON logging',
+          'Circuit breaker pattern for API resilience',
+          'Per-tool request timing and metrics',
+          'Safe error handling with fallbacks',
+          'MCP Resources (memory://me, memory://context, memory://projects, memory://stats, memory://{id})',
+          'MCP Prompts (load-context, save-this-conversation, catch-me-up, weekly-review)',
+          'Workflow Engine (run_workflow, list_workflows — 15 memory-powered workflows)'
+        ]
+      });
+    })
+    .catch((error) => {
+      structuredLog.error('Failed to start MCP server', {
+        error_message: error.message,
+        error_type: error.constructor.name
+      });
+      process.exit(1);
+    });
+}
 
 } // end else (not a subcommand)
