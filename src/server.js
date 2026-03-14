@@ -1511,34 +1511,32 @@ async function makeApiCall(endpoint, options = {}) {
         if (response.status === 429) {
           try {
             const errorData = JSON.parse(errorText);
-            const upgradeUrl = errorData.upgrade_url || 'https://app.purmemo.ai/dashboard/plans';
-            const currentUsage = errorData.current_usage || '?';
-            const quotaLimit = errorData.quota_limit || '?';
-            const tier = errorData.tier || 'FREE';
-            const billingPeriod = errorData.billing_period || 'this month';
+            // Handle structured error from backend (workflow or recall quota)
+            const detail = typeof errorData.detail === 'object' ? errorData.detail : errorData;
+            const upgradeUrl = detail.upgrade_url || errorData.upgrade_url || 'https://app.purmemo.ai/dashboard?modal=plans';
+            const message = detail.message || errorData.message || 'Monthly quota exceeded';
+            const currentUsage = detail.current_usage || errorData.current_usage || '?';
+            const limit = detail.limit || errorData.quota_limit || '?';
 
-            // Calculate reset date (first day of next month)
             const now = new Date();
             const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
             const resetDateStr = resetDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
             const userMessage = [
-              `❌ Monthly recall quota exceeded (${currentUsage}/${quotaLimit} used)`,
+              `❌ ${message}`,
               ``,
-              `You've reached the ${tier.toUpperCase()} tier limit of ${quotaLimit} recalls per month.`,
+              `Usage: ${currentUsage}/${limit} this month`,
               ``,
-              `🚀 Upgrade to PRO for unlimited recalls:`,
+              `🚀 Upgrade to Pro for unlimited access:`,
               `   ${upgradeUrl}`,
               ``,
-              `📅 Your quota will reset on ${resetDateStr}`,
-              ``,
-              `For immediate access, please upgrade your subscription.`
+              `📅 Your quota resets on ${resetDateStr}`,
             ].join('\n');
 
             throw new Error(userMessage);
           } catch (parseError) {
-            // If JSON parsing fails, fall back to generic quota message
-            throw new Error(`Monthly recall quota exceeded. Upgrade to PRO for unlimited recalls:\nhttps://app.purmemo.ai/dashboard/plans`);
+            if (parseError.message?.includes('Upgrade to Pro')) throw parseError;
+            throw new Error(`Monthly quota exceeded. Upgrade to Pro for unlimited access:\nhttps://app.purmemo.ai/dashboard?modal=plans`);
           }
         }
 
