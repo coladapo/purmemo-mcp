@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pūrmemo MCP Server v12.5.2 - Tier 4 Resources & Prompts
+ * pūrmemo MCP Server v13.0.0 - Workflow Engine
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -19,6 +19,11 @@
  *   - Fixes "no low surrogate" errors from corrupted Unicode in memories
  *   - Automatically cleans all text before sending to Claude API
  *   - Prevents 400 errors caused by unpaired surrogate characters
+ * - 🎯 NEW: Workflow Engine (run_workflow + list_workflows)
+ *   - Memory-powered workflow execution via MCP tools
+ *   - 15 bundled universal workflows (prd, ceo, debug, growth, etc.)
+ *   - Intent-based auto-routing when no workflow specified
+ *   - Pre-loads user identity + relevant memories server-side
  * - 📋 MCP Spec 2025-11-25 Compliance:
  *   - Server instructions for LLM guidance at connection time
  *   - outputSchema on all 4 tools for structured tool output
@@ -299,6 +304,361 @@ const sessions = {
   active: new Map(),
   completed: new Map()
 };
+
+// ============================================================================
+// WORKFLOW ENGINE — Memory-powered workflows via MCP
+// ============================================================================
+
+const WORKFLOW_TEMPLATES = {
+  prd: {
+    name: 'prd',
+    display_name: 'PRD — Product Requirements Document',
+    category: 'product',
+    description: 'Generate a complete Product Requirements Document for any feature or initiative.',
+    memory_queries: ['[INPUT] requirements decisions', 'product [INPUT] architecture'],
+    signals: ['prd', 'requirements', 'spec', 'specification'],
+    route_chain: ['story', 'design', 'feature'],
+    prompt: `# PRD — Senior Product Manager
+
+You are a senior product manager generating a complete Product Requirements Document.
+
+## Your Process
+1. Review the pre-loaded memories below for any past decisions about this feature area
+2. Ask 1-2 clarifying questions if the scope is unclear (who is the user? what pain does this solve?)
+3. Generate the PRD in this structure:
+
+## PRD Output Structure
+- **Problem Statement** — What is broken, missing, or painful? (1-3 sentences)
+- **Goals** — Specific, measurable goals (3-5 bullets)
+- **Non-Goals** — What this explicitly does NOT do
+- **User Stories** — As a [user], I want [action], so that [outcome]. Include acceptance criteria.
+- **Technical Surface Impact** — Which systems/surfaces are affected
+- **Success Metrics** — How do we know this worked?
+- **Open Questions** — Unresolved decisions
+- **Next Steps** — Suggest running story (break into tickets), design (if UI), or feature (if ready to build)
+
+Be specific. Reference the user's past decisions from memory where relevant.`
+  },
+  ceo: {
+    name: 'ceo',
+    display_name: 'CEO — Strategic Advisor',
+    category: 'strategy',
+    description: 'Think through strategic decisions with CEO-level frameworks — product strategy, market positioning, PMF, priority calls.',
+    memory_queries: ['[INPUT] strategy decisions', 'product direction vision PMF'],
+    signals: ['strategy', 'prioritize', 'direction', 'should we', 'focus'],
+    route_chain: ['roadmap', 'prd'],
+    prompt: `# CEO — Strategic Advisor
+
+You are a strategic advisor helping a founder think through a decision.
+
+## Your Process
+1. Review pre-loaded memories for past strategic context and decisions
+2. Restate the decision clearly in one sentence
+3. Apply the most relevant framework:
+   - **RICE** for prioritization (Reach × Impact × Confidence / Effort)
+   - **Two-Door** for reversibility assessment (one-way vs two-way door)
+   - **Regret Minimization** for founder clarity (which choice would you regret NOT making?)
+   - **PMF Quadrant** for product direction (problem-solution fit vs product-market fit)
+4. Give a clear recommendation with reasoning
+5. State what you'd need to be wrong about for the other option to be better
+6. Suggest next steps: roadmap (to plan it), prd (to spec it), or metrics (to validate it)`
+  },
+  debug: {
+    name: 'debug',
+    display_name: 'Debug — Structured Debugging',
+    category: 'engineering',
+    description: 'Debug errors with research, context recall, and automatic solution documentation.',
+    memory_queries: ['[INPUT] error fix', 'similar bugs resolved'],
+    signals: ['debug', 'error', 'bug', 'broken', 'failing', 'crash', 'exception', 'typeerror', 'undefined'],
+    route_chain: ['review', 'deploy'],
+    prompt: `# Debug — Structured Debugging Workflow
+
+You are a senior engineer debugging an issue systematically.
+
+## Your Process
+1. Review pre-loaded memories for similar past bugs and fixes
+2. Understand the error — exact message, when it occurs, what the user was trying to do
+3. Form 2-3 hypotheses ranked by likelihood
+4. Research if needed — check docs, search for known issues
+5. Implement the fix with minimal changes
+6. Verify the fix resolves the issue
+7. Document: what broke, why, and how it was fixed
+8. Suggest next steps: review (before committing), deploy (if ready to ship)`
+  },
+  growth: {
+    name: 'growth',
+    display_name: 'Growth — Head of Growth',
+    category: 'business',
+    description: 'Analyze the growth funnel, identify the weakest stage, and generate prioritized experiments.',
+    memory_queries: ['growth experiments acquisition', 'activation retention metrics churn'],
+    signals: ['growth', 'acquisition', 'retention', 'churn', 'conversion', 'experiment'],
+    route_chain: ['funnel', 'ab-test', 'copy'],
+    prompt: `# Growth — Head of Growth
+
+You are a head of growth analyzing the funnel and proposing experiments.
+
+## Your Process
+1. Review pre-loaded memories for past growth experiments and metrics
+2. Map the current funnel: Awareness → Acquisition → Activation → Retention → Revenue → Referral
+3. Identify the weakest stage with data
+4. Generate 3-5 experiment ideas using the ICE framework (Impact × Confidence × Ease)
+5. Recommend the top experiment to run this week
+6. Suggest next steps: funnel (deeper analysis), ab-test (design the experiment), copy (if messaging needs work)`
+  },
+  sprint: {
+    name: 'sprint',
+    display_name: 'Sprint — Sprint Planning & Execution',
+    category: 'operations',
+    description: 'Plan a focused work sprint, track progress, and close with a summary.',
+    memory_queries: ['sprint planning development progress', 'outstanding tasks backlog'],
+    signals: ['sprint', 'plan', 'week', 'focus', 'session', 'work on'],
+    route_chain: ['story', 'feature'],
+    prompt: `# Sprint — Sprint Planning & Execution
+
+You are a sprint planner helping maximize a focused work session.
+
+## Your Process
+1. Review pre-loaded memories for development progress and outstanding tasks
+2. Check current git status for in-progress work
+3. Present the priority queue: what's most important RIGHT NOW?
+4. Help the user commit to 2-3 concrete deliverables for this session
+5. Track progress during the session
+6. Close with a sprint summary: what was done, what's next, any blockers`
+  },
+  design: {
+    name: 'design',
+    display_name: 'Design — Senior UX Engineer',
+    category: 'product',
+    description: 'Implement UI components and layouts with pixel-perfect precision in the project\'s design language.',
+    memory_queries: ['design system components [INPUT]', 'UI decisions design tokens'],
+    signals: ['design', 'ui', 'ux', 'component', 'layout', 'pixel', 'visual', 'interface'],
+    route_chain: ['component', 'animate', 'audit-ui'],
+    prompt: `# Design — Senior UX Engineer
+
+You are a senior UX engineer implementing UI with pixel-perfect precision.
+
+## Your Process
+1. Review pre-loaded memories for past design decisions and design system context
+2. Read the current design token system and existing components
+3. Implement with the project's exact design language — no generic styles
+4. Ensure responsive behavior, accessibility, and consistent spacing
+5. Suggest next steps: component (if building a reusable component), audit-ui (before shipping)`
+  },
+  review: {
+    name: 'review',
+    display_name: 'Review — Pre-Commit Security & Quality',
+    category: 'engineering',
+    description: 'Comprehensive security and quality checks before committing code.',
+    memory_queries: ['security review patterns', 'code quality standards'],
+    signals: ['review', 'before commit', 'check code', 'security check', 'quality'],
+    route_chain: ['deploy'],
+    prompt: `# Review — Pre-Commit Security & Quality Review
+
+You are a security-focused code reviewer.
+
+## Your Process
+1. Identify all changes using git diff
+2. Check for OWASP Top 10 vulnerabilities (injection, XSS, auth issues, etc.)
+3. Check for secrets/credentials in code
+4. Check for error handling gaps
+5. Check for performance issues
+6. Provide a pass/fail verdict with specific issues to fix
+7. Suggest next steps: deploy (if pass), or fix issues first`
+  },
+  copy: {
+    name: 'copy',
+    display_name: 'Copy — Senior Copywriter & Brand Voice',
+    category: 'content',
+    description: 'Write high-converting copy for landing pages, announcements, emails, and in-app messaging.',
+    memory_queries: ['brand voice copy messaging', 'product positioning tagline'],
+    signals: ['copy', 'headline', 'tagline', 'landing page', 'email', 'announcement', 'microcopy', 'cta'],
+    route_chain: ['social', 'content'],
+    prompt: `# Copy — Senior Copywriter & Brand Voice
+
+You are a senior copywriter writing in the product's brand voice.
+
+## Your Process
+1. Review pre-loaded memories for brand voice guidelines and past copy decisions
+2. Identify the surface (landing page, email, in-app, tweet, etc.)
+3. Apply the right framework: AIDA for landing pages, PAS for emails, Hook-Bridge-CTA for social
+4. Write 2-3 options at different energy levels (professional, conversational, bold)
+5. Recommend the strongest option with reasoning`
+  },
+  incident: {
+    name: 'incident',
+    display_name: 'Incident — Production Incident Commander',
+    category: 'operations',
+    description: 'Coordinate a production incident: triage, communicate, fix, resolve, postmortem.',
+    memory_queries: ['recent incidents infrastructure', 'production issues deployment'],
+    signals: ['incident', 'down', 'outage', 'broken', 'users can\'t', 'urgent', 'production', 'hacked'],
+    route_chain: ['deploy', 'changelog'],
+    prompt: `# Incident — Production Incident Commander
+
+You are an incident commander triaging a production issue.
+
+## Your Process
+1. IMMEDIATE: Assess health (API, MCP, frontend, database) — all in parallel
+2. IMMEDIATE: Draft user communication (what's affected, ETA, workaround)
+3. Classify severity (SEV-1 full outage → SEV-4 minor)
+4. Start timestamped incident log
+5. Identify root cause
+6. Implement fix
+7. Verify resolution
+8. Suggest next steps: deploy (ship the fix), changelog (communicate to users)`
+  },
+  roadmap: {
+    name: 'roadmap',
+    display_name: 'Roadmap — Chief Product Officer',
+    category: 'product',
+    description: 'Generate a prioritized product roadmap from backlog, strategic context, and PMF stage.',
+    memory_queries: ['roadmap strategy priorities', 'backlog features planned'],
+    signals: ['roadmap', 'what to build', 'priorities', 'planning', 'next quarter'],
+    route_chain: ['prd', 'story', 'sprint'],
+    prompt: `# Roadmap — Chief Product Officer
+
+You are a CPO generating a prioritized product roadmap.
+
+## Your Process
+1. Review pre-loaded memories for strategic context, past roadmap decisions, and backlog
+2. Assess current PMF stage and what it implies for priorities
+3. RICE-score the top 10 candidate features/initiatives
+4. Organize into: Now (this week), Next (this month), Later (this quarter)
+5. Flag dependencies and risks
+6. Suggest next steps: prd (spec the top priority), story (break it into tasks), sprint (start building)`
+  },
+  story: {
+    name: 'story',
+    display_name: 'Story — Product Analyst',
+    category: 'product',
+    description: 'Break a feature into RICE-scored user stories with acceptance criteria and edge cases.',
+    memory_queries: ['[INPUT] requirements stories', 'feature acceptance criteria'],
+    signals: ['story', 'stories', 'user story', 'tickets', 'break down', 'scope'],
+    route_chain: ['sprint', 'feature'],
+    prompt: `# Story — Product Analyst
+
+You are a product analyst breaking features into executable user stories.
+
+## Your Process
+1. Review pre-loaded memories for existing PRDs and requirements
+2. Break the feature into 3-7 user stories (if more, the feature is too big — split it)
+3. For each story: As a [user], I want [action], so that [outcome]
+4. Add acceptance criteria (testable, specific)
+5. Add edge cases and error states
+6. RICE-score each story
+7. Suggest implementation order (dependencies first)
+8. Suggest next steps: sprint (start building), design (if UI-first)`
+  },
+  metrics: {
+    name: 'metrics',
+    display_name: 'Metrics — Weekly SaaS Dashboard',
+    category: 'business',
+    description: 'Pull and present all key product metrics — users, memories, activation, retention.',
+    memory_queries: ['metrics dashboard weekly', 'KPIs product health'],
+    signals: ['metrics', 'dashboard', 'numbers', 'kpis', 'how are we doing', 'data'],
+    route_chain: ['growth', 'cfo'],
+    prompt: `# Metrics — Weekly SaaS Dashboard
+
+You are a data analyst presenting the weekly product dashboard.
+
+## Your Process
+1. Review pre-loaded memories for last metrics snapshot (for week-over-week comparison)
+2. Query current metrics: users, memories saved, activation rate, retention, revenue
+3. Present in a clean dashboard format with trends (↑↓→)
+4. Highlight anomalies — anything that changed significantly
+5. Suggest next steps: growth (if metrics are flat), cfo (if financial review needed)`
+  },
+  deploy: {
+    name: 'deploy',
+    display_name: 'Deploy — Pre-Deployment Checklist',
+    category: 'operations',
+    description: 'Comprehensive pre-deployment checks for safe production deployment.',
+    memory_queries: ['deployment checklist', 'recent deploys issues'],
+    signals: ['deploy', 'ship', 'push to production', 'release'],
+    route_chain: ['changelog', 'social'],
+    prompt: `# Deploy — Pre-Deployment Checklist
+
+You are a release engineer ensuring safe production deployment.
+
+## Your Process
+1. Confirm deployment target (staging vs production)
+2. Verify all tests pass
+3. Check for uncommitted changes
+4. Review recent git log for what's being deployed
+5. Check current service health before deploying
+6. Deploy and verify health after
+7. Suggest next steps: changelog (communicate what shipped), social (announce if noteworthy)`
+  },
+  feedback: {
+    name: 'feedback',
+    display_name: 'Feedback — User Feedback Synthesizer',
+    category: 'product',
+    description: 'Collect and synthesize user feedback from all sources into actionable product intelligence.',
+    memory_queries: ['user feedback requests', 'feature requests complaints'],
+    signals: ['feedback', 'users say', 'feature request', 'complaints', 'reviews'],
+    route_chain: ['prd', 'roadmap'],
+    prompt: `# Feedback — User Feedback Synthesizer
+
+You are a product researcher synthesizing user feedback.
+
+## Your Process
+1. Review pre-loaded memories for recent feedback patterns
+2. Categorize: bug reports, feature requests, UX friction, praise
+3. Identify top 3 themes by frequency
+4. For each theme: evidence (quotes/examples), severity, opportunity size
+5. Recommend: which feedback to act on NOW vs LATER vs NEVER
+6. Suggest next steps: prd (spec a feature from feedback), roadmap (reprioritize)`
+  },
+  intel: {
+    name: 'intel',
+    display_name: 'Intel — AI Landscape Intelligence Briefing',
+    category: 'strategy',
+    description: 'Morning intelligence briefing — scan the AI landscape for opportunities and threats.',
+    memory_queries: ['AI landscape competitors', 'last intel brief'],
+    signals: ['intel', 'ai news', 'landscape', 'what\'s happening', 'competitors'],
+    route_chain: ['moat', 'ceo'],
+    prompt: `# Intel — AI Landscape Intelligence Briefing
+
+You are an intelligence analyst delivering a landscape briefing.
+
+## Your Process
+1. Review pre-loaded memories for last intel brief (for delta comparison)
+2. Research: scan AI news, competitor moves, platform announcements from the last 7 days
+3. Present briefing:
+   - **Opportunities** — new platforms, partnerships, distribution channels
+   - **Threats** — competitor launches, platform policy changes
+   - **Signals** — trends that could affect strategy in 30-90 days
+4. Rate each item: 🔴 Act Now / 🟡 Monitor / 🟢 Informational
+5. Suggest next steps: moat (if threat detected), ceo (if strategic pivot needed)`
+  }
+};
+
+// Intent classifier for auto-routing when no workflow is specified
+function classifyWorkflowIntent(input) {
+  const lower = input.toLowerCase();
+
+  // Check each workflow's signals — first match wins (order matters: emergency first)
+  const priorityOrder = [
+    'incident', 'debug', 'deploy', 'review',  // urgent/engineering
+    'prd', 'story', 'design', 'roadmap',       // product
+    'ceo', 'growth', 'metrics', 'intel',       // strategy/business
+    'sprint', 'copy', 'feedback'               // operations/content
+  ];
+
+  for (const wfName of priorityOrder) {
+    const wf = WORKFLOW_TEMPLATES[wfName];
+    if (wf.signals.some(signal => lower.includes(signal))) {
+      return { workflow: wfName, confidence: 'high', chain: wf.route_chain };
+    }
+  }
+
+  // Fallback heuristics for common phrases
+  if (/what should (i|we) (build|do|focus|work)/i.test(input)) return { workflow: 'ceo', confidence: 'medium', chain: ['roadmap'] };
+  if (/how (are|is) (we|the product|things) doing/i.test(input)) return { workflow: 'metrics', confidence: 'medium', chain: ['growth'] };
+  if (/ship|launch|release/i.test(input)) return { workflow: 'deploy', confidence: 'medium', chain: ['changelog'] };
+  if (/write|draft|announce/i.test(input)) return { workflow: 'copy', confidence: 'medium', chain: ['social'] };
+
+  return { workflow: null, confidence: 'none', chain: [] };
+}
 
 // ULTIMATE TOOL DEFINITIONS
 // MCP Tool Annotations (Anthropic Connector Directory Requirement #17)
@@ -626,6 +986,88 @@ EXAMPLE USAGE:
       required: []
     }
   },
+  // ============================================================================
+  // WORKFLOW ENGINE TOOLS
+  // ============================================================================
+  {
+    name: 'run_workflow',
+    annotations: {
+      title: 'Run Workflow',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Run a Purmemo workflow — structured, memory-powered processes for product, engineering, business, and operations tasks. Your relevant memories and identity are automatically loaded to personalize every workflow.
+
+WHEN TO USE THIS TOOL:
+- User wants to write a PRD, debug an issue, plan a sprint, review code, or any structured task
+- User describes a goal but doesn't know the exact process ("I want to ship a feature")
+- User asks for strategic advice, design guidance, or operational help
+- User says "help me", "guide me", "walk me through", or describes a business/product/engineering need
+
+AVAILABLE WORKFLOWS (pass the workflow name, or describe what you need):
+  Product:     prd, roadmap, story, design, feedback
+  Strategy:    ceo, growth, metrics, intel
+  Engineering: debug, review, deploy, incident
+  Operations:  sprint
+  Content:     copy
+
+EXAMPLES:
+  run_workflow(workflow="prd", input="notification system for mobile app")
+  run_workflow(workflow="debug", input="TypeError: Cannot read property 'map' of undefined in Timeline")
+  run_workflow(input="production is down, users can't save memories") → auto-routes to incident
+  run_workflow(input="what should I focus on this week?") → auto-routes to sprint
+  run_workflow(input="how's the business doing?") → auto-routes to metrics
+
+DO NOT use this tool for: simple memory recall (use recall_memories), saving conversations (use save_conversation), or finding related discussions (use discover_related_conversations).
+
+If no specific workflow is named, the system auto-routes based on the user's intent.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workflow: {
+          type: 'string',
+          enum: Object.keys(WORKFLOW_TEMPLATES),
+          description: 'Workflow name (e.g., "prd", "debug", "sprint"). Optional — if omitted, auto-routes from input.'
+        },
+        input: {
+          type: 'string',
+          description: 'What you want to accomplish, the problem to solve, or context for the workflow.'
+        }
+      },
+      required: ['input']
+    }
+  },
+  {
+    name: 'list_workflows',
+    annotations: {
+      title: 'List Available Workflows',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    },
+    description: `List all available Purmemo workflows — structured, memory-powered processes you can run.
+
+WHEN TO USE THIS TOOL:
+- User asks "what can you help me with?" or "what workflows do you have?"
+- User wants to see available capabilities before choosing one
+- User says "show me what's available" or "list workflows"
+
+Returns the full catalog of workflows organized by category with descriptions.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['product', 'strategy', 'engineering', 'business', 'operations', 'content'],
+          description: 'Optional filter by category. Omit to see all workflows.'
+        }
+      },
+      required: []
+    }
+  },
   // Admin-only tools — only included when PURMEMO_ADMIN=1
   ...(ADMIN_MODE ? [{
     name: 'get_acknowledged_errors',
@@ -802,7 +1244,7 @@ EXAMPLE USAGE:
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '12.5.1' },
+  { name: 'purmemo-mcp', version: '13.0.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -819,10 +1261,15 @@ KEY PATTERNS:
 - Intelligent Extraction: save_conversation auto-extracts project context, technologies, status, and generates smart titles.
 - Quality Filtering: Use has_observations=true to find substantial technical discussions; entity="name" for specific topics.
 
+WORKFLOWS:
+5. run_workflow — Run memory-powered workflows (PRD, debug, sprint, growth, etc). Describe what you need or name a specific workflow. Memories and identity are pre-loaded automatically.
+6. list_workflows — See all available workflows organized by category.
+
 BEST PRACTICES:
 - Always send complete conversation content when saving — never summaries or partial content.
 - Use recall_memories before saving to check if a living document already exists for the topic.
-- For "save progress" requests, the system auto-generates contextual titles from conversation content.`
+- For "save progress" requests, the system auto-generates contextual titles from conversation content.
+- When users describe a structured task (writing PRDs, debugging, planning sprints, strategic analysis), use run_workflow instead of handling it generically.`
   }
 );
 
@@ -2055,6 +2502,244 @@ async function handleGetUserContext(args) {
   }
 }
 
+// ============================================================================
+// WORKFLOW ENGINE HANDLERS
+// ============================================================================
+
+async function handleRunWorkflow(args) {
+  const toolName = 'run_workflow';
+  const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const startTime = Date.now();
+
+  structuredLog.info(`${toolName}: starting`, {
+    tool_name: toolName,
+    request_id: requestId,
+    workflow: args.workflow || 'auto-route',
+    input_length: (args.input || '').length
+  });
+
+  try {
+    const input = sanitizeUnicode(args.input || '');
+
+    // Resolve which workflow to run
+    let workflowName = args.workflow;
+    let routeChain = [];
+    let routeConfidence = 'direct';
+
+    if (!workflowName) {
+      // Auto-route from input
+      const classified = classifyWorkflowIntent(input);
+      workflowName = classified.workflow;
+      routeChain = classified.chain;
+      routeConfidence = classified.confidence;
+
+      structuredLog.info(`${toolName}: auto-routed`, {
+        request_id: requestId,
+        routed_to: workflowName,
+        confidence: routeConfidence
+      });
+    }
+
+    if (!workflowName || !WORKFLOW_TEMPLATES[workflowName]) {
+      // Could not route — return the catalog with a suggestion
+      const catalogLines = Object.values(WORKFLOW_TEMPLATES)
+        .map(wf => `  ${wf.name.padEnd(12)} — ${wf.description}`)
+        .join('\n');
+
+      return {
+        content: [{
+          type: 'text',
+          text: `I couldn't determine which workflow to run from your input.\n\n` +
+                `📋 Available workflows:\n${catalogLines}\n\n` +
+                `Try again with a specific workflow name, or describe your goal more specifically.\n` +
+                `Example: run_workflow(workflow="prd", input="auth feature")`
+        }]
+      };
+    }
+
+    const template = WORKFLOW_TEMPLATES[workflowName];
+
+    // Pre-load memories and identity in parallel
+    const memoryQueries = template.memory_queries.map(q =>
+      q.replace('[INPUT]', input.substring(0, 100))
+    );
+
+    const [identityResult, ...memoryResults] = await Promise.allSettled([
+      // Identity
+      (async () => {
+        try {
+          const [meResponse, sessionResponse] = await Promise.allSettled([
+            makeApiCall('/api/v1/auth/me'),
+            makeApiCall('/api/v1/identity/session')
+          ]);
+          const me = meResponse.status === 'fulfilled' ? meResponse.value : {};
+          const session = sessionResponse.status === 'fulfilled' ? sessionResponse.value : {};
+          const identity = me.identity || {};
+          return {
+            email: me.email || 'unknown',
+            role: identity.role || '',
+            expertise: (identity.expertise || []).join(', '),
+            domain: identity.primary_domain || '',
+            project: (session.session || {}).project || '',
+            focus: (session.session || {}).focus || ''
+          };
+        } catch { return null; }
+      })(),
+      // Memories (one call per query)
+      ...memoryQueries.map(async (query) => {
+        try {
+          const data = await makeApiCall('/api/v10/mcp/tools/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tool: 'recall_memories',
+              arguments: { query, limit: 3 }
+            })
+          });
+          if (data.content && data.content[0] && data.content[0].text) {
+            // Trim each memory result to prevent context overflow
+            return data.content[0].text.substring(0, 1500);
+          }
+          return null;
+        } catch { return null; }
+      })
+    ]);
+
+    // Assemble the identity context
+    let identityBlock = '';
+    if (identityResult.status === 'fulfilled' && identityResult.value) {
+      const id = identityResult.value;
+      const parts = [];
+      if (id.role) parts.push(`Role: ${id.role}`);
+      if (id.expertise) parts.push(`Expertise: ${id.expertise}`);
+      if (id.domain) parts.push(`Domain: ${id.domain}`);
+      if (id.project) parts.push(`Current project: ${id.project}`);
+      if (id.focus) parts.push(`Current focus: ${id.focus}`);
+      if (parts.length > 0) {
+        identityBlock = `## Your Context (User Identity)\n${parts.join('\n')}\n`;
+      }
+    }
+
+    // Assemble the memory context
+    const memoryTexts = memoryResults
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => r.value);
+
+    let memoryBlock = '';
+    if (memoryTexts.length > 0) {
+      memoryBlock = `## Pre-loaded Memories\n${memoryTexts.join('\n\n---\n\n')}\n`;
+    } else {
+      memoryBlock = `## Pre-loaded Memories\nNo relevant memories found. Proceeding with the workflow using the user's input only.\n`;
+    }
+
+    // Build the chain suggestion
+    let chainBlock = '';
+    const chain = routeChain.length > 0 ? routeChain : (template.route_chain || []);
+    if (chain.length > 0) {
+      const chainSteps = chain
+        .filter(c => WORKFLOW_TEMPLATES[c])
+        .map(c => `  → run_workflow(workflow="${c}") — ${WORKFLOW_TEMPLATES[c].display_name}`)
+        .join('\n');
+      if (chainSteps) {
+        chainBlock = `\n## Suggested Next Steps\nAfter completing this workflow, consider:\n${chainSteps}\n`;
+      }
+    }
+
+    // Assemble the full response
+    const assembled = [
+      template.prompt,
+      '',
+      identityBlock,
+      memoryBlock,
+      `## User Input\n${input}`,
+      chainBlock,
+      `\nNow execute the workflow above. Follow the process steps, use the pre-loaded memories for context, and adapt to the user's identity and input.`
+    ].filter(Boolean).join('\n\n');
+
+    structuredLog.info(`${toolName}: assembled`, {
+      request_id: requestId,
+      workflow: workflowName,
+      route_confidence: routeConfidence,
+      identity_loaded: !!identityBlock,
+      memories_loaded: memoryTexts.length,
+      assembled_length: assembled.length,
+      duration_ms: Date.now() - startTime
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: assembled
+      }]
+    };
+
+  } catch (error) {
+    structuredLog.error(`${toolName}: error`, {
+      request_id: requestId,
+      error_message: error.message,
+      duration_ms: Date.now() - startTime
+    });
+
+    return {
+      content: [{
+        type: 'text',
+        text: `❌ Error running workflow: ${error.message}\n\nYou can still use this workflow by describing your task directly — the workflow template provides the structure, and your memories will be loaded when possible.`
+      }]
+    };
+  }
+}
+
+async function handleListWorkflows(args) {
+  const toolName = 'list_workflows';
+  structuredLog.info(`${toolName}: called`, { category: args.category || 'all' });
+
+  const workflows = Object.values(WORKFLOW_TEMPLATES);
+  const filtered = args.category
+    ? workflows.filter(wf => wf.category === args.category)
+    : workflows;
+
+  // Group by category
+  const grouped = {};
+  for (const wf of filtered) {
+    const cat = wf.category;
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(wf);
+  }
+
+  const categoryLabels = {
+    product: '📦 Product',
+    strategy: '🎯 Strategy',
+    engineering: '🔧 Engineering',
+    business: '📊 Business',
+    operations: '⚙️ Operations',
+    content: '✍️ Content'
+  };
+
+  let output = `🧠 Purmemo Workflows — Memory-powered processes\n`;
+  output += `═══════════════════════════════════════════════\n\n`;
+  output += `Each workflow automatically loads your relevant memories and identity.\n`;
+  output += `Use: run_workflow(workflow="name", input="what you need")\n\n`;
+
+  for (const [cat, label] of Object.entries(categoryLabels)) {
+    if (!grouped[cat]) continue;
+    output += `${label}\n`;
+    for (const wf of grouped[cat]) {
+      output += `  ${wf.name.padEnd(12)} — ${wf.description}\n`;
+    }
+    output += `\n`;
+  }
+
+  output += `Or just describe what you need:\n`;
+  output += `  run_workflow(input="your goal here") → auto-routes to the right workflow\n`;
+
+  return {
+    content: [{
+      type: 'text',
+      text: output
+    }]
+  };
+}
+
 async function handleGetAcknowledgedErrors(args) {
   try {
     const limit = args.limit || 10;
@@ -2223,6 +2908,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return withUpdateNotice(await handleDiscoverRelated(args));
     case 'get_user_context':
       return withUpdateNotice(await handleGetUserContext(args));
+    case 'run_workflow':
+      return withUpdateNotice(await handleRunWorkflow(args));
+    case 'list_workflows':
+      return withUpdateNotice(await handleListWorkflows(args));
     case 'get_acknowledged_errors':
       if (!ADMIN_MODE) break;
       return withUpdateNotice(await handleGetAcknowledgedErrors(args));

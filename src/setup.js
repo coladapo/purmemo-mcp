@@ -58,19 +58,27 @@ async function runSetup() {
   // 1. Already authenticated?
   const existing = await tokenStore.getToken();
   if (existing?.access_token) {
-    const info = await tokenStore.getUserInfo();
-    console.log(chalk.green('✅ Already connected!'));
-    console.log(chalk.gray(`   Account: ${info?.email || 'unknown'}`));
-    console.log(chalk.gray(`   Tier:    ${info?.tier || 'free'}`));
-    console.log('');
-
-    // Offer hooks even if already connected (they may not have them yet)
-    if (!hooksAlreadyInstalled()) {
-      await promptInstallHooks();
+    // If a new API key was passed in env, switch accounts automatically
+    if (process.env.PURMEMO_API_KEY && process.env.PURMEMO_API_KEY !== existing.access_token) {
+      console.log(chalk.yellow('⚡ Switching account…'));
+      // fall through to the API key auth path below
     } else {
-      console.log(chalk.gray('Claude Code hooks already installed. ✓'));
+      const info = await tokenStore.getUserInfo();
+      console.log(chalk.green('✅ Already connected!'));
+      console.log(chalk.gray(`   Account: ${info?.email || 'unknown'}`));
+      console.log(chalk.gray(`   Tier:    ${info?.tier || 'free'}`));
+      console.log('');
+      console.log(chalk.gray('To switch accounts: ') + chalk.cyan('npx purmemo-mcp logout') + chalk.gray(' then run setup again.'));
+      console.log('');
+
+      // Offer hooks even if already connected (they may not have them yet)
+      if (!hooksAlreadyInstalled()) {
+        await promptInstallHooks();
+      } else {
+        console.log(chalk.gray('Claude Code hooks already installed. ✓'));
+      }
+      return;
     }
-    return;
   }
 
   // 2. API key in env (dashboard path: PURMEMO_API_KEY=sk-... npx purmemo-mcp setup)
