@@ -1309,7 +1309,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.3.0' },
+  { name: 'purmemo-mcp', version: '13.4.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2813,6 +2813,7 @@ async function handleListWorkflows(args) {
   const toolName = 'list_workflows';
   structuredLog.info(`${toolName}: called`, { category: args.category || 'all' });
 
+  // Start with hardcoded presets
   const workflows = Object.values(WORKFLOW_TEMPLATES);
   const filtered = args.category
     ? workflows.filter(wf => wf.category === args.category)
@@ -2826,13 +2827,37 @@ async function handleListWorkflows(args) {
     grouped[cat].push(wf);
   }
 
+  // Fetch user-created workflows from database
+  let userCreatedCount = 0;
+  try {
+    const apiData = await makeApiCall('/api/v1/workflow-dashboard');
+    if (apiData?.workflows) {
+      const userCreated = apiData.workflows.filter(w => w.is_user_created);
+      if (userCreated.length > 0) {
+        userCreatedCount = userCreated.length;
+        if (!grouped['custom']) grouped['custom'] = [];
+        for (const uw of userCreated) {
+          if (!args.category || args.category === 'custom') {
+            grouped['custom'].push({
+              name: uw.name,
+              description: uw.description || uw.display_name || uw.name
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Database unavailable — show hardcoded only
+  }
+
   const categoryLabels = {
     product: '📦 Product',
     strategy: '🎯 Strategy',
     engineering: '🔧 Engineering',
     business: '📊 Business',
     operations: '⚙️ Operations',
-    content: '✍️ Content'
+    content: '✍️ Content',
+    custom: '⭐ Your Workflows'
   };
 
   let output = `🧠 Purmemo Workflows — Memory-powered processes\n`;
@@ -2841,7 +2866,7 @@ async function handleListWorkflows(args) {
   output += `Use: run_workflow(workflow="name", input="what you need")\n\n`;
 
   for (const [cat, label] of Object.entries(categoryLabels)) {
-    if (!grouped[cat]) continue;
+    if (!grouped[cat] || grouped[cat].length === 0) continue;
     output += `${label}\n`;
     for (const wf of grouped[cat]) {
       output += `  ${wf.name.padEnd(12)} — ${wf.description}\n`;
