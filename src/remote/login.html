@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pūrmemo — connect</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 24rem;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tagline {
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      text-align: center;
+      line-height: 1.5;
+      letter-spacing: 0.01em;
+    }
+    .badge {
+      width: 100%;
+      background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .badge img {
+      height: 56px;
+      width: auto;
+      mix-blend-mode: screen;
+    }
+    .card {
+      width: 100%;
+      background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+      overflow: hidden;
+    }
+    .card-inner { padding: 28px 28px 24px; }
+    .step { display: none; flex-direction: column; gap: 20px; }
+    .step.active { display: flex; }
+    .heading { color: #fff; font-size: 1.125rem; font-weight: 700; text-align: center; }
+    .subheading { color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; margin-top: 2px; }
+    .oauth-row { display: flex; flex-direction: column; gap: 10px; }
+    .oauth-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 11px 16px; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; background: rgba(255,255,255,0.04);
+      color: #fff; font-size: 14px; font-weight: 500;
+      text-decoration: none; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .oauth-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+    .oauth-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .divider { position: relative; text-align: center; }
+    .divider::before {
+      content: ''; position: absolute; top: 50%; left: 0; right: 0;
+      height: 1px; background: rgba(255,255,255,0.08);
+    }
+    .divider span {
+      position: relative; background: #141414; padding: 0 10px;
+      color: rgba(255,255,255,0.35); font-size: 12px;
+    }
+    input[type="email"], input[type="password"] {
+      width: 100%; padding: 12px 14px;
+      background: rgba(0,0,0,0.4); color: #fff;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; font-size: 15px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+      -webkit-text-fill-color: #fff;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 1000px #0d0d0d inset !important;
+      -webkit-text-fill-color: #fff !important;
+      border-color: rgba(255,255,255,0.15) !important;
+    }
+    input::placeholder { color: rgba(255,255,255,0.25); }
+    input:focus {
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+    }
+    .btn-primary {
+      width: 100%; padding: 12px;
+      background: #fff; color: #000;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .back-link { text-align: center; font-size: 13px; color: rgba(255,255,255,0.4); }
+    .back-link a { color: rgba(255,255,255,0.7); text-decoration: none; font-weight: 500; cursor: pointer; }
+    .back-link a:hover { color: #fff; }
+    .error-box {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 8px; padding: 10px 12px;
+      color: #fca5a5; font-size: 13px; display: none;
+    }
+    .success-banner {
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 8px; padding: 10px 12px;
+      color: #86efac; font-size: 13px; text-align: center;
+    }
+    .terms {
+      font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; line-height: 1.5;
+    }
+    .terms a { color: rgba(255,255,255,0.5); text-decoration: none; }
+    .terms a:hover { color: #fff; }
+    .field-group { display: flex; flex-direction: column; gap: 12px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">
+    <img src="https://app.purmemo.ai/purmemo-logo-3d.png" alt="pūrmemo">
+  </div>
+  <p class="tagline">Bridge all your AI conversations to<br>build your personal AI intelligence.</p>
+  <div class="card">
+    <div class="card-inner">
+      <!-- SIGNUP_BANNER -->
+      <div class="error-box" id="err"></div>
+
+      <!-- STEP: entry -->
+      <div class="step active" id="step-entry">
+        <div>
+          <div class="heading">Connect pūrmemo</div>
+          <div class="subheading">Sign in or create your account</div>
+        </div>
+        <div class="oauth-row">
+          <a href="/oauth/google/login?params=<!-- PARAMS -->" class="oauth-btn">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continue with Google
+          </a>
+          <a href="/oauth/github/login?params=<!-- PARAMS -->" class="oauth-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+            Continue with GitHub
+          </a>
+        </div>
+        <div class="divider"><span>or continue with email</span></div>
+        <input type="email" id="entry-email" placeholder="your@email.com" autocomplete="email">
+        <button class="btn-primary" id="entry-continue-btn" onclick="handleEmailContinue()">Continue</button>
+        <div class="terms">By continuing, you agree to our <a href="https://app.purmemo.ai/terms" target="_blank">Terms</a> and <a href="https://app.purmemo.ai/privacy" target="_blank">Privacy Policy</a>.</div>
+      </div>
+
+      <!-- STEP: password (existing user) -->
+      <div class="step" id="step-password">
+        <div>
+          <div class="heading">Welcome back</div>
+          <div class="subheading" id="password-email-label"></div>
+        </div>
+        <div class="field-group">
+          <input type="password" id="pw-input" placeholder="Password" autocomplete="current-password">
+          <button class="btn-primary" id="pw-signin-btn" onclick="handleSignIn()">Sign in</button>
+        </div>
+        <div class="back-link"><a onclick="goBack()">&#8592; Use a different email</a></div>
+      </div>
+
+      <!-- STEP: register (new user) -->
+      <div class="step" id="step-register">
+        <div>
+          <div class="heading">Create your account</div>
+          <div class="subheading" id="register-email-label"></div>
+        </div>
+        <div class="field-group">
+          <input type="password" id="reg-pw-input" placeholder="Choose a password (min 8 chars)" autocomplete="new-password">
+          <button class="btn-primary" id="reg-btn" onclick="handleRegister()">Create account</button>
+        </div>
+        <div class="back-link"><a onclick="goBack()">&#8592; Use a different email</a></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Hidden forms for POST (preserves PKCE flow) -->
+<form method="POST" action="/login" id="login-form" style="display:none">
+  <input type="hidden" name="params" value="<!-- PARAMS -->">
+  <input type="hidden" name="email" id="form-email">
+  <input type="hidden" name="password" id="form-password">
+</form>
+<form method="POST" action="/register" id="register-form" style="display:none">
+  <input type="hidden" name="params" value="<!-- PARAMS -->">
+  <input type="hidden" name="email" id="reg-form-email">
+  <input type="hidden" name="password" id="reg-form-password">
+</form>
+
+<script>
+  var currentEmail = '';
+
+  function showStep(id) {
+    document.querySelectorAll('.step').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    clearError();
+  }
+  function showError(msg) {
+    var el = document.getElementById('err');
+    el.textContent = msg; el.style.display = 'block';
+  }
+  function clearError() {
+    var el = document.getElementById('err');
+    el.style.display = 'none'; el.textContent = '';
+  }
+  function goBack() {
+    showStep('step-entry');
+    document.getElementById('entry-email').focus();
+  }
+  function setLoading(btnId, loading, defaultText) {
+    var btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Please wait...' : defaultText;
+  }
+
+  async function handleEmailContinue() {
+    var email = document.getElementById('entry-email').value.trim();
+    if (!email) { document.getElementById('entry-email').focus(); return; }
+    currentEmail = email;
+    setLoading('entry-continue-btn', true, 'Continue');
+    clearError();
+    try {
+      var res = await fetch('/check-email', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email})
+      });
+      var data = await res.json();
+      if (data.exists) {
+        document.getElementById('password-email-label').textContent = email;
+        showStep('step-password');
+        setTimeout(function() { document.getElementById('pw-input').focus(); }, 50);
+      } else {
+        document.getElementById('register-email-label').textContent = email;
+        showStep('step-register');
+        setTimeout(function() { document.getElementById('reg-pw-input').focus(); }, 50);
+      }
+    } catch(e) {
+      showError('Unable to reach server. Please try again.');
+    } finally {
+      setLoading('entry-continue-btn', false, 'Continue');
+    }
+  }
+
+  function handleSignIn() {
+    var password = document.getElementById('pw-input').value;
+    if (!password) { document.getElementById('pw-input').focus(); return; }
+    setLoading('pw-signin-btn', true, 'Sign in');
+    clearError();
+    document.getElementById('form-email').value = currentEmail;
+    document.getElementById('form-password').value = password;
+    document.getElementById('login-form').submit();
+  }
+
+  function handleRegister() {
+    var password = document.getElementById('reg-pw-input').value;
+    if (!password || password.length < 8) {
+      showError('Password must be at least 8 characters.');
+      return;
+    }
+    setLoading('reg-btn', true, 'Create account');
+    clearError();
+    document.getElementById('reg-form-email').value = currentEmail;
+    document.getElementById('reg-form-password').value = password;
+    document.getElementById('register-form').submit();
+  }
+
+  document.getElementById('entry-email').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleEmailContinue();
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    var pw = document.getElementById('pw-input');
+    var rg = document.getElementById('reg-pw-input');
+    if (pw) pw.addEventListener('keydown', function(e) { if (e.key === 'Enter') handleSignIn(); });
+    if (rg) rg.addEventListener('keydown', function(e) { if (e.key === 'Enter') handleRegister(); });
+  });
+</script>
+</body>
+</html>

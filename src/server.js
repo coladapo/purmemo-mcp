@@ -3524,16 +3524,392 @@ if (REMOTE_MODE) {
   });
 
   app.get('/.well-known/oauth-authorization-server', (req, res) => {
-    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    const serverUrl = `https://${req.get('host')}`;
     res.json({
       issuer: serverUrl,
       authorization_endpoint: `${serverUrl}/oauth/authorize`,
       token_endpoint: `${serverUrl}/oauth/token`,
       registration_endpoint: `${serverUrl}/oauth/register`,
       response_types_supported: ['code'],
-      grant_types_supported: ['authorization_code'],
-      code_challenge_methods_supported: ['S256'],
-      token_endpoint_auth_methods_supported: ['none']
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      code_challenge_methods_supported: ['S256', 'plain'],
+      token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+      scopes_supported: ['read', 'write']
+    });
+  });
+
+  app.get('/.well-known/mcp', (req, res) => {
+    const serverUrl = `https://${req.get('host')}`;
+    res.json({
+      mcp_version: '2025-06-18',
+      server_name: 'pūrmemo MCP Server',
+      server_version: '14.0.0',
+      transports: [
+        { type: 'http', url: `${serverUrl}/mcp` },
+        { type: 'sse', url: `${serverUrl}/sse` }
+      ],
+      authentication: {
+        type: 'oauth2',
+        authorization_endpoint: `${serverUrl}/oauth/authorize`,
+        token_endpoint: `${serverUrl}/oauth/token`,
+        scopes: ['read', 'write'],
+        pkce_required: true
+      },
+      capabilities: { tools: true, resources: true, prompts: true }
+    });
+  });
+
+  app.get('/.well-known/mcp.json', (req, res) => {
+    // Alias — same as /.well-known/mcp
+    req.url = '/.well-known/mcp';
+    app.handle(req, res);
+  });
+
+  // ── OAuth Module ──
+  const { generateCode, storeAuthCode, exchangeCodeForToken } = await import('./remote/oauth-simple.js');
+  const { readFileSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath: furl } = await import('node:url');
+  const __remoteDir = dirname(furl(import.meta.url));
+
+  // In-memory stores for OAuth state and refresh tokens
+  const oauthStateStorage = {};
+  const refreshTokenStore = {};
+
+  // Rate limiter (per-IP, leaky bucket)
+  const rateLimits = {};
+  function checkRateLimit(ip, endpoint, limit, windowSec = 60) {
+    const key = `${ip}:${endpoint}`;
+    const now = Date.now();
+    const windowMs = windowSec * 1000;
+    const timestamps = (rateLimits[key] || []).filter(t => t > now - windowMs);
+    if (timestamps.length >= limit) return false;
+    timestamps.push(now);
+    rateLimits[key] = timestamps;
+    return true;
+  }
+  function getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  }
+
+  // Security headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('X-Request-Id', randomUUID());
+    next();
+  });
+
+  // Parse URL-encoded form bodies (for login/register POST)
+  const { urlencoded } = await import('express');
+  app.use(urlencoded({ extended: true }));
+
+  // ── OAuth: Dynamic Client Registration ──
+  app.post('/oauth/register', (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'register', 5)) {
+      return res.status(429).json({ error: 'Too many registration requests. Retry after 60 seconds.' });
+    }
+    const body = req.body || {};
+    const clientId = `claude-${randomUUID().substring(0, 8)}`;
+    res.json({
+      client_id: clientId,
+      client_name: body.client_name || 'Claude Desktop',
+      redirect_uris: body.redirect_uris || [],
+      grant_types: body.grant_types || ['authorization_code', 'refresh_token'],
+      response_types: body.response_types || ['code'],
+      scope: body.scope || 'read write',
+      token_endpoint_auth_method: body.token_endpoint_auth_method || 'none',
+      client_id_issued_at: Math.floor(Date.now() / 1000),
+      client_secret_expires_at: 0
+    });
+  });
+
+  // ── OAuth: Authorization Endpoint ──
+  app.get('/oauth/authorize', async (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'authorize', 10)) {
+      return res.status(429).json({ error: 'Too many authorization requests.' });
+    }
+    const { client_id, redirect_uri, code_challenge, code_challenge_method = 'S256',
+            scope, state, session } = req.query;
+
+    if (!client_id) return res.status(400).json({ error: 'Missing client_id' });
+    if (!redirect_uri) return res.status(400).json({ error: 'Missing redirect_uri' });
+    if (!code_challenge) return res.status(400).json({ error: 'Missing code_challenge (PKCE required)' });
+
+    // If we have a session (base64-encoded API key), complete the flow
+    if (session) {
+      try {
+        const apiKey = Buffer.from(session, 'base64').toString('utf8');
+        // Validate against backend
+        const meResp = await fetch(`${API_URL}/api/v1/auth/me`, {
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.0.0' },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (meResp.ok) {
+          const code = generateCode();
+          storeAuthCode({ code, apiKey, clientId: client_id, redirectUri: redirect_uri,
+            codeChallenge: code_challenge, codeChallengeMethod: code_challenge_method, scope, state });
+
+          let callbackUrl = redirect_uri + (redirect_uri.includes('?') ? '&' : '?') + `code=${code}`;
+          if (state) callbackUrl += `&state=${state}`;
+
+          // Return success page
+          let successHtml = readFileSync(join(__remoteDir, 'remote', 'success.html'), 'utf8');
+          successHtml = successHtml.replace('<!-- REDIRECT_URL -->', callbackUrl);
+          return res.type('html').send(successHtml);
+        }
+      } catch (e) {
+        structuredLog.error('OAuth authorize session error', { error: e.message });
+      }
+    }
+
+    // No session — redirect to login
+    const oauthParams = Buffer.from(JSON.stringify({
+      client_id, redirect_uri, code_challenge, code_challenge_method, scope, state
+    })).toString('base64url');
+    res.redirect(`/login?params=${oauthParams}`);
+  });
+
+  // ── OAuth: Login Page ──
+  app.get('/login', (req, res) => {
+    const params = req.query.params || '';
+    const signupComplete = req.query.signup_complete;
+    let html = readFileSync(join(__remoteDir, 'remote', 'login.html'), 'utf8');
+    // Inject params into template
+    html = html.replace(/<!-- PARAMS -->/g, params);
+    if (signupComplete) {
+      html = html.replace('<!-- SIGNUP_BANNER -->',
+        '<div class="success-banner">Account created — sign in below to continue.</div>');
+    } else {
+      html = html.replace('<!-- SIGNUP_BANNER -->', '');
+    }
+    res.type('html').send(html);
+  });
+
+  // ── OAuth: Login Submit ──
+  app.post('/login', async (req, res) => {
+    const { email, password, params } = req.body;
+    try {
+      const authResp = await fetch(`${API_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        body: JSON.stringify({ email, password }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!authResp.ok) {
+        const loginUrl = params ? `/login?params=${params}` : '/login';
+        return res.redirect(loginUrl);
+      }
+      const authData = await authResp.json();
+      const apiKey = authData.api_key || authData.access_token;
+      if (!apiKey) return res.status(500).send('No API key returned');
+
+      if (authData.refresh_token) refreshTokenStore[apiKey] = authData.refresh_token;
+      const sessionParam = Buffer.from(apiKey).toString('base64');
+
+      if (params) {
+        const oauthParams = JSON.parse(Buffer.from(params, 'base64url').toString());
+        let authorizeUrl = `/oauth/authorize?client_id=${oauthParams.client_id}`;
+        authorizeUrl += `&redirect_uri=${encodeURIComponent(oauthParams.redirect_uri)}`;
+        authorizeUrl += `&response_type=code&code_challenge=${oauthParams.code_challenge}`;
+        authorizeUrl += `&code_challenge_method=${oauthParams.code_challenge_method || 'S256'}`;
+        if (oauthParams.scope) authorizeUrl += `&scope=${oauthParams.scope}`;
+        if (oauthParams.state) authorizeUrl += `&state=${oauthParams.state}`;
+        authorizeUrl += `&session=${sessionParam}`;
+        return res.redirect(authorizeUrl);
+      }
+      res.redirect(`/oauth/authorize?session=${sessionParam}`);
+    } catch (e) {
+      structuredLog.error('Login error', { error: e.message });
+      res.status(500).send('Login failed');
+    }
+  });
+
+  // ── OAuth: Register Submit ──
+  app.post('/register', async (req, res) => {
+    const { email, password, params } = req.body;
+    try {
+      const regResp = await fetch(`${API_URL}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        body: JSON.stringify({ email, password }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!regResp.ok) {
+        const loginUrl = params ? `/login?params=${params}` : '/login';
+        return res.redirect(loginUrl);
+      }
+      const authData = await regResp.json();
+      const apiKey = authData.api_key || authData.access_token;
+      if (!apiKey) {
+        const loginUrl = params ? `/login?params=${params}&signup_complete=1` : '/login?signup_complete=1';
+        return res.redirect(loginUrl);
+      }
+      if (authData.refresh_token) refreshTokenStore[apiKey] = authData.refresh_token;
+      const sessionParam = Buffer.from(apiKey).toString('base64');
+
+      if (params) {
+        const oauthParams = JSON.parse(Buffer.from(params, 'base64url').toString());
+        let authorizeUrl = `/oauth/authorize?client_id=${oauthParams.client_id}`;
+        authorizeUrl += `&redirect_uri=${encodeURIComponent(oauthParams.redirect_uri)}`;
+        authorizeUrl += `&response_type=code&code_challenge=${oauthParams.code_challenge}`;
+        authorizeUrl += `&code_challenge_method=${oauthParams.code_challenge_method || 'S256'}`;
+        if (oauthParams.scope) authorizeUrl += `&scope=${oauthParams.scope}`;
+        if (oauthParams.state) authorizeUrl += `&state=${oauthParams.state}`;
+        authorizeUrl += `&session=${sessionParam}`;
+        return res.redirect(authorizeUrl);
+      }
+      res.redirect(`/oauth/authorize?session=${sessionParam}`);
+    } catch (e) {
+      structuredLog.error('Register error', { error: e.message });
+      res.status(500).send('Registration failed');
+    }
+  });
+
+  // ── OAuth: Check Email (proxy to avoid CORS) ──
+  app.post('/check-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      const resp = await fetch(`${API_URL}/api/v1/auth/check-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        body: JSON.stringify({ email }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (resp.ok) return res.json(await resp.json());
+      res.json({ exists: false });
+    } catch { res.json({ exists: false }); }
+  });
+
+  // ── OAuth: Google Login ──
+  app.get('/oauth/google/login', (req, res) => {
+    const params = req.query.params || '';
+    const stateId = randomUUID();
+    let statePayload = stateId;
+    if (params) {
+      oauthStateStorage[stateId] = { params, provider: 'google', createdAt: Date.now() };
+      statePayload = Buffer.from(JSON.stringify({ id: stateId, params, provider: 'google' })).toString('base64url');
+    }
+    const callbackUrl = `https://${req.get('host')}/oauth/callback`;
+    res.redirect(`${API_URL}/api/v1/oauth/google/login?return_url=${callbackUrl}&state=${statePayload}`);
+  });
+
+  // ── OAuth: GitHub Login ──
+  app.get('/oauth/github/login', (req, res) => {
+    const params = req.query.params || '';
+    const stateId = randomUUID();
+    let statePayload = stateId;
+    if (params) {
+      oauthStateStorage[stateId] = { params, provider: 'github', createdAt: Date.now() };
+      statePayload = Buffer.from(JSON.stringify({ id: stateId, params, provider: 'github' })).toString('base64url');
+    }
+    const callbackUrl = `https://${req.get('host')}/oauth/callback`;
+    res.redirect(`${API_URL}/api/v1/oauth/github/login?return_url=${callbackUrl}&state=${statePayload}`);
+  });
+
+  // ── OAuth: Callback (from social login) ──
+  app.get('/oauth/callback', async (req, res) => {
+    try {
+      const { token, refresh_token: callbackRefreshToken, state, error } = req.query;
+      if (error) return res.status(400).send(`OAuth failed: ${error}`);
+      if (!token || !state) return res.status(400).send('Missing token or state');
+
+      // Recover MCP params from state
+      let mcpParams = null;
+      if (oauthStateStorage[state]) {
+        mcpParams = oauthStateStorage[state].params;
+        delete oauthStateStorage[state];
+      } else {
+        try {
+          const decoded = JSON.parse(Buffer.from(state, 'base64url').toString());
+          mcpParams = decoded.params;
+          if (decoded.id && oauthStateStorage[decoded.id]) delete oauthStateStorage[decoded.id];
+        } catch {
+          return res.status(400).send('Invalid or expired OAuth state');
+        }
+      }
+      if (!mcpParams) return res.status(400).send('No MCP parameters found');
+
+      // Decode MCP params
+      const decodedParams = JSON.parse(Buffer.from(mcpParams, 'base64').toString());
+
+      // Validate token against backend
+      const meResp = await fetch(`${API_URL}/api/v1/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!meResp.ok) return res.status(401).send('Invalid token');
+
+      // Store refresh token
+      if (callbackRefreshToken) refreshTokenStore[token] = callbackRefreshToken;
+
+      // Generate MCP authorization code
+      const authCode = generateCode();
+      storeAuthCode({
+        code: authCode, apiKey: token, clientId: decodedParams.client_id,
+        redirectUri: decodedParams.redirect_uri, codeChallenge: decodedParams.code_challenge,
+        codeChallengeMethod: decodedParams.code_challenge_method || 'S256',
+        refreshToken: callbackRefreshToken
+      });
+
+      // Build redirect
+      let finalRedirect = decodedParams.redirect_uri + (decodedParams.redirect_uri.includes('?') ? '&' : '?') + `code=${authCode}`;
+      if (decodedParams.state) finalRedirect += `&state=${decodedParams.state}`;
+
+      // Return success page
+      let successHtml = readFileSync(join(__remoteDir, 'remote', 'success.html'), 'utf8');
+      successHtml = successHtml.replace('<!-- REDIRECT_URL -->', finalRedirect);
+      res.type('html').send(successHtml);
+    } catch (e) {
+      structuredLog.error('OAuth callback error', { error: e.message });
+      res.status(500).send('OAuth callback failed');
+    }
+  });
+
+  // ── OAuth: Token Exchange ──
+  app.post('/oauth/token', (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'token', 20)) {
+      return res.status(429).json({ error: 'Too many token requests.' });
+    }
+    const { grant_type, code, redirect_uri, code_verifier, client_id } = req.body;
+
+    if (grant_type !== 'authorization_code') {
+      return res.status(400).json({ error: `Unsupported grant type: ${grant_type}` });
+    }
+    if (!code || !redirect_uri || !code_verifier) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const result = exchangeCodeForToken({ code, clientId: client_id, redirectUri: redirect_uri, codeVerifier: code_verifier });
+    if (!result) {
+      return res.status(400).json({ error: 'Invalid authorization code or PKCE verification failed' });
+    }
+
+    const [apiKey, storedRefreshToken] = result;
+    if (storedRefreshToken) refreshTokenStore[apiKey] = storedRefreshToken;
+
+    res.json({
+      access_token: apiKey,
+      token_type: 'Bearer',
+      expires_in: 86400,
+      scope: 'read write'
+    });
+  });
+
+  // ── Root endpoint ──
+  app.get('/', (req, res) => {
+    const serverUrl = `https://${req.get('host')}`;
+    res.json({
+      name: 'pūrmemo MCP Server',
+      version: '14.0.0',
+      status: 'running',
+      endpoints: {
+        mcp: `${serverUrl}/mcp`,
+        sse: `${serverUrl}/sse`,
+        health: `${serverUrl}/health`,
+        oauth_discovery: `${serverUrl}/.well-known/oauth-authorization-server`
+      }
     });
   });
 
