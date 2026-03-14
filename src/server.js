@@ -334,8 +334,11 @@ You are a senior product manager generating a complete Product Requirements Docu
 - **User Stories** — As a [user], I want [action], so that [outcome]. Include acceptance criteria.
 - **Technical Surface Impact** — Which systems/surfaces are affected
 - **Success Metrics** — How do we know this worked?
-- **Open Questions** — Unresolved decisions
-- **Next Steps** — Suggest running story (break into tickets), design (if UI), or feature (if ready to build)
+- **Open Questions & Recommendations** — List unresolved decisions. For EACH open question, include your recommended answer with reasoning. Never leave a question without a recommendation.
+- **Next Steps** — Numbered list so the user can reply with just a number to proceed:
+  1. First suggested next step (e.g., run_workflow story to break into tickets)
+  2. Second option (e.g., run_workflow design if UI-first)
+  3. Third option if applicable
 
 Be specific. Reference the user's past decisions from memory where relevant.`
   },
@@ -361,7 +364,7 @@ You are a strategic advisor helping a founder think through a decision.
    - **PMF Quadrant** for product direction (problem-solution fit vs product-market fit)
 4. Give a clear recommendation with reasoning
 5. State what you'd need to be wrong about for the other option to be better
-6. Suggest next steps: roadmap (to plan it), prd (to spec it), or metrics (to validate it)`
+6. List numbered next steps so the user can reply with just a number to proceed`
   },
   debug: {
     name: 'debug',
@@ -1244,7 +1247,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.1.0' },
+  { name: 'purmemo-mcp', version: '13.1.1' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -2638,16 +2641,16 @@ async function handleRunWorkflow(args) {
       transparencyBlock = `## ⚡ Memories Powering This Workflow\nNo relevant memories found in your vault for this topic. This workflow is running without historical context — the output will be generic rather than personalized.\n`;
     }
 
-    // Build the chain suggestion
+    // Build the chain suggestion with numbered steps
     let chainBlock = '';
     const chain = routeChain.length > 0 ? routeChain : (template.route_chain || []);
     if (chain.length > 0) {
-      const chainSteps = chain
-        .filter(c => WORKFLOW_TEMPLATES[c])
-        .map(c => `  → run_workflow(workflow="${c}") — ${WORKFLOW_TEMPLATES[c].display_name}`)
-        .join('\n');
-      if (chainSteps) {
-        chainBlock = `\n## Suggested Next Steps\nAfter completing this workflow, consider:\n${chainSteps}\n`;
+      const validChain = chain.filter(c => WORKFLOW_TEMPLATES[c]);
+      if (validChain.length > 0) {
+        const chainSteps = validChain
+          .map((c, i) => `  ${i + 1}. run_workflow(workflow="${c}") — ${WORKFLOW_TEMPLATES[c].display_name}`)
+          .join('\n');
+        chainBlock = `\n## Next Steps\nReply with a number to proceed:\n${chainSteps}\n`;
       }
     }
 
