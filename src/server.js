@@ -1310,7 +1310,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '13.2.0' },
+  { name: 'purmemo-mcp', version: '13.1.2' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
