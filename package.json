@@ -1,28 +1,37 @@
 {
   "name": "purmemo-mcp",
-  "version": "14.3.0",
+  "version": "15.0.0",
   "mcpName": "io.github.purmemo-ai/purmemo",
   "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "type": "module",
   "bin": {
-    "purmemo-mcp": "./src/server.js",
-    "purmemo-mcp-setup": "./src/setup.js",
-    "purmemo-mcp-hooks": "./src/setup.js"
+    "purmemo-mcp": "./dist/server.js",
+    "purmemo-mcp-setup": "./dist/setup.js",
+    "purmemo-mcp-hooks": "./dist/setup.js"
   },
   "files": [
-    "src/",
+    "dist/",
+    "src/remote/widgets/",
+    "src/remote/login.html",
+    "src/remote/success.html",
+    "src/remote/icon.png",
+    "src/remote/favicon.ico",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "start": "node src/server.js",
-    "setup": "node src/setup.js setup",
-    "status": "node src/setup.js status",
-    "logout": "node src/setup.js logout",
-    "hooks": "node src/setup.js hooks",
+    "build": "tsc && npm run build:assets",
+    "build:assets": "cp -r src/remote/widgets dist/remote/ && cp src/remote/login.html src/remote/success.html src/remote/icon.png src/remote/favicon.ico dist/remote/",
+    "start": "node dist/server.js",
+    "dev": "node src/server.js",
+    "setup": "node dist/setup.js setup",
+    "status": "node dist/setup.js status",
+    "logout": "node dist/setup.js logout",
+    "hooks": "node dist/setup.js hooks",
     "test": "node --test tests/*.test.js",
     "build:mcpb": "node scripts/build-mcpb.js",
+    "prepublishOnly": "npm run build",
     "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp setup\\\\n')\""
   },
   "keywords": [
@@ -40,7 +49,8 @@
     "second-brain",
     "conversation-memory",
     "chrome-extension",
-    "ai-memory"
+    "ai-memory",
+    "typescript"
   ],
   "author": "pūrmemo <support@purmemo.ai>",
   "license": "MIT",
@@ -60,10 +70,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
     "chalk": "^5.3.0",
-    "commander": "^11.1.0",
     "express": "^4.18.2",
-    "inquirer": "^9.2.12",
-    "node-fetch": "^3.3.2",
     "open": "^10.0.0",
     "ora": "^7.0.1"
   },
