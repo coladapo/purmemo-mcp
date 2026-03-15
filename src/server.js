@@ -3043,6 +3043,11 @@ function withUpdateNotice(result) {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  // Track tool usage (for remote mode health endpoint)
+  if (typeof toolCallCounts !== 'undefined') {
+    toolCallCounts[name] = (toolCallCounts[name] || 0) + 1;
+  }
+
   switch (name) {
     case 'save_conversation':
       return withUpdateNotice(await handleSaveConversation(args));
@@ -3388,6 +3393,7 @@ if (REMOTE_MODE) {
   const startTime = Date.now();
   let connectionCount = 0;
   let toolCallCounts = {};
+  let recentErrors = []; // last 100 errors
 
   // Health endpoint
   app.get('/health', async (req, res) => {
@@ -3405,24 +3411,37 @@ if (REMOTE_MODE) {
       backendStatus = resp.ok ? 'healthy' : 'unhealthy';
     } catch { backendStatus = 'unreachable'; }
 
+    const mem = process.memoryUsage();
+
     res.json({
       status: 'healthy',
-      version: '14.0.0',
+      version: '14.1.0',
       timestamp: new Date().toISOString(),
       active_connections: Object.keys(transports).length,
       metrics: {
+        memory_usage_mb: Math.round(mem.rss / 1048576 * 10) / 10,
+        heap_used_mb: Math.round(mem.heapUsed / 1048576 * 10) / 10,
         uptime_seconds: uptimeSeconds,
         uptime_human: `${hours}h ${mins}m ${secs}s`,
         total_connections: connectionCount
       },
       tool_usage: toolCallCounts,
+      performance: {
+        error_rate_percent: 0,
+        total_errors: recentErrors.length,
+        recent_errors: recentErrors.slice(-5)
+      },
       backend_api: {
         url: API_URL,
         status: backendStatus,
         latency_ms: backendLatency
       },
+      circuit_breaker: {
+        state: apiCircuitBreaker.state,
+        consecutive_failures: apiCircuitBreaker.failureCount
+      },
       service_info: {
-        version: '14.0.0',
+        version: '14.1.0',
         runtime: 'node',
         api_backend: API_URL,
         environment: process.env.NODE_ENV || 'production',
