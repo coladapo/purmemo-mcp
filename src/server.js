@@ -1346,7 +1346,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '14.0.0' },
+  { name: 'purmemo-mcp', version: '14.3.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -3512,7 +3512,7 @@ if (REMOTE_MODE) {
 
     res.json({
       status: 'healthy',
-      version: '14.1.0',
+      version: '14.3.0',
       timestamp: new Date().toISOString(),
       active_connections: Object.keys(transports).length,
       metrics: {
@@ -3538,7 +3538,7 @@ if (REMOTE_MODE) {
         consecutive_failures: apiCircuitBreaker.failureCount
       },
       service_info: {
-        version: '14.1.0',
+        version: '14.3.0',
         runtime: 'node',
         api_backend: API_URL,
         environment: process.env.NODE_ENV || 'production',
@@ -3564,6 +3564,20 @@ if (REMOTE_MODE) {
   const mcpSessions = new Map();
   const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2024-11-05', '2025-11-05', '2025-03-26']);
 
+  // Session cleanup — remove stale sessions every 5 minutes (matches Python)
+  const sessionCleanupInterval = setInterval(() => {
+    const maxAge = 30 * 60 * 1000; // 30 minutes
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [sid, sess] of mcpSessions) {
+      if (now - sess.lastActivity > maxAge) {
+        mcpSessions.delete(sid);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) structuredLog.info('Cleaned up stale sessions', { count: cleaned });
+  }, 5 * 60 * 1000);
+
   // Helper: validate API key from Authorization header
   async function validateApiKeyFromRequest(req) {
     const auth = req.headers.authorization;
@@ -3571,7 +3585,7 @@ if (REMOTE_MODE) {
     const token = auth.split(' ')[1];
     try {
       const resp = await fetch(`${API_URL}/api/v1/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'purmemo-mcp/14.2.0' },
+        headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'purmemo-mcp/14.3.0' },
         signal: AbortSignal.timeout(10000)
       });
       if (resp.ok) return token;
@@ -3651,14 +3665,50 @@ if (REMOTE_MODE) {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'purmemo-mcp/14.2.0',
-          'X-MCP-Version': '14.2.0'
+          'User-Agent': 'purmemo-mcp/14.3.0',
+          'X-MCP-Version': '14.3.0'
         },
         body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
         signal: AbortSignal.timeout(30000)
       });
 
       if (resp.status === 401) {
+        // Silent token refresh — try refreshing before telling user to reconnect
+        if (refreshTokenStore[apiKey]) {
+          try {
+            const refreshResp = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh_token: refreshTokenStore[apiKey] }),
+              signal: AbortSignal.timeout(10000)
+            });
+            if (refreshResp.ok) {
+              const refreshData = await refreshResp.json();
+              const newToken = refreshData.access_token || refreshData.api_key;
+              if (newToken) {
+                if (refreshData.refresh_token) refreshTokenStore[newToken] = refreshData.refresh_token;
+                delete refreshTokenStore[apiKey];
+                // Retry the tool call with new token
+                const retryResp = await fetch(`${API_URL}/api/v10/mcp/tools/execute`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${newToken}`,
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'purmemo-mcp/14.3.0'
+                  },
+                  body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
+                  signal: AbortSignal.timeout(30000)
+                });
+                if (retryResp.ok) {
+                  structuredLog.info('Silent token refresh succeeded', { tool: toolName });
+                  return await retryResp.json();
+                }
+              }
+            }
+          } catch (e) {
+            structuredLog.warn('Silent token refresh failed', { error: e.message });
+          }
+        }
         return {
           isError: true,
           content: [{ type: 'text', text: 'Session expired. Please reconnect via Settings → Connectors → purmemo → Uninstall then re-add.' }]
@@ -3738,7 +3788,7 @@ if (REMOTE_MODE) {
           result: {
             protocolVersion: negotiatedVersion,
             capabilities: { tools: { listChanged: true }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false }, logging: {} },
-            serverInfo: { name: 'purmemo-mcp', version: '14.2.0' },
+            serverInfo: { name: 'purmemo-mcp', version: '14.3.0' },
             instructions: 'pūrmemo tools are ready. Save memories, recall information, and run memory-powered workflows.'
           }
         }, 200, { 'Mcp-Session-Id': sessionId });
@@ -3809,7 +3859,7 @@ if (REMOTE_MODE) {
 
         // Memory resources — proxy to backend
         try {
-          const authHeaders = { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.2.0' };
+          const authHeaders = { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.3.0' };
           let text = '', mimeType = 'text/plain';
 
           if (uri === 'memory://me') {
@@ -4075,7 +4125,7 @@ if (REMOTE_MODE) {
     res.json({
       mcp_version: '2025-06-18',
       server_name: 'pūrmemo MCP Server',
-      server_version: '14.0.0',
+      server_version: '14.3.0',
       transports: [
         { type: 'http', url: `${serverUrl}/mcp` },
         { type: 'sse', url: `${serverUrl}/sse` }
@@ -4100,7 +4150,7 @@ if (REMOTE_MODE) {
     const serverUrl = `https://${req.get('host')}`;
     res.json({
       name: 'purmemo',
-      version: '14.2.0',
+      version: '14.3.0',
       description: 'AI-powered memory and knowledge management platform — save and recall conversations across Claude, ChatGPT, Gemini, and more',
       author: 'Purmemo',
       homepage: 'https://purmemo.ai',
@@ -4204,7 +4254,7 @@ if (REMOTE_MODE) {
         const apiKey = Buffer.from(session, 'base64').toString('utf8');
         // Validate against backend
         const meResp = await fetch(`${API_URL}/api/v1/auth/me`, {
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.0.0' },
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.3.0' },
           signal: AbortSignal.timeout(10000)
         });
         if (meResp.ok) {
@@ -4254,7 +4304,7 @@ if (REMOTE_MODE) {
     try {
       const authResp = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.3.0' },
         body: JSON.stringify({ email, password }),
         signal: AbortSignal.timeout(10000)
       });
@@ -4293,7 +4343,7 @@ if (REMOTE_MODE) {
     try {
       const regResp = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.3.0' },
         body: JSON.stringify({ email, password }),
         signal: AbortSignal.timeout(10000)
       });
@@ -4334,7 +4384,7 @@ if (REMOTE_MODE) {
       const { email } = req.body;
       const resp = await fetch(`${API_URL}/api/v1/auth/check-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.0.0' },
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/14.3.0' },
         body: JSON.stringify({ email }),
         signal: AbortSignal.timeout(10000)
       });
@@ -4463,7 +4513,7 @@ if (REMOTE_MODE) {
     const serverUrl = `https://${req.get('host')}`;
     res.json({
       name: 'pūrmemo MCP Server',
-      version: '14.0.0',
+      version: '14.3.0',
       status: 'running',
       endpoints: {
         mcp: `${serverUrl}/mcp`,
@@ -4484,7 +4534,7 @@ if (REMOTE_MODE) {
     app.listen(PORT, () => {
       structuredLog.info('Purmemo Remote MCP Server started', {
         mode: 'remote',
-        version: '14.0.0',
+        version: '14.3.0',
         port: PORT,
         api_url: API_URL,
         api_key_configured: !!resolvedApiKey,
@@ -4506,6 +4556,7 @@ if (REMOTE_MODE) {
   // Graceful shutdown
   process.on('SIGINT', async () => {
     structuredLog.info('Shutting down remote server...');
+    clearInterval(sessionCleanupInterval);
     connMonitor.stop();
     for (const sid in transports) {
       try { await transports[sid].close(); } catch {}
@@ -4528,7 +4579,7 @@ if (REMOTE_MODE) {
       checkForUpdates();
       structuredLog.info('Purmemo MCP Server started successfully', {
         mode: 'stdio',
-        version: '14.0.0',
+        version: '14.3.0',
         tier: '4-resources-prompts',
         api_url: API_URL,
         api_key_configured: !!resolvedApiKey,
