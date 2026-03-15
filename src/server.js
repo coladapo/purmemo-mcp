@@ -1369,6 +1369,37 @@ const RESOURCES = [
     name: 'Memory Vault Stats',
     description: 'How many memories you\'ve saved, which platforms they\'re from, and your activity this week.',
     mimeType: 'text/plain'
+  },
+  // ChatGPT Apps SDK Widgets — rendered as iframes via text/html+skybridge MIME
+  {
+    uri: 'ui://widgets/recall-v39.html',
+    name: 'Recall Widget',
+    description: 'Interactive memory recall card list for ChatGPT Apps SDK.',
+    mimeType: 'text/html+skybridge'
+  },
+  {
+    uri: 'ui://widgets/save.html',
+    name: 'Save Widget',
+    description: 'Save confirmation card for ChatGPT Apps SDK.',
+    mimeType: 'text/html+skybridge'
+  },
+  {
+    uri: 'ui://widgets/memory-detail.html',
+    name: 'Memory Detail Widget',
+    description: 'Full memory content viewer for ChatGPT Apps SDK.',
+    mimeType: 'text/html+skybridge'
+  },
+  {
+    uri: 'ui://widgets/context.html',
+    name: 'Context Widget',
+    description: 'User context and stats display for ChatGPT Apps SDK.',
+    mimeType: 'text/html+skybridge'
+  },
+  {
+    uri: 'ui://widgets/discover.html',
+    name: 'Discover Widget',
+    description: 'Cross-platform conversation discovery for ChatGPT Apps SDK.',
+    mimeType: 'text/html+skybridge'
   }
 ];
 
@@ -3229,6 +3260,28 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         contents: [{ uri: resourceUri, mimeType: 'text/plain', text }]
       };
 
+    } else if (uri.startsWith('ui://widgets/')) {
+      // Serve ChatGPT Apps SDK widget HTML
+      const widgetMap = {
+        'ui://widgets/recall-v39.html': 'recall.html',
+        'ui://widgets/save.html': 'save.html',
+        'ui://widgets/memory-detail.html': 'memory-detail.html',
+        'ui://widgets/context.html': 'context.html',
+        'ui://widgets/discover.html': 'discover.html'
+      };
+      const fileName = widgetMap[uri];
+      if (!fileName) throw new Error(`Unknown widget: ${uri}`);
+
+      const { readFileSync: readFs } = await import('node:fs');
+      const { dirname: dn, join: jn } = await import('node:path');
+      const { fileURLToPath: fu } = await import('node:url');
+      const widgetPath = jn(dn(fu(import.meta.url)), 'remote', 'widgets', fileName);
+      const html = readFs(widgetPath, 'utf8');
+
+      return {
+        contents: [{ uri: resourceUri, mimeType: 'text/html+skybridge', text: html }]
+      };
+
     } else if (uri.startsWith('memory://')) {
       // Fetch specific memory by ID
       const memoryId = uri.replace('memory://', '');
@@ -3395,6 +3448,11 @@ if (REMOTE_MODE) {
   let toolCallCounts = {};
   let recentErrors = []; // last 100 errors
 
+  // Connection monitoring
+  const { ConnectionMonitor } = await import('./remote/connection-monitor.js');
+  const connMonitor = new ConnectionMonitor(100);
+  connMonitor.start();
+
   // Health endpoint
   app.get('/health', async (req, res) => {
     const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
@@ -3450,6 +3508,16 @@ if (REMOTE_MODE) {
     });
   });
 
+  // ── Metrics endpoint ──
+  app.get('/mcp/metrics', (req, res) => {
+    res.json({
+      timestamp: new Date().toISOString(),
+      ...connMonitor.getMetrics(),
+      tool_usage: toolCallCounts,
+      summary: connMonitor.getSummary()
+    });
+  });
+
   // ── Streamable HTTP transport (/mcp) ──
   app.all('/mcp', async (req, res) => {
     try {
@@ -3473,6 +3541,7 @@ if (REMOTE_MODE) {
           onsessioninitialized: (sid) => {
             transports[sid] = transport;
             connectionCount++;
+            connMonitor.trackConnection(sid, { type: 'streamable-http' });
             structuredLog.info('StreamableHTTP session initialized', { session_id: sid });
           }
         });
@@ -3480,6 +3549,7 @@ if (REMOTE_MODE) {
           const sid = transport.sessionId;
           if (sid && transports[sid]) {
             delete transports[sid];
+            connMonitor.trackDisconnection(sid);
             structuredLog.info('StreamableHTTP session closed', { session_id: sid });
           }
         };
@@ -3510,9 +3580,11 @@ if (REMOTE_MODE) {
     structuredLog.info('SSE connection established (deprecated transport)');
     const transport = new SSEServerTransport('/messages', res);
     transports[transport.sessionId] = transport;
+    connMonitor.trackConnection(transport.sessionId, { type: 'sse' });
     connectionCount++;
     res.on('close', () => {
       delete transports[transport.sessionId];
+      connMonitor.trackDisconnection(transport.sessionId);
       structuredLog.info('SSE connection closed', { session_id: transport.sessionId });
     });
     await server.connect(transport);
@@ -3964,6 +4036,7 @@ if (REMOTE_MODE) {
   // Graceful shutdown
   process.on('SIGINT', async () => {
     structuredLog.info('Shutting down remote server...');
+    connMonitor.stop();
     for (const sid in transports) {
       try { await transports[sid].close(); } catch {}
       delete transports[sid];
