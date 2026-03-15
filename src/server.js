@@ -3107,10 +3107,15 @@ async function handleSaveInvestigation(args) {
     }
 
   } catch (error) {
+    // Sanitize DB errors — don't leak table/column names
+    let userMessage = error.message;
+    if (userMessage.includes('foreign key') || userMessage.includes('violates') || userMessage.includes('constraint')) {
+      userMessage = 'Incident not found. Please verify the incident_id exists in get_acknowledged_errors.';
+    }
     return {
       content: [{
         type: 'text',
-        text: `❌ Error saving investigation: ${error.message}\n\nPlease check:\n1. incident_id is valid\n2. Backend API is running\n3. You have admin permissions`
+        text: `❌ Error saving investigation: ${userMessage}\n\nPlease check:\n1. incident_id is valid (from get_acknowledged_errors)\n2. Backend API is running\n3. You have admin permissions`
       }]
     };
   }
@@ -3666,21 +3671,24 @@ if (REMOTE_MODE) {
     // Track tool usage
     toolCallCounts[toolName] = (toolCallCounts[toolName] || 0) + 1;
 
-    // Tools handled locally (not proxied to backend)
-    if (toolName === 'get_user_context') {
-      try { return await handleGetUserContext({}); }
-      catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
-    }
-    if (toolName === 'run_workflow') {
-      try { return await handleRunWorkflow(toolArgs); }
-      catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
-    }
-    if (toolName === 'list_workflows') {
-      try { return await handleListWorkflows(toolArgs); }
+    // ALL tools handled locally — same code path as local/npm for full parity
+    const localHandlers = {
+      'get_user_context': handleGetUserContext,
+      'run_workflow': handleRunWorkflow,
+      'list_workflows': handleListWorkflows,
+      'save_conversation': handleSaveConversation,
+      'recall_memories': handleRecallMemories,
+      'get_memory_details': handleGetMemoryDetails,
+      'discover_related_conversations': handleDiscoverRelated,
+    };
+
+    const handler = localHandlers[toolName];
+    if (handler) {
+      try { return await handler(toolArgs); }
       catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
     }
 
-    // All other tools proxy to backend
+    // Unknown tools proxy to backend (fallback)
     try {
       const resp = await fetch(`${API_URL}/api/v10/mcp/tools/execute`, {
         method: 'POST',
