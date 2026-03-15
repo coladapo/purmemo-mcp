@@ -4084,9 +4084,38 @@ if (REMOTE_MODE) {
   });
 
   app.get('/.well-known/mcp.json', (req, res) => {
-    // Alias — same as /.well-known/mcp
     req.url = '/.well-known/mcp';
     app.handle(req, res);
+  });
+
+  app.get('/.well-known/mcp-manifest.json', (req, res) => {
+    const serverUrl = `https://${req.get('host')}`;
+    res.json({
+      name: 'purmemo',
+      version: '14.2.0',
+      description: 'AI-powered memory and knowledge management platform — save and recall conversations across Claude, ChatGPT, Gemini, and more',
+      author: 'Purmemo',
+      homepage: 'https://purmemo.ai',
+      license: 'MIT',
+      capabilities: { tools: true, resources: true, prompts: true },
+      authentication: {
+        type: 'oauth2',
+        authorization_url: `${serverUrl}/oauth/authorize`,
+        token_url: `${serverUrl}/oauth/token`,
+        registration_url: `${serverUrl}/oauth/register`,
+        scope: 'read write',
+        pkce: true,
+        pkce_method: 'S256'
+      },
+      endpoints: {
+        base_url: serverUrl,
+        mcp: '/mcp/messages',
+        sse: '/sse',
+        health: '/health'
+      },
+      tools: TOOLS.map(t => ({ name: t.name, description: t.description.split('\n')[0] })),
+      contact: { email: 'support@purmemo.ai', documentation: 'https://docs.purmemo.ai/mcp' }
+    });
   });
 
   // ── OAuth Module ──
