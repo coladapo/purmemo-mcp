@@ -3671,24 +3671,22 @@ if (REMOTE_MODE) {
     // Track tool usage
     toolCallCounts[toolName] = (toolCallCounts[toolName] || 0) + 1;
 
-    // ALL tools handled locally — same code path as local/npm for full parity
-    const localHandlers = {
+    // Tools that MUST be handled locally (not available on backend)
+    const localOnlyHandlers = {
       'get_user_context': handleGetUserContext,
       'run_workflow': handleRunWorkflow,
       'list_workflows': handleListWorkflows,
-      'save_conversation': handleSaveConversation,
-      'recall_memories': handleRecallMemories,
-      'get_memory_details': handleGetMemoryDetails,
-      'discover_related_conversations': handleDiscoverRelated,
+      'save_conversation': handleSaveConversation, // local for tag preservation + validation parity
     };
 
-    const handler = localHandlers[toolName];
-    if (handler) {
-      try { return await handler(toolArgs); }
+    const localHandler = localOnlyHandlers[toolName];
+    if (localHandler) {
+      try { return await localHandler(toolArgs); }
       catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
     }
 
-    // Unknown tools proxy to backend (fallback)
+    // recall_memories, get_memory_details, discover_related_conversations
+    // proxy to backend — ChatGPT widgets parse the backend's response format
     try {
       const resp = await fetch(`${API_URL}/api/v10/mcp/tools/execute`, {
         method: 'POST',
