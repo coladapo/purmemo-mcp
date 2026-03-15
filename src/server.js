@@ -746,6 +746,13 @@ const TOOLS = [
       idempotentHint: false,
       openWorldHint: true
     },
+    _meta: {
+      'openai/outputTemplate': 'ui://widgets/save.html',
+      'openai/toolInvocation/invoking': 'Saving to your memory vault...',
+      'openai/toolInvocation/invoked': 'Saved to memory',
+      'openai/widgetAccessible': true,
+      'openai/widgetDomain': 'save.widgets.purmemo.ai'
+    },
     description: `Save complete conversations as living documents. REQUIRED: Send COMPLETE conversation in 'conversationContent' parameter (minimum 100 chars, should be thousands). Include EVERY message verbatim - NO summaries or partial content.
 
     Intelligently tracks context, extracts project details, and maintains a single memory per conversation topic.
@@ -850,6 +857,13 @@ const TOOLS = [
       idempotentHint: true,
       openWorldHint: true
     },
+    _meta: {
+      'openai/outputTemplate': 'ui://widgets/recall-v39.html',
+      'openai/toolInvocation/invoking': 'Searching your memory vault...',
+      'openai/toolInvocation/invoked': 'Memories recalled',
+      'openai/widgetAccessible': true,
+      'openai/widgetDomain': 'recall.widgets.purmemo.ai'
+    },
     description: `Search and retrieve saved memories with intelligent semantic ranking.
 
 🎯 BASIC SEARCH:
@@ -943,6 +957,13 @@ const TOOLS = [
       idempotentHint: true,
       openWorldHint: true
     },
+    _meta: {
+      'openai/outputTemplate': 'ui://widgets/memory-detail.html',
+      'openai/toolInvocation/invoking': 'Loading memory...',
+      'openai/toolInvocation/invoked': 'Memory loaded',
+      'openai/widgetAccessible': true,
+      'openai/widgetDomain': 'detail.widgets.purmemo.ai'
+    },
     description: 'Get complete details of a specific memory, including all linked parts if chunked',
     inputSchema: {
       type: 'object',
@@ -968,6 +989,13 @@ const TOOLS = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: true
+    },
+    _meta: {
+      'openai/outputTemplate': 'ui://widgets/discover.html',
+      'openai/toolInvocation/invoking': 'Finding related memories across platforms...',
+      'openai/toolInvocation/invoked': 'Connections found',
+      'openai/widgetAccessible': true,
+      'openai/widgetDomain': 'discover.widgets.purmemo.ai'
     },
     description: `CROSS-PLATFORM DISCOVERY: Find related conversations across ALL AI platforms.
 
@@ -1022,6 +1050,13 @@ const TOOLS = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: true
+    },
+    _meta: {
+      'openai/outputTemplate': 'ui://widgets/context.html',
+      'openai/toolInvocation/invoking': 'Loading your context...',
+      'openai/toolInvocation/invoked': 'Context ready',
+      'openai/widgetAccessible': true,
+      'openai/widgetDomain': 'context.widgets.purmemo.ai'
     },
     description: `Get the current user's cognitive identity and active session context.
 
@@ -1375,31 +1410,36 @@ const RESOURCES = [
     uri: 'ui://widgets/recall-v39.html',
     name: 'Recall Widget',
     description: 'Interactive memory recall card list for ChatGPT Apps SDK.',
-    mimeType: 'text/html+skybridge'
+    mimeType: 'text/html+skybridge',
+    _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: [] }, 'openai/widgetDomain': 'recall.widgets.purmemo.ai' }
   },
   {
     uri: 'ui://widgets/save.html',
     name: 'Save Widget',
     description: 'Save confirmation card for ChatGPT Apps SDK.',
-    mimeType: 'text/html+skybridge'
+    mimeType: 'text/html+skybridge',
+    _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: [] }, 'openai/widgetDomain': 'save.widgets.purmemo.ai' }
   },
   {
     uri: 'ui://widgets/memory-detail.html',
     name: 'Memory Detail Widget',
     description: 'Full memory content viewer for ChatGPT Apps SDK.',
-    mimeType: 'text/html+skybridge'
+    mimeType: 'text/html+skybridge',
+    _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: [] }, 'openai/widgetDomain': 'detail.widgets.purmemo.ai' }
   },
   {
     uri: 'ui://widgets/context.html',
     name: 'Context Widget',
     description: 'User context and stats display for ChatGPT Apps SDK.',
-    mimeType: 'text/html+skybridge'
+    mimeType: 'text/html+skybridge',
+    _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: [] }, 'openai/widgetDomain': 'context.widgets.purmemo.ai' }
   },
   {
     uri: 'ui://widgets/discover.html',
     name: 'Discover Widget',
     description: 'Cross-platform conversation discovery for ChatGPT Apps SDK.',
-    mimeType: 'text/html+skybridge'
+    mimeType: 'text/html+skybridge',
+    _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: [] }, 'openai/widgetDomain': 'discover.widgets.purmemo.ai' }
   }
 ];
 
