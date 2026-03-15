@@ -38,9 +38,8 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+// SSEServerTransport kept for legacy /sse endpoint (Claude Desktop)
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -3558,61 +3557,455 @@ if (REMOTE_MODE) {
     });
   });
 
-  // ── Streamable HTTP transport (/mcp) ──
-  app.all('/mcp', async (req, res) => {
+  // ── Custom Streamable HTTP handler (mirrors Python main.py POST /mcp/messages) ──
+  // NOT using MCP SDK transport — custom handler for ChatGPT widget compatibility
+
+  // Streamable HTTP sessions
+  const mcpSessions = new Map();
+  const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2024-11-05', '2025-11-05', '2025-03-26']);
+
+  // Helper: validate API key from Authorization header
+  async function validateApiKeyFromRequest(req) {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) return null;
+    const token = auth.split(' ')[1];
     try {
-      const sessionId = req.headers['mcp-session-id'];
-      let transport;
-
-      if (sessionId && transports[sessionId]) {
-        const existing = transports[sessionId];
-        if (existing instanceof StreamableHTTPServerTransport) {
-          transport = existing;
-        } else {
-          return res.status(400).json({
-            jsonrpc: '2.0',
-            error: { code: -32000, message: 'Session uses a different transport protocol' },
-            id: null
+      const resp = await fetch(`${API_URL}/api/v1/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'purmemo-mcp/14.2.0' },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (resp.ok) return token;
+      // Silent token refresh if 401 and we have a refresh token
+      if (resp.status === 401 && refreshTokenStore[token]) {
+        try {
+          const refreshResp = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshTokenStore[token] }),
+            signal: AbortSignal.timeout(10000)
           });
-        }
-      } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
-        transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (sid) => {
-            transports[sid] = transport;
-            connectionCount++;
-            connMonitor.trackConnection(sid, { type: 'streamable-http' });
-            structuredLog.info('StreamableHTTP session initialized', { session_id: sid });
+          if (refreshResp.ok) {
+            const data = await refreshResp.json();
+            const newToken = data.access_token || data.api_key;
+            if (newToken) {
+              if (data.refresh_token) refreshTokenStore[newToken] = data.refresh_token;
+              delete refreshTokenStore[token];
+              return newToken;
+            }
           }
-        });
-        transport.onclose = () => {
-          const sid = transport.sessionId;
-          if (sid && transports[sid]) {
-            delete transports[sid];
-            connMonitor.trackDisconnection(sid);
-            structuredLog.info('StreamableHTTP session closed', { session_id: sid });
-          }
-        };
-        await server.connect(transport);
-      } else {
-        return res.status(400).json({
-          jsonrpc: '2.0',
-          error: { code: -32000, message: 'Bad Request: No valid session ID provided' },
-          id: null
-        });
+        } catch {}
       }
+      return null;
+    } catch { return null; }
+  }
 
-      await transport.handleRequest(req, res, req.body);
-    } catch (error) {
-      structuredLog.error('Error handling /mcp request', { error_message: error.message });
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: '2.0',
-          error: { code: -32603, message: 'Internal server error' },
-          id: null
-        });
+  // Helper: SSE response
+  function sendSSE(res, data) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      ...CORS_HEADERS
+    });
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.end();
+  }
+
+  const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, Accept',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Expose-Headers': 'Mcp-Session-Id'
+  };
+
+  // Helper: JSON response with CORS
+  function sendJSON(res, data, statusCode = 200, extraHeaders = {}) {
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/json',
+      ...CORS_HEADERS,
+      ...extraHeaders
+    });
+    res.end(JSON.stringify(data));
+  }
+
+  // Helper: execute a tool call (proxies to backend or handles locally)
+  async function executeToolForRemote(toolName, toolArgs, apiKey) {
+    // Track tool usage
+    toolCallCounts[toolName] = (toolCallCounts[toolName] || 0) + 1;
+
+    // get_user_context handled locally (same as Python)
+    if (toolName === 'get_user_context') {
+      try {
+        const result = await handleGetUserContext({});
+        return result;
+      } catch (e) {
+        return { content: [{ type: 'text', text: `Error: ${e.message}` }] };
       }
     }
+
+    // All other tools proxy to backend
+    try {
+      const resp = await fetch(`${API_URL}/api/v10/mcp/tools/execute`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'purmemo-mcp/14.2.0',
+          'X-MCP-Version': '14.2.0'
+        },
+        body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
+        signal: AbortSignal.timeout(30000)
+      });
+
+      if (resp.status === 401) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Session expired. Please reconnect via Settings → Connectors → purmemo → Uninstall then re-add.' }]
+        };
+      }
+
+      if (resp.status === 429) {
+        try {
+          const errorData = await resp.json();
+          const detail = typeof errorData.detail === 'object' ? errorData.detail : errorData;
+          const upgradeUrl = detail.upgrade_url || 'https://app.purmemo.ai/dashboard?modal=plans';
+          const message = detail.message || 'Monthly quota exceeded';
+          const usage = detail.current_usage || '?';
+          const limit = detail.limit || detail.quota_limit || '?';
+          const now = new Date();
+          const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const resetStr = resetDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          return {
+            isError: true,
+            content: [{ type: 'text', text: `${message}\n\nUsage: ${usage}/${limit} this month\n\nUpgrade to Pro: ${upgradeUrl}\n\nResets on ${resetStr}` }]
+          };
+        } catch {
+          return { isError: true, content: [{ type: 'text', text: 'Monthly quota exceeded. Upgrade at https://app.purmemo.ai/dashboard?modal=plans' }] };
+        }
+      }
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        recentErrors.push({ timestamp: new Date().toISOString(), tool: toolName, status: resp.status, error: errText.substring(0, 200) });
+        if (recentErrors.length > 100) recentErrors.shift();
+        return { error: `API error ${resp.status}: ${errText.substring(0, 200)}` };
+      }
+
+      const data = await resp.json();
+      return data;
+    } catch (e) {
+      recentErrors.push({ timestamp: new Date().toISOString(), tool: toolName, error: e.message });
+      if (recentErrors.length > 100) recentErrors.shift();
+      return { error: e.name === 'AbortError' ? 'Request timeout' : e.message };
+    }
+  }
+
+  // ── CORS preflight ──
+  app.options('/mcp/messages', (req, res) => {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+  });
+
+  // ── POST /mcp/messages — main Streamable HTTP dispatch ──
+  app.post('/mcp/messages', async (req, res) => {
+    try {
+      const body = req.body;
+      const method = body?.method;
+      const requestId = body?.id;
+
+      // ── initialize ──
+      if (method === 'initialize') {
+        const apiKey = await validateApiKeyFromRequest(req);
+        if (!apiKey) {
+          return sendJSON(res, {
+            jsonrpc: '2.0', id: requestId,
+            error: { code: -32001, message: 'Authentication required', data: { type: 'authorization_required' } }
+          }, 401, {
+            'WWW-Authenticate': `Bearer resource_metadata="https://${req.get('host')}/.well-known/oauth-protected-resource"`
+          });
+        }
+        const sessionId = randomUUID();
+        mcpSessions.set(sessionId, { token: apiKey, createdAt: Date.now(), lastActivity: Date.now() });
+        connectionCount++;
+        connMonitor.trackConnection(sessionId, { type: 'streamable-http' });
+
+        const clientVersion = body?.params?.protocolVersion || '2025-03-26';
+        const negotiatedVersion = SUPPORTED_PROTOCOL_VERSIONS.has(clientVersion) ? clientVersion : '2024-11-05';
+
+        return sendJSON(res, {
+          jsonrpc: '2.0', id: requestId,
+          result: {
+            protocolVersion: negotiatedVersion,
+            capabilities: { tools: { listChanged: true }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false }, logging: {} },
+            serverInfo: { name: 'purmemo-mcp', version: '14.2.0' },
+            instructions: 'pūrmemo tools are ready. Save memories, recall information, and run memory-powered workflows.'
+          }
+        }, 200, { 'Mcp-Session-Id': sessionId });
+      }
+
+      // ── notifications/initialized ──
+      if (method === 'notifications/initialized') {
+        return res.status(200).end();
+      }
+
+      // ── ping ──
+      if (method === 'ping') {
+        return sendJSON(res, { jsonrpc: '2.0', id: requestId, result: {} });
+      }
+
+      // ── tools/list (PUBLIC — no auth required) ──
+      if (method === 'tools/list') {
+        return sendJSON(res, { jsonrpc: '2.0', id: requestId, result: { tools: TOOLS } });
+      }
+
+      // ── Auth required for remaining methods ──
+      const sessionId = req.headers['mcp-session-id'] || req.headers['Mcp-Session-Id'];
+      let apiKey = null;
+      if (sessionId && mcpSessions.has(sessionId)) {
+        apiKey = mcpSessions.get(sessionId).token;
+        mcpSessions.get(sessionId).lastActivity = Date.now();
+      } else {
+        apiKey = await validateApiKeyFromRequest(req);
+      }
+
+      if (!apiKey) {
+        return sendJSON(res, {
+          jsonrpc: '2.0', id: requestId,
+          error: { code: -32001, message: 'Authentication required' }
+        }, 401, CORS_HEADERS);
+      }
+
+      // ── resources/list ──
+      if (method === 'resources/list') {
+        return sendJSON(res, {
+          jsonrpc: '2.0', id: requestId,
+          result: { resources: RESOURCES, resourceTemplates: RESOURCE_TEMPLATES }
+        });
+      }
+
+      // ── resources/read ──
+      if (method === 'resources/read') {
+        const uri = body?.params?.uri || '';
+
+        // Widget resources — return HTML directly as JSON (NOT SSE)
+        const widgetFiles = {
+          'ui://widgets/recall-v39.html': 'recall.html',
+          'ui://widgets/save.html': 'save.html',
+          'ui://widgets/memory-detail.html': 'memory-detail.html',
+          'ui://widgets/context.html': 'context.html',
+          'ui://widgets/discover.html': 'discover.html'
+        };
+        if (widgetFiles[uri]) {
+          const { readFileSync: rfs } = await import('node:fs');
+          const { dirname: dn, join: jn } = await import('node:path');
+          const { fileURLToPath: fu } = await import('node:url');
+          const html = rfs(jn(dn(fu(import.meta.url)), 'remote', 'widgets', widgetFiles[uri]), 'utf8');
+          return sendJSON(res, {
+            jsonrpc: '2.0', id: requestId,
+            result: { contents: [{ uri, mimeType: 'text/html+skybridge', text: html }] }
+          });
+        }
+
+        // Memory resources — proxy to backend
+        try {
+          const authHeaders = { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/14.2.0' };
+          let text = '', mimeType = 'text/plain';
+
+          if (uri === 'memory://me') {
+            const [meResp, statsResp, memsResp, sessResp] = await Promise.allSettled([
+              fetch(`${API_URL}/api/v1/auth/me`, { headers: authHeaders, signal: AbortSignal.timeout(10000) }),
+              fetch(`${API_URL}/api/v1/stats/`, { headers: authHeaders, signal: AbortSignal.timeout(10000) }),
+              fetch(`${API_URL}/api/v1/memories/?limit=20&sort=created_at&order=desc`, { headers: authHeaders, signal: AbortSignal.timeout(10000) }),
+              fetch(`${API_URL}/api/v1/identity/session`, { headers: authHeaders, signal: AbortSignal.timeout(10000) })
+            ]);
+            const me = meResp.status === 'fulfilled' && meResp.value.ok ? await meResp.value.json() : {};
+            const stats = statsResp.status === 'fulfilled' && statsResp.value.ok ? await statsResp.value.json() : {};
+            const mems = memsResp.status === 'fulfilled' && memsResp.value.ok ? await memsResp.value.json() : [];
+            const sess = sessResp.status === 'fulfilled' && sessResp.value.ok ? await sessResp.value.json() : {};
+            const identity = me.identity || {};
+            const session = sess.session || {};
+            const name = me.full_name || (me.email || '').split('@')[0] || 'User';
+            const lines = [`## About Me — ${name}\n`];
+            if (identity.role) lines.push(`**Role:** ${identity.role}`);
+            if (identity.primary_domain) lines.push(`**Domain:** ${identity.primary_domain}`);
+            if (identity.expertise?.length) lines.push(`**Expertise:** ${identity.expertise.join(', ')}`);
+            if (identity.tools?.length) lines.push(`**Tools I use:** ${identity.tools.join(', ')}`);
+            if (identity.work_style) lines.push(`**Work style:** ${identity.work_style}`);
+            if (session.context) lines.push(`**Working on:** ${session.context}`);
+            const total = stats.total_memories || 0;
+            const thisWeek = stats.memories_this_week || 0;
+            const BLOCKLIST = new Set(['user', 'purmemo-web']);
+            const platforms = (stats.platforms || []).filter(p => p && !BLOCKLIST.has(p.toLowerCase()) && !p.includes(' '));
+            if (total) lines.push(`\n**Memory vault:** ${total.toLocaleString()} memories across ${platforms.slice(0, 6).join(', ')}`);
+            if (thisWeek) lines.push(`**This week:** ${thisWeek} memories saved`);
+            const memList = Array.isArray(mems) ? mems : (mems.memories || []);
+            const projCounts = {};
+            for (const m of memList) {
+              const proj = (m.project_name || '').trim();
+              if (proj) projCounts[proj] = (projCounts[proj] || 0) + 1;
+            }
+            const ranked = Object.entries(projCounts).filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            if (ranked.length) lines.push(`\n**Recent work:** ${ranked.map(([p, c]) => `${p} (${c} recent)`).join('; ')}`);
+            text = lines.join('\n');
+          } else if (uri === 'memory://context' || uri === 'memory://projects' || uri === 'memory://stats') {
+            // Delegate to existing handlers via makeApiCall
+            try {
+              if (uri === 'memory://context') {
+                const data = await fetch(`${API_URL}/api/v1/memories/?limit=5&sort=created_at&order=desc`, { headers: authHeaders, signal: AbortSignal.timeout(10000) });
+                const mems = data.ok ? await data.json() : [];
+                const memList = Array.isArray(mems) ? mems : (mems.memories || []);
+                text = memList.map((m, i) => `${i + 1}. **${m.title || 'Untitled'}** (${new Date(m.created_at).toLocaleDateString()})\n   ${(m.content || '').substring(0, 150)}...`).join('\n\n');
+              } else if (uri === 'memory://projects') {
+                const data = await fetch(`${API_URL}/api/v1/memories/?limit=20&sort=created_at&order=desc`, { headers: authHeaders, signal: AbortSignal.timeout(10000) });
+                const mems = data.ok ? await data.json() : [];
+                const memList = Array.isArray(mems) ? mems : (mems.memories || []);
+                const byProj = {};
+                for (const m of memList) { const p = m.project_name || 'Other'; (byProj[p] = byProj[p] || []).push(m.title || 'Untitled'); }
+                text = Object.entries(byProj).map(([p, titles]) => `## ${p}\n${titles.slice(0, 3).map(t => `- ${t}`).join('\n')}`).join('\n\n');
+              } else {
+                const data = await fetch(`${API_URL}/api/v1/stats/`, { headers: authHeaders, signal: AbortSignal.timeout(10000) });
+                const stats = data.ok ? await data.json() : {};
+                text = `## Memory Vault Stats\n\n**Total:** ${stats.total_memories || 0}\n**This week:** ${stats.memories_this_week || 0}\n**Platforms:** ${(stats.platforms || []).join(', ')}`;
+              }
+            } catch (e) { text = `Error loading ${uri}: ${e.message}`; }
+          } else if (uri.startsWith('memory://')) {
+            const memId = uri.replace('memory://', '');
+            try {
+              const data = await fetch(`${API_URL}/api/v1/memories/${memId}/`, { headers: authHeaders, signal: AbortSignal.timeout(10000) });
+              text = data.ok ? JSON.stringify(await data.json(), null, 2) : `Memory not found: ${memId}`;
+              mimeType = 'application/json';
+            } catch (e) { text = `Error: ${e.message}`; }
+          } else {
+            return sendJSON(res, { jsonrpc: '2.0', id: requestId, error: { code: -32602, message: `Unknown resource: ${uri}` } });
+          }
+
+          return sendJSON(res, {
+            jsonrpc: '2.0', id: requestId,
+            result: { contents: [{ uri, mimeType, text }] }
+          });
+        } catch (e) {
+          return sendJSON(res, { jsonrpc: '2.0', id: requestId, error: { code: -32603, message: e.message } });
+        }
+      }
+
+      // ── prompts/list ──
+      if (method === 'prompts/list') {
+        return sendJSON(res, { jsonrpc: '2.0', id: requestId, result: { prompts: PROMPTS } });
+      }
+
+      // ── prompts/get ──
+      if (method === 'prompts/get') {
+        const promptName = body?.params?.name || '';
+        const promptArgs = body?.params?.arguments || {};
+        // Delegate to existing prompt handler logic
+        let messages;
+        if (promptName === 'load-context') {
+          const topic = promptArgs.topic || '';
+          messages = [{ role: 'user', content: { type: 'text', text: topic
+            ? `Before I start working on "${topic}", please recall relevant past conversations using recall_memories.`
+            : `Please load my recent context using recall_memories. Search for my most recent work and summarize.` } }];
+        } else if (promptName === 'save-this-conversation') {
+          messages = [{ role: 'user', content: { type: 'text', text: `Please save our current conversation using the save_conversation tool. Include the COMPLETE conversation content.` } }];
+        } else if (promptName === 'catch-me-up') {
+          const project = promptArgs.project || 'this project';
+          messages = [{ role: 'user', content: { type: 'text', text: `Please catch me up on "${project}" using recall_memories. Summarize what's been done, what's in progress, and what's next.` } }];
+        } else if (promptName === 'weekly-review') {
+          messages = [{ role: 'user', content: { type: 'text', text: `Please give me a weekly review using recall_memories. Search conversations from the past 7 days and organize by projects, decisions, and next steps.` } }];
+        } else {
+          return sendJSON(res, { jsonrpc: '2.0', id: requestId, error: { code: -32602, message: `Unknown prompt: ${promptName}` } });
+        }
+        return sendJSON(res, { jsonrpc: '2.0', id: requestId, result: { description: `Prompt: ${promptName}`, messages } });
+      }
+
+      // ── tools/call — SSE streaming response ──
+      if (method === 'tools/call') {
+        const toolName = body?.params?.name;
+        const toolArgs = body?.params?.arguments || {};
+        if (!toolName) {
+          return sendSSE(res, { jsonrpc: '2.0', id: requestId, error: { code: -32602, message: 'Missing tool name' } });
+        }
+
+        structuredLog.info('Tool call via /mcp/messages', { tool: toolName });
+
+        const result = await executeToolForRemote(toolName, toolArgs, apiKey);
+
+        if (result?.error) {
+          return sendSSE(res, { jsonrpc: '2.0', id: requestId, error: { code: -32603, message: result.error } });
+        }
+
+        // Pre-formatted errors (quota, auth) already have content
+        if (result?.isError && result?.content) {
+          return sendSSE(res, { jsonrpc: '2.0', id: requestId, result });
+        }
+
+        // Normal result — wrap in content if needed
+        const content = result?.content || [{ type: 'text', text: JSON.stringify(result?.data || result, null, 2) }];
+        return sendSSE(res, { jsonrpc: '2.0', id: requestId, result: { content } });
+      }
+
+      // ── Unknown method ──
+      return sendJSON(res, { jsonrpc: '2.0', id: requestId, error: { code: -32601, message: `Method not found: ${method}` } });
+
+    } catch (error) {
+      structuredLog.error('Error in /mcp/messages', { error: error.message });
+      if (!res.headersSent) {
+        sendJSON(res, { jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal server error' } }, 500);
+      }
+    }
+  });
+
+  // ── GET /mcp/messages — SSE keepalive stream ──
+  app.get('/mcp/messages', async (req, res) => {
+    if (!req.headers.accept?.includes('text/event-stream')) {
+      return res.status(406).json({ error: 'Must accept text/event-stream' });
+    }
+    const apiKey = await validateApiKeyFromRequest(req);
+    if (!apiKey) return res.status(401).json({ error: 'Authentication required' });
+
+    const sessionId = req.headers['mcp-session-id'] || randomUUID();
+    if (!mcpSessions.has(sessionId)) {
+      mcpSessions.set(sessionId, { token: apiKey, createdAt: Date.now(), lastActivity: Date.now() });
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Mcp-Session-Id': sessionId,
+      ...CORS_HEADERS
+    });
+
+    const heartbeat = setInterval(() => {
+      if (res.writableEnded) { clearInterval(heartbeat); return; }
+      res.write(`data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/keepalive', params: { timestamp: new Date().toISOString() } })}\n\n`);
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      connMonitor.trackDisconnection(sessionId);
+    });
+  });
+
+  // ── DELETE /mcp/messages — session termination ──
+  app.delete('/mcp/messages', (req, res) => {
+    const sessionId = req.headers['mcp-session-id'];
+    if (!sessionId) return res.status(400).send('Missing Mcp-Session-Id');
+    if (mcpSessions.delete(sessionId)) {
+      connMonitor.trackDisconnection(sessionId);
+      return res.status(204).end();
+    }
+    res.status(404).end();
+  });
+
+  // ── OPTIONS /mcp/messages — CORS preflight ──
+  // (already defined above)
+
+  // ── POST /mcp — alias for /mcp/messages (Claude Desktop compat) ──
+  app.post('/mcp', (req, res) => {
+    // Forward to /mcp/messages handler
+    req.url = '/mcp/messages';
+    app.handle(req, res);
   });
 
   // ── Deprecated SSE transport (/sse + /messages) ──
