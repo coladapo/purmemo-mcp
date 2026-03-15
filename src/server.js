@@ -4127,11 +4127,12 @@ if (REMOTE_MODE) {
 
   // ── MCP well-known endpoints (for OAuth discovery) ──
   app.get('/.well-known/oauth-protected-resource', (req, res) => {
-    const serverUrl = `${req.protocol}://${req.get('host')}`;
+    const serverUrl = `https://${req.get('host')}`;
     res.json({
       resource: serverUrl,
       authorization_servers: [serverUrl],
-      bearer_methods_supported: ['header']
+      bearer_methods_supported: ['header'],
+      scopes_supported: ['read', 'write']
     });
   });
 
