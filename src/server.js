@@ -1784,11 +1784,17 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
       })
     });
 
-    savedParts.push({
-      partNumber,
-      memoryId: partData.id || partData.memory_id,
-      size: chunk.length
-    });
+    const partMemoryId = partData.id || partData.memory_id;
+    savedParts.push({ partNumber, memoryId: partMemoryId, size: chunk.length });
+
+    // PATCH tags on chunk (v1 POST drops user tags)
+    if (partMemoryId) {
+      try {
+        await makeApiCall(`/api/v1/memories/${partMemoryId}/`, {
+          method: 'PATCH', body: JSON.stringify({ tags: [...tags, 'chunked-conversation', `session:${sessionId}`] })
+        });
+      } catch {}
+    }
 
     structuredLog.debug('Chunk saved', {
       session_id: sessionId,
@@ -1843,30 +1849,42 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
     title
   });
 
-  const data = await makeApiCall('/api/v1/memories/', {
+  // Use v10 tool execute endpoint — preserves tags via intelligent tagging merge
+  // (v1 POST /memories/ drops user-provided tags due to backend handler issue)
+  const data = await makeApiCall('/api/v10/mcp/tools/execute', {
     method: 'POST',
     body: JSON.stringify({
-      content,
-      title,
-      tags: [...tags, 'complete-conversation'],
-      platform: PLATFORM,
-      conversation_id: metadata.conversationId || null,
-      session_id: readCurrentSessionId(),  // Layer 0 coordination: links manual save to current Claude Code session
-      metadata: {
-        ...metadata,
-        captureType: 'single',
-        isComplete: true
+      tool: 'save_conversation',
+      arguments: {
+        content,
+        title,
+        tags: [...tags, 'complete-conversation'],
+        platform: PLATFORM,
+        conversation_id: metadata.conversationId || null,
+        session_id: readCurrentSessionId(),
+        metadata: {
+          ...metadata,
+          captureType: 'single',
+          isComplete: true
+        }
       }
     })
   });
 
+  // Extract memory ID from v10 response (format: "Memory ID: uuid")
+  let memoryId = data.id || data.memory_id;
+  if (!memoryId && data.content?.[0]?.text) {
+    const idMatch = data.content[0].text.match(/Memory ID:\s*([a-f0-9-]{36})/i);
+    if (idMatch) memoryId = idMatch[1];
+  }
+
   structuredLog.info('Single content saved', {
-    memory_id: data.id || data.memory_id,
+    memory_id: memoryId,
     char_count: content.length
   });
 
   return {
-    memoryId: data.id || data.memory_id,
+    memoryId,
     size: content.length,
     wisdomSuggestion: data.wisdom_suggestion || null
   };
@@ -3648,14 +3666,18 @@ if (REMOTE_MODE) {
     // Track tool usage
     toolCallCounts[toolName] = (toolCallCounts[toolName] || 0) + 1;
 
-    // get_user_context handled locally (same as Python)
+    // Tools handled locally (not proxied to backend)
     if (toolName === 'get_user_context') {
-      try {
-        const result = await handleGetUserContext({});
-        return result;
-      } catch (e) {
-        return { content: [{ type: 'text', text: `Error: ${e.message}` }] };
-      }
+      try { return await handleGetUserContext({}); }
+      catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
+    }
+    if (toolName === 'run_workflow') {
+      try { return await handleRunWorkflow(toolArgs); }
+      catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
+    }
+    if (toolName === 'list_workflows') {
+      try { return await handleListWorkflows(toolArgs); }
+      catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
     }
 
     // All other tools proxy to backend
