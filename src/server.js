@@ -4001,11 +4001,19 @@ if (REMOTE_MODE) {
   // ── OPTIONS /mcp/messages — CORS preflight ──
   // (already defined above)
 
-  // ── POST /mcp — alias for /mcp/messages (Claude Desktop compat) ──
-  app.post('/mcp', (req, res) => {
-    // Forward to /mcp/messages handler
+  // ── /mcp — direct handlers (NOT aliases — ChatGPT validates this URL) ──
+  app.options('/mcp', (req, res) => { res.writeHead(204, CORS_HEADERS); res.end(); });
+  app.post('/mcp', async (req, res) => {
+    // Same handler as /mcp/messages — ChatGPT uses this URL
     req.url = '/mcp/messages';
-    app.handle(req, res);
+    return app._router.handle(req, res, () => res.status(404).end());
+  });
+
+  // ── /mcp/sse — legacy SSE endpoint (Python had this) ──
+  app.get('/mcp/sse', async (req, res) => {
+    // Forward to /sse handler
+    req.url = '/sse';
+    return app._router.handle(req, res, () => res.status(404).end());
   });
 
   // ── Deprecated SSE transport (/sse + /messages) ──
