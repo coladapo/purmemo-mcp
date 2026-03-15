@@ -4181,6 +4181,7 @@ if (REMOTE_MODE) {
       name: 'purmemo',
       version: '14.3.0',
       description: 'AI-powered memory and knowledge management platform — save and recall conversations across Claude, ChatGPT, Gemini, and more',
+      icon: `${serverUrl}/icon.png`,
       author: 'Purmemo',
       homepage: 'https://purmemo.ai',
       license: 'MIT',
@@ -4535,6 +4536,25 @@ if (REMOTE_MODE) {
       expires_in: 86400,
       scope: 'read write'
     });
+  });
+
+  // ── Favicon / Icon ──
+  app.get('/favicon.ico', async (req, res) => {
+    try {
+      const { readFileSync: rfs } = await import('node:fs');
+      const { dirname: dn, join: jn } = await import('node:path');
+      const { fileURLToPath: fu } = await import('node:url');
+      const iconPath = jn(dn(fu(import.meta.url)), 'remote', 'icon.png');
+      const data = rfs(iconPath);
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(data);
+    } catch { res.status(404).end(); }
+  });
+
+  app.get('/icon.png', async (req, res) => {
+    req.url = '/favicon.ico';
+    return app._router.handle(req, res, () => res.status(404).end());
   });
 
   // ── Root endpoint ──
