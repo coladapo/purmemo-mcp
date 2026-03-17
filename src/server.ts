@@ -1788,14 +1788,8 @@ async function saveChunkedContent(content, title, tags = [], metadata = {}) {
     const partMemoryId = partData.id || partData.memory_id;
     savedParts.push({ partNumber, memoryId: partMemoryId, size: chunk.length });
 
-    // PATCH tags on chunk (v1 POST drops user tags)
-    if (partMemoryId) {
-      try {
-        await makeApiCall(`/api/v1/memories/${partMemoryId}/`, {
-          method: 'PATCH', body: JSON.stringify({ tags: [...tags, 'chunked-conversation', `session:${sessionId}`] })
-        });
-      } catch {}
-    }
+    // Note: Hono backend POST /api/v1/memories/ now handles tags correctly
+    // via Postgres array literal. The old PATCH workaround is no longer needed.
 
     structuredLog.debug('Chunk saved', {
       session_id: sessionId,
@@ -1850,43 +1844,43 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
     title
   });
 
-  // Use v10 tool execute endpoint — preserves tags via intelligent tagging merge
-  // (v1 POST /memories/ drops user-provided tags due to backend handler issue)
-  const data = await makeApiCall('/api/v10/mcp/tools/execute', {
+  // Use POST /api/v1/memories/ with conversation_id for atomic ON CONFLICT upsert.
+  // This is the single correct path — the backend handles:
+  //   - Living document detection via ON CONFLICT (user_id, platform, conversation_id)
+  //   - Tag preservation via Postgres array literal
+  //   - embedding_status = 'pending' on both insert and update
+  //   - processMemoryBackground() for embedding + intelligence extraction
+  //   - Soft-delete revival (restores trashed memories on re-save)
+  const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify({
-      tool: 'save_conversation',
-      arguments: {
-        content,
-        title,
-        tags: [...tags, 'complete-conversation'],
-        platform: PLATFORM,
-        conversation_id: metadata.conversationId || null,
-        session_id: readCurrentSessionId(),
-        metadata: {
-          ...metadata,
-          captureType: 'single',
-          isComplete: true
-        }
+      content,
+      title,
+      tags: [...tags, 'complete-conversation'],
+      platform: PLATFORM,
+      conversation_id: metadata.conversationId || null,
+      session_id: readCurrentSessionId(),
+      metadata: {
+        ...metadata,
+        captureType: 'single',
+        isComplete: true
       }
     })
   });
 
-  // Extract memory ID from v10 response (format: "Memory ID: uuid")
-  let memoryId = data.id || data.memory_id;
-  if (!memoryId && data.content?.[0]?.text) {
-    const idMatch = data.content[0].text.match(/Memory ID:\s*([a-f0-9-]{36})/i);
-    if (idMatch) memoryId = idMatch[1];
-  }
+  const memoryId = data.id || data.memory_id;
+  const wasUpdated = data.updated === true;
 
   structuredLog.info('Single content saved', {
     memory_id: memoryId,
-    char_count: content.length
+    char_count: content.length,
+    was_update: wasUpdated
   });
 
   return {
     memoryId,
     size: content.length,
+    wasUpdated,
     wisdomSuggestion: data.wisdom_suggestion || null
   };
 }
@@ -2009,112 +2003,9 @@ async function handleSaveConversation(args) {
 
     const metadata = extractContentMetadata(content);
 
-    if (conversationId) {
-      try {
-        const params = new URLSearchParams({
-          conversation_id: conversationId,
-          platform: PLATFORM,
-          page_size: '1'
-        });
-
-        const searchResponse = await makeApiCall(`/api/v1/memories/?${params}`, {
-          method: 'GET'
-        });
-
-        const existingMemories = searchResponse.results || [];
-
-        if (existingMemories.length > 0) {
-          const existingMemory = existingMemories[0];
-          const memoryId = existingMemory.id;
-
-          structuredLog.debug('Found existing memory for living document update', {
-            request_id: requestId,
-            memory_id: memoryId,
-            conversation_id: conversationId
-          });
-
-          const updateMetadata = {
-            ...metadata,
-            captureType: shouldChunk(content) ? 'chunked' : 'single',
-            isComplete: true,
-            lastUpdated: new Date().toISOString(),
-            intelligent: {
-              ...intelligentContext,
-              progress_indicators: progressIndicators,
-              ...relationships
-            }
-          };
-
-          // Identity Layer: attach session context to living document updates
-          try {
-            const sessionResp = await makeApiCall(`/api/v1/identity/session?platform=${encodeURIComponent(PLATFORM)}`);
-            const sess = sessionResp.session || {};
-            if (sess.id || sess.context || sess.project) {
-              updateMetadata.session_context = {
-                session_id: sess.id,
-                project: sess.project,
-                context: sess.context,
-                focus: sess.focus,
-                platform: PLATFORM
-              };
-              structuredLog.debug('Attached session context to living document update', { project: sess.project });
-            }
-          } catch (sessionErr) {
-            structuredLog.warn('Could not fetch session context for update (non-fatal)', { error_message: sessionErr.message });
-          }
-
-          const updateResponse = await makeApiCall(`/api/v1/memories/${memoryId}/`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              content: content,
-              title: title,
-              tags: tags,
-              metadata: updateMetadata
-            })
-          });
-
-          const isAutoGenerated = !args.conversationId && conversationId;
-          const wisdomSuggestion = updateResponse.wisdom_suggestion || null;
-
-          structuredLog.info(`${toolName}: completed`, {
-            tool_name: toolName,
-            request_id: requestId,
-            duration_ms: Date.now() - startTime,
-            action: 'updated',
-            memory_id: memoryId,
-            char_count: content.length
-          });
-
-          return {
-            content: [{
-              type: 'text',
-              text: `✅ CONVERSATION UPDATED (Living Document)!\n\n` +
-                    `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') +
-                    `📏 New size: ${content.length} characters\n` +
-                    `🔗 Memory ID: ${memoryId}\n\n` +
-                    `📊 Content Analysis:\n` +
-                    `- Conversation turns: ${metadata.conversationTurns}\n` +
-                    `- Code blocks: ${metadata.codeBlockCount}\n` +
-                    `- Artifacts: ${metadata.artifactCount}\n` +
-                    `- URLs: ${metadata.urlCount}\n\n` +
-                    (isAutoGenerated ? `💡 Auto-living document: Saves with title "${title}" will update this memory\n` : '') +
-                    `✓ Updated existing memory (not duplicated)!` +
-                    formatWisdomSuggestion(wisdomSuggestion)
-            }]
-          };
-        } else {
-          structuredLog.debug('No existing memory found, will create new', {
-            request_id: requestId,
-            conversation_id: conversationId
-          });
-        }
-      } catch (error) {
-        structuredLog.warn('Error checking for existing memory', {
-          request_id: requestId,
-          error_message: error.message
-        });
-      }
-    }
+    // Living document is now handled atomically by the backend's ON CONFLICT clause.
+    // No need to search+PATCH — just POST with conversation_id and let PostgreSQL
+    // decide whether to INSERT or UPDATE in a single atomic operation.
 
     metadata.conversationId = conversationId;
 
@@ -2180,33 +2071,47 @@ async function handleSaveConversation(args) {
     } else {
       const result = await saveSingleContent(content, title, tags, metadata);
       const isAutoGenerated = !args.conversationId && conversationId;
+      const action = result.wasUpdated ? 'updated' : 'created';
 
       structuredLog.info(`${toolName}: completed`, {
         tool_name: toolName,
         request_id: requestId,
         duration_ms: Date.now() - startTime,
-        action: 'created',
+        action,
         memory_id: result.memoryId,
         char_count: result.size
       });
 
+      const savedOrUpdated = result.wasUpdated
+        ? `✅ CONVERSATION UPDATED (Living Document)!\n\n` +
+          (conversationId ? `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') : '') +
+          `📏 New size: ${result.size} characters\n` +
+          `🔗 Memory ID: ${result.memoryId}\n\n` +
+          `📊 Content Analysis:\n` +
+          `- Conversation turns: ${metadata.conversationTurns}\n` +
+          `- Code blocks: ${metadata.codeBlockCount}\n` +
+          `- Artifacts: ${metadata.artifactCount}\n` +
+          `- URLs: ${metadata.urlCount}\n\n` +
+          (isAutoGenerated ? `💡 Auto-living document: Saves with title "${title}" will update this memory\n` : '') +
+          `✓ Updated existing memory (not duplicated)!`
+        : `✅ CONVERSATION SAVED!\n\n` +
+          (conversationId ? `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') : '') +
+          `📏 Size: ${result.size} characters\n` +
+          `🔗 Memory ID: ${result.memoryId}\n\n` +
+          `📊 Content Analysis:\n` +
+          `- Conversation turns: ${metadata.conversationTurns}\n` +
+          `- Code blocks: ${metadata.codeBlockCount}\n` +
+          `- Artifacts: ${metadata.artifactCount}\n` +
+          `- URLs: ${metadata.urlCount}\n` +
+          `- File paths: ${metadata.filePathCount}\n\n` +
+          (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
+          (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
+          `✓ Complete conversation preserved!`;
+
       return {
         content: [{
           type: 'text',
-          text: `✅ CONVERSATION SAVED!\n\n` +
-                (conversationId ? `📝 Conversation ID: ${conversationId}` + (isAutoGenerated ? ' (auto-generated from title)\n' : '\n') : '') +
-                `📏 Size: ${result.size} characters\n` +
-                `🔗 Memory ID: ${result.memoryId}\n\n` +
-                `📊 Content Analysis:\n` +
-                `- Conversation turns: ${metadata.conversationTurns}\n` +
-                `- Code blocks: ${metadata.codeBlockCount}\n` +
-                `- Artifacts: ${metadata.artifactCount}\n` +
-                `- URLs: ${metadata.urlCount}\n` +
-                `- File paths: ${metadata.filePathCount}\n\n` +
-                (conversationId && isAutoGenerated ? `💡 Auto-living document: Next save with title "${title}" will UPDATE this memory\n` : '') +
-                (conversationId && !isAutoGenerated ? `✓ Use conversation ID "${conversationId}" to update this later!\n` : '') +
-                `✓ Complete conversation preserved!` +
-                formatWisdomSuggestion(result.wisdomSuggestion)
+          text: savedOrUpdated + formatWisdomSuggestion(result.wisdomSuggestion)
         }]
       };
     }
