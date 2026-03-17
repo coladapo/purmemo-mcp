@@ -1346,7 +1346,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
 ];
 
 const server = new Server(
-  { name: 'purmemo-mcp', version: '14.3.0' },
+  { name: 'purmemo-mcp', version: '15.0.0' },
   {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
@@ -3535,7 +3535,7 @@ if (REMOTE_MODE) {
 
     res.json({
       status: 'healthy',
-      version: '14.3.0',
+      version: '15.0.0',
       timestamp: new Date().toISOString(),
       active_connections: Object.keys(transports).length,
       metrics: {
@@ -3561,7 +3561,7 @@ if (REMOTE_MODE) {
         consecutive_failures: apiCircuitBreaker.failureCount
       },
       service_info: {
-        version: '14.3.0',
+        version: '15.0.0',
         runtime: 'node',
         api_backend: API_URL,
         environment: process.env.NODE_ENV || 'production',
@@ -3694,7 +3694,7 @@ if (REMOTE_MODE) {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'User-Agent': 'purmemo-mcp/14.3.0',
-          'X-MCP-Version': '14.3.0'
+          'X-MCP-Version': '15.0.0'
         },
         body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
         signal: AbortSignal.timeout(30000)
@@ -3816,7 +3816,7 @@ if (REMOTE_MODE) {
           result: {
             protocolVersion: negotiatedVersion,
             capabilities: { tools: { listChanged: true }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false }, logging: {} },
-            serverInfo: { name: 'purmemo-mcp', version: '14.3.0' },
+            serverInfo: { name: 'purmemo-mcp', version: '15.0.0' },
             instructions: 'pūrmemo tools are ready. Save memories, recall information, and run memory-powered workflows.'
           }
         }, 200, { 'Mcp-Session-Id': sessionId });
@@ -4154,7 +4154,7 @@ if (REMOTE_MODE) {
     res.json({
       mcp_version: '2025-06-18',
       server_name: 'pūrmemo MCP Server',
-      server_version: '14.3.0',
+      server_version: '15.0.0',
       transports: [
         { type: 'http', url: `${serverUrl}/mcp` },
         { type: 'sse', url: `${serverUrl}/sse` }
@@ -4179,7 +4179,7 @@ if (REMOTE_MODE) {
     const serverUrl = `https://${req.get('host')}`;
     res.json({
       name: 'purmemo',
-      version: '14.3.0',
+      version: '15.0.0',
       description: 'AI-powered memory and knowledge management platform — save and recall conversations across Claude, ChatGPT, Gemini, and more',
       icon: `${serverUrl}/icon.png`,
       author: 'Purmemo',
@@ -4562,7 +4562,7 @@ if (REMOTE_MODE) {
     const serverUrl = `https://${req.get('host')}`;
     res.json({
       name: 'pūrmemo MCP Server',
-      version: '14.3.0',
+      version: '15.0.0',
       status: 'running',
       endpoints: {
         mcp: `${serverUrl}/mcp`,
@@ -4583,7 +4583,7 @@ if (REMOTE_MODE) {
     app.listen(PORT, () => {
       structuredLog.info('Purmemo Remote MCP Server started', {
         mode: 'remote',
-        version: '14.3.0',
+        version: '15.0.0',
         port: PORT,
         api_url: API_URL,
         api_key_configured: !!resolvedApiKey,
@@ -4628,7 +4628,7 @@ if (REMOTE_MODE) {
       checkForUpdates();
       structuredLog.info('Purmemo MCP Server started successfully', {
         mode: 'stdio',
-        version: '14.3.0',
+        version: '15.0.0',
         tier: '4-resources-prompts',
         api_url: API_URL,
         api_key_configured: !!resolvedApiKey,
