@@ -1662,7 +1662,16 @@ BEST PRACTICES:
         return chunks;
     }
     async function saveChunkedContent(content, title, tags = [], metadata = {}) {
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Derive a deterministic session ID from the conversation_id (title slug).
+        // This ensures re-saves of the same conversation overwrite existing chunks
+        // via the backend's ON CONFLICT (user_id, platform, conversation_id) upsert,
+        // instead of creating duplicate chunk sets with random session IDs.
+        const conversationId = metadata.conversationId || title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .substring(0, 80);
+        const sessionId = conversationId;
         const chunks = chunkContent(content);
         const totalParts = chunks.length;
         structuredLog.info('Saving chunked content', {
@@ -1671,7 +1680,7 @@ BEST PRACTICES:
             total_parts: totalParts
         });
         const savedParts = [];
-        // Save each chunk
+        // Save each chunk — uses deterministic conversation_id so re-saves upsert
         for (let i = 0; i < chunks.length; i++) {
             const partNumber = i + 1;
             const chunk = chunks[i];
@@ -1682,7 +1691,7 @@ BEST PRACTICES:
                     title: `${title} - Part ${partNumber}/${totalParts}`,
                     tags: [...tags, 'chunked-conversation', `session:${sessionId}`],
                     platform: PLATFORM,
-                    conversation_id: `${sessionId}-part-${partNumber}`,
+                    conversation_id: `${sessionId}:part:${partNumber}`,
                     metadata: {
                         ...metadata,
                         captureType: 'chunked',
@@ -1696,8 +1705,6 @@ BEST PRACTICES:
             });
             const partMemoryId = partData.id || partData.memory_id;
             savedParts.push({ partNumber, memoryId: partMemoryId, size: chunk.length });
-            // Note: Hono backend POST /api/v1/memories/ now handles tags correctly
-            // via Postgres array literal. The old PATCH workaround is no longer needed.
             structuredLog.debug('Chunk saved', {
                 session_id: sessionId,
                 part_number: partNumber,
@@ -1706,7 +1713,10 @@ BEST PRACTICES:
                 memory_id: partData.id || partData.memory_id
             });
         }
-        // Create index memory
+        // If re-chunk count decreased (e.g., content got shorter), orphaned parts
+        // from previous saves remain but won't be linked. They'll be naturally
+        // invisible since the index only references current parts.
+        // Create index memory — also uses deterministic conversation_id for upsert
         const indexContent = `# ${title} - Complete Capture Index\n\n## Capture Summary\n- Total Parts: ${totalParts}\n- Total Size: ${content.length} characters\n- Session ID: ${sessionId}\n- Saved: ${new Date().toISOString()}\n\n## Parts Overview\n${savedParts.map(p => `- Part ${p.partNumber}: ${p.size} chars [${p.memoryId}]`).join('\n')}\n\n## Metadata\n${JSON.stringify(metadata, null, 2)}\n\n## Full Content Access\nUse recall_memories with session:${sessionId} to find all parts, or use get_memory_details with any part ID.`;
         const indexData = await makeApiCall('/api/v1/memories/', {
             method: 'POST',
@@ -1715,7 +1725,7 @@ BEST PRACTICES:
                 title: `${title} - Index`,
                 tags: [...tags, 'chunked-index', `session:${sessionId}`],
                 platform: PLATFORM,
-                conversation_id: `${sessionId}-index`,
+                conversation_id: `${sessionId}:index`,
                 metadata: {
                     ...metadata,
                     captureType: 'chunked-index',
