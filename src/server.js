@@ -796,6 +796,12 @@ You are an intelligence analyst delivering a landscape briefing.
                         enum: ['low', 'medium', 'high'],
                         description: 'Priority level for this memory',
                         default: 'medium'
+                    },
+                    mode: {
+                        type: 'string',
+                        enum: ['replace', 'append'],
+                        description: 'How to handle updates to existing living documents. "replace" (default) overwrites content entirely — use when sending the full conversation. "append" adds new content below existing content with a timestamp separator — use for incremental session updates where you cannot send the full history.',
+                        default: 'replace'
                     }
                 },
                 required: ['conversationContent']
@@ -1771,6 +1777,7 @@ BEST PRACTICES:
                 platform: PLATFORM,
                 conversation_id: metadata.conversationId || null,
                 session_id: readCurrentSessionId(),
+                mode: metadata._mode || 'replace',
                 metadata: {
                     ...metadata,
                     captureType: 'single',
@@ -1897,6 +1904,8 @@ BEST PRACTICES:
             // No need to search+PATCH — just POST with conversation_id and let PostgreSQL
             // decide whether to INSERT or UPDATE in a single atomic operation.
             metadata.conversationId = conversationId;
+            // Pass mode through to saveSingleContent → API (append grows memory, replace overwrites)
+            metadata._mode = args.mode || 'replace';
             metadata.intelligent = {
                 ...intelligentContext,
                 progress_indicators: progressIndicators,

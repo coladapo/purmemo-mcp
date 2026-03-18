@@ -3529,19 +3529,19 @@ if (REMOTE_MODE) {
       });
       if (resp.ok) return token;
       // Silent token refresh if 401 and we have a refresh token
-      if (resp.status === 401 && refreshTokenStore[token]) {
+      if (resp.status === 401 && refreshTokenStore[token]?.token) {
         try {
           const refreshResp = await fetch(`${API_URL}/api/v1/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: refreshTokenStore[token] }),
+            body: JSON.stringify({ refresh_token: refreshTokenStore[token].token }),
             signal: AbortSignal.timeout(10000)
           });
           if (refreshResp.ok) {
             const data = await refreshResp.json();
             const newToken = data.access_token || data.api_key;
             if (newToken) {
-              if (data.refresh_token) refreshTokenStore[newToken] = data.refresh_token;
+              if (data.refresh_token) refreshTokenStore[newToken] = { token: data.refresh_token, createdAt: Date.now() };
               delete refreshTokenStore[token];
               return newToken;
             }
@@ -3618,19 +3618,19 @@ if (REMOTE_MODE) {
 
       if (resp.status === 401) {
         // Silent token refresh — try refreshing before telling user to reconnect
-        if (refreshTokenStore[apiKey]) {
+        if (refreshTokenStore[apiKey]?.token) {
           try {
             const refreshResp = await fetch(`${API_URL}/api/v1/auth/refresh`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ refresh_token: refreshTokenStore[apiKey] }),
+              body: JSON.stringify({ refresh_token: refreshTokenStore[apiKey].token }),
               signal: AbortSignal.timeout(10000)
             });
             if (refreshResp.ok) {
               const refreshData = await refreshResp.json();
               const newToken = refreshData.access_token || refreshData.api_key;
               if (newToken) {
-                if (refreshData.refresh_token) refreshTokenStore[newToken] = refreshData.refresh_token;
+                if (refreshData.refresh_token) refreshTokenStore[newToken] = { token: refreshData.refresh_token, createdAt: Date.now() };
                 delete refreshTokenStore[apiKey];
                 // Retry the tool call with new token
                 const retryResp = await fetch(`${API_URL}/api/v10/mcp/tools/execute`, {
@@ -4130,8 +4130,20 @@ if (REMOTE_MODE) {
   const __remoteDir = dirname(furl(import.meta.url));
 
   // In-memory stores for OAuth state and refresh tokens
-  const oauthStateStorage = {};
-  const refreshTokenStore = {};
+  // Both have TTL cleanup to prevent unbounded memory growth
+  const oauthStateStorage: Record<string, { params: string; provider: string; createdAt: number }> = {};
+  const refreshTokenStore: Record<string, { token: string; createdAt: number }> = {};
+
+  // Clean up abandoned OAuth states (>10 min) and expired refresh tokens (>24 hr)
+  setInterval(() => {
+    const now = Date.now();
+    for (const key of Object.keys(oauthStateStorage)) {
+      if (now - oauthStateStorage[key].createdAt > 600_000) delete oauthStateStorage[key];
+    }
+    for (const key of Object.keys(refreshTokenStore)) {
+      if (now - refreshTokenStore[key].createdAt > 86_400_000) delete refreshTokenStore[key];
+    }
+  }, 300_000); // every 5 minutes
 
   // Rate limiter (per-IP, leaky bucket)
   const rateLimits = {};
@@ -4246,6 +4258,9 @@ if (REMOTE_MODE) {
 
   // ── OAuth: Login Submit ──
   app.post('/login', async (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'login', 10)) {
+      return res.status(429).send('Too many login attempts. Please wait a moment.');
+    }
     const { email, password, params } = req.body;
     try {
       const authResp = await fetch(`${API_URL}/api/v1/auth/login`, {
@@ -4255,14 +4270,15 @@ if (REMOTE_MODE) {
         signal: AbortSignal.timeout(10000)
       });
       if (!authResp.ok) {
-        const loginUrl = params ? `/login?params=${params}` : '/login';
+        const errParam = authResp.status === 429 ? 'rate_limit' : 'invalid_credentials';
+        const loginUrl = params ? `/login?params=${params}&error=${errParam}` : `/login?error=${errParam}`;
         return res.redirect(loginUrl);
       }
       const authData = await authResp.json();
       const apiKey = authData.api_key || authData.access_token;
       if (!apiKey) return res.status(500).send('No API key returned');
 
-      if (authData.refresh_token) refreshTokenStore[apiKey] = authData.refresh_token;
+      if (authData.refresh_token) refreshTokenStore[apiKey] = { token: authData.refresh_token, createdAt: Date.now() };
       const sessionParam = Buffer.from(apiKey).toString('base64');
 
       if (params) {
@@ -4285,6 +4301,9 @@ if (REMOTE_MODE) {
 
   // ── OAuth: Register Submit ──
   app.post('/register', async (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'register', 10)) {
+      return res.status(429).send('Too many registration attempts. Please wait a moment.');
+    }
     const { email, password, params } = req.body;
     try {
       const regResp = await fetch(`${API_URL}/api/v1/auth/register`, {
@@ -4303,7 +4322,7 @@ if (REMOTE_MODE) {
         const loginUrl = params ? `/login?params=${params}&signup_complete=1` : '/login?signup_complete=1';
         return res.redirect(loginUrl);
       }
-      if (authData.refresh_token) refreshTokenStore[apiKey] = authData.refresh_token;
+      if (authData.refresh_token) refreshTokenStore[apiKey] = { token: authData.refresh_token, createdAt: Date.now() };
       const sessionParam = Buffer.from(apiKey).toString('base64');
 
       if (params) {
@@ -4326,6 +4345,9 @@ if (REMOTE_MODE) {
 
   // ── OAuth: Check Email (proxy to avoid CORS) ──
   app.post('/check-email', async (req, res) => {
+    if (!checkRateLimit(getClientIp(req), 'check-email', 20)) {
+      return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
+    }
     try {
       const { email } = req.body;
       const resp = await fetch(`${API_URL}/api/v1/auth/check-email`, {
@@ -4399,7 +4421,7 @@ if (REMOTE_MODE) {
       if (!meResp.ok) return res.status(401).send('Invalid token');
 
       // Store refresh token
-      if (callbackRefreshToken) refreshTokenStore[token] = callbackRefreshToken;
+      if (callbackRefreshToken) refreshTokenStore[token] = { token: callbackRefreshToken, createdAt: Date.now() };
 
       // Generate MCP authorization code
       const authCode = generateCode();
@@ -4444,7 +4466,7 @@ if (REMOTE_MODE) {
     }
 
     const [apiKey, storedRefreshToken] = result;
-    if (storedRefreshToken) refreshTokenStore[apiKey] = storedRefreshToken;
+    if (storedRefreshToken) refreshTokenStore[apiKey] = { token: storedRefreshToken, createdAt: Date.now() };
 
     res.json({
       access_token: apiKey,

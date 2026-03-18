@@ -289,6 +289,11 @@
     var rg = document.getElementById('reg-pw-input');
     if (pw) pw.addEventListener('keydown', function(e) { if (e.key === 'Enter') handleSignIn(); });
     if (rg) rg.addEventListener('keydown', function(e) { if (e.key === 'Enter') handleRegister(); });
+    // Show error from redirect (e.g. failed login)
+    var urlParams = new URLSearchParams(window.location.search);
+    var errorCode = urlParams.get('error');
+    if (errorCode === 'invalid_credentials') showError('Incorrect email or password. Please try again.');
+    else if (errorCode === 'rate_limit') showError('Too many attempts. Please wait a moment.');
   });
 </script>
 </body>
