@@ -3389,11 +3389,19 @@ BEST PRACTICES:
             };
             const localHandler = localOnlyHandlers[toolName];
             if (localHandler) {
+                // In remote mode, local handlers need the user's OAuth token
+                // to make API calls. Temporarily set resolvedApiKey so makeApiCall()
+                // authenticates as the requesting user, not the server env var.
+                const prevKey = resolvedApiKey;
+                if (apiKey) resolvedApiKey = apiKey;
                 try {
                     return await localHandler(toolArgs);
                 }
                 catch (e) {
                     return { content: [{ type: 'text', text: `Error: ${e.message}` }] };
+                }
+                finally {
+                    resolvedApiKey = prevKey;
                 }
             }
             // recall_memories, get_memory_details, discover_related_conversations
