@@ -1861,21 +1861,26 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
   //   - embedding_status = 'pending' on both insert and update
   //   - processMemoryBackground() for embedding + intelligence extraction
   //   - Soft-delete revival (restores trashed memories on re-save)
+  const sessionId = readCurrentSessionId();
+  const payload: Record<string, unknown> = {
+    content,
+    title,
+    tags: [...tags, 'complete-conversation'],
+    platform: PLATFORM,
+    conversation_id: metadata.conversationId || undefined,
+    mode: metadata._mode || 'replace',
+    metadata: {
+      ...metadata,
+      captureType: 'single',
+      isComplete: true
+    }
+  };
+  // Only include session_id if it's a real string (Zod rejects null)
+  if (sessionId) payload.session_id = sessionId;
+
   const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
-    body: JSON.stringify({
-      content,
-      title,
-      tags: [...tags, 'complete-conversation'],
-      platform: PLATFORM,
-      conversation_id: metadata.conversationId || null,
-      session_id: readCurrentSessionId(),
-      metadata: {
-        ...metadata,
-        captureType: 'single',
-        isComplete: true
-      }
-    })
+    body: JSON.stringify(payload)
   });
 
   const memoryId = data.id || data.memory_id;
