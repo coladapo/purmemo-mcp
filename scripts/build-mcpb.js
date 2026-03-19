@@ -28,8 +28,9 @@ for (const rel of ['src/manifest.json', 'bundle/manifest.json']) {
   console.log(`  ✓ ${rel} → ${version}`);
 }
 
-// 2. Copy updated source files from src/ into bundle/server/
-//    Only copies .js files — does NOT touch node_modules or package.json
+// 2. Copy compiled JS from dist/ into bundle/server/
+//    Source is TypeScript (src/*.ts) → compiled by tsc → dist/*.js
+//    Does NOT touch node_modules or package.json in bundle/server/
 const filesToSync = [
   'server.js',
   'intelligent-memory.js',
@@ -40,12 +41,12 @@ const filesToSync = [
 ];
 
 for (const f of filesToSync) {
-  const src = resolve(root, 'src', f);
+  const src = resolve(root, 'dist', f);
   const dest = resolve(root, 'bundle/server', f);
   mkdirSync(dirname(dest), { recursive: true });
   copyFileSync(src, dest);
 }
-console.log(`  ✓ src/*.js → bundle/server/ synced (${filesToSync.length} files)`);
+console.log(`  ✓ dist/*.js → bundle/server/ synced (${filesToSync.length} files)`);
 
 // 3. Zip bundle/ contents flat (delete old .mcpb first to avoid stale entries)
 const mcpbPath = resolve(root, 'purmemo-mcp.mcpb');
