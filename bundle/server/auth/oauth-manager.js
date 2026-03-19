@@ -1,188 +1,173 @@
+// @ts-nocheck — OAuth CLI utility, full typing in follow-up
 /**
  * OAuth Manager for Purmemo MCP
  * Handles OAuth 2.1 + PKCE flow for seamless authentication
  */
-
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import express from 'express';
 import open from 'open';
 import { execFile } from 'child_process';
-import os from 'os';
+import * as os from 'os';
 import TokenStore from './token-store.js';
-
 class OAuthManager {
-  constructor(config = {}) {
-    this.apiUrl = config.apiUrl || process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
-    // Using chatgpt-purmemo as it's the only OAuth client configured in production
-    // TODO: Switch to 'claude-purmemo' once unified OAuth is deployed
-    this.clientId = config.clientId || 'chatgpt-purmemo';
-    this.redirectUri = config.redirectUri || 'http://localhost:3456/callback';
-    this.tokenStore = new TokenStore();
-    this.server = null;
-    this.pendingAuth = null;
-    this.platform = os.platform();
-  }
-
-  // Removed complex browser opening strategies - going manual-first
-  // The performOAuthFlow method now handles everything clearly
-
-  /**
-   * Get current authentication token
-   * @returns {Promise<string|null>} Access token or null if not authenticated
-   */
-  async getToken() {
-    // First check if we have a valid token
-    const storedToken = await this.tokenStore.getToken();
-    
-    if (storedToken && storedToken.access_token) {
-      // Check if token needs refresh (expired or close to expiry)
-      if (this.isTokenExpired(storedToken)) {
-        try {
-          return await this.refreshToken(storedToken.refresh_token);
-        } catch (error) {
-          console.error('Token refresh failed:', error.message);
-          // If refresh fails, start new OAuth flow
-          return null;
+    apiUrl;
+    clientId;
+    redirectUri;
+    tokenStore;
+    server;
+    pendingAuth;
+    platform;
+    constructor(config = {}) {
+        this.apiUrl = config.apiUrl || process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
+        this.clientId = config.clientId || 'chatgpt-purmemo';
+        this.redirectUri = config.redirectUri || 'http://localhost:3456/callback';
+        this.tokenStore = new TokenStore();
+        this.server = null;
+        this.pendingAuth = null;
+        this.platform = os.platform();
+    }
+    // Removed complex browser opening strategies - going manual-first
+    // The performOAuthFlow method now handles everything clearly
+    /**
+     * Get current authentication token
+     * @returns {Promise<string|null>} Access token or null if not authenticated
+     */
+    async getToken() {
+        // First check if we have a valid token
+        const storedToken = await this.tokenStore.getToken();
+        if (storedToken && storedToken.access_token) {
+            // Check if token needs refresh (expired or close to expiry)
+            if (this.isTokenExpired(storedToken)) {
+                try {
+                    return await this.refreshToken(storedToken.refresh_token);
+                }
+                catch (error) {
+                    console.error('Token refresh failed:', error.message);
+                    // If refresh fails, start new OAuth flow
+                    return null;
+                }
+            }
+            return storedToken.access_token;
         }
-      }
-      return storedToken.access_token;
+        // Fallback to environment variable for backwards compatibility
+        const envApiKey = process.env.PURMEMO_API_KEY;
+        if (envApiKey) {
+            console.log('📔 Using API key from environment variable');
+            return envApiKey;
+        }
+        return null;
     }
-
-    // Fallback to environment variable for backwards compatibility
-    const envApiKey = process.env.PURMEMO_API_KEY;
-    if (envApiKey) {
-      console.log('📔 Using API key from environment variable');
-      return envApiKey;
+    /**
+     * Check if token is expired or about to expire
+     */
+    isTokenExpired(token) {
+        if (!token.expires_at)
+            return false;
+        const now = Date.now();
+        const expiresAt = new Date(token.expires_at).getTime();
+        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+        return now >= (expiresAt - bufferTime);
     }
-
-    return null;
-  }
-
-  /**
-   * Check if token is expired or about to expire
-   */
-  isTokenExpired(token) {
-    if (!token.expires_at) return false;
-    
-    const now = Date.now();
-    const expiresAt = new Date(token.expires_at).getTime();
-    const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
-    
-    return now >= (expiresAt - bufferTime);
-  }
-
-  /**
-   * Start OAuth flow
-   * @returns {Promise<string>} Access token
-   */
-  async authenticate() {
-    if (this.pendingAuth) {
-      return this.pendingAuth;
+    /**
+     * Start OAuth flow
+     * @returns {Promise<string>} Access token
+     */
+    async authenticate() {
+        if (this.pendingAuth) {
+            return this.pendingAuth;
+        }
+        this.pendingAuth = this.performOAuthFlow();
+        try {
+            const token = await this.pendingAuth;
+            return token;
+        }
+        finally {
+            this.pendingAuth = null;
+        }
     }
-
-    this.pendingAuth = this.performOAuthFlow();
-    
-    try {
-      const token = await this.pendingAuth;
-      return token;
-    } finally {
-      this.pendingAuth = null;
+    /**
+     * Perform the actual OAuth flow
+     */
+    async performOAuthFlow() {
+        // Generate PKCE challenge
+        const codeVerifier = this.generateCodeVerifier();
+        const codeChallenge = this.generateCodeChallenge(codeVerifier);
+        const state = crypto.randomBytes(16).toString('hex');
+        // Build OAuth URL
+        const authUrl = new URL(`${this.apiUrl}/api/oauth/authorize`);
+        authUrl.searchParams.append('client_id', this.clientId);
+        authUrl.searchParams.append('redirect_uri', this.redirectUri);
+        authUrl.searchParams.append('response_type', 'code');
+        authUrl.searchParams.append('scope', 'memories.read memories.write entities.read');
+        authUrl.searchParams.append('state', state);
+        authUrl.searchParams.append('code_challenge', codeChallenge);
+        authUrl.searchParams.append('code_challenge_method', 'S256');
+        // MANUAL-FIRST: Show the URL BEFORE starting the server
+        console.log('\n' + '═'.repeat(70));
+        console.log('🔐 AUTHENTICATION REQUIRED');
+        console.log('═'.repeat(70));
+        console.log('');
+        console.log('Please complete authentication in your browser:');
+        console.log('');
+        console.log('📋 COPY THIS URL:');
+        console.log('─'.repeat(70));
+        console.log(authUrl.toString());
+        console.log('─'.repeat(70));
+        console.log('');
+        console.log('📱 STEPS:');
+        console.log('  1. Copy the URL above');
+        console.log('  2. Open your browser');
+        console.log('  3. Paste and press Enter');
+        console.log('  4. Sign in with Google, GitHub, or Email');
+        console.log('  5. You\'ll be redirected back automatically');
+        console.log('');
+        console.log('⏳ Waiting for you to sign in...');
+        console.log('═'.repeat(70));
+        console.log('');
+        // NOW start the callback server after showing instructions
+        const authCode = await this.startCallbackServer(state);
+        // Try to open browser quietly in background (might work, might not)
+        try {
+            if (this.platform === 'darwin') {
+                // On macOS, use execFile (not exec) to avoid shell injection vulnerabilities
+                // execFile doesn't spawn a shell, so the URL is passed as a safe argument
+                execFile('open', [authUrl.toString()], (error) => {
+                    if (!error) {
+                        console.log('✨ Browser opened automatically - check your browser tabs');
+                    }
+                    // If it fails, that's fine - user has manual instructions
+                });
+            }
+            else {
+                // Try other platforms
+                await open(authUrl.toString(), { wait: false }).catch(() => {
+                    // Silently fail - manual instructions are already shown
+                });
+            }
+        }
+        catch {
+            // Silent fail - manual instructions are primary
+        }
+        // Wait for callback with auth code
+        const code = await authCode;
+        // Exchange code for token
+        const tokenResponse = await this.exchangeCodeForToken(code, codeVerifier);
+        // Store token securely
+        await this.tokenStore.saveToken(tokenResponse);
+        console.log('✅ Authentication successful!\n');
+        return tokenResponse.access_token;
     }
-  }
-
-  /**
-   * Perform the actual OAuth flow
-   */
-  async performOAuthFlow() {
-    // Generate PKCE challenge
-    const codeVerifier = this.generateCodeVerifier();
-    const codeChallenge = this.generateCodeChallenge(codeVerifier);
-    const state = crypto.randomBytes(16).toString('hex');
-
-    // Build OAuth URL
-    const authUrl = new URL(`${this.apiUrl}/api/oauth/authorize`);
-    authUrl.searchParams.append('client_id', this.clientId);
-    authUrl.searchParams.append('redirect_uri', this.redirectUri);
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('scope', 'memories.read memories.write entities.read');
-    authUrl.searchParams.append('state', state);
-    authUrl.searchParams.append('code_challenge', codeChallenge);
-    authUrl.searchParams.append('code_challenge_method', 'S256');
-
-    // MANUAL-FIRST: Show the URL BEFORE starting the server
-    console.log('\n' + '═'.repeat(70));
-    console.log('🔐 AUTHENTICATION REQUIRED');
-    console.log('═'.repeat(70));
-    console.log('');
-    console.log('Please complete authentication in your browser:');
-    console.log('');
-    console.log('📋 COPY THIS URL:');
-    console.log('─'.repeat(70));
-    console.log(authUrl.toString());
-    console.log('─'.repeat(70));
-    console.log('');
-    console.log('📱 STEPS:');
-    console.log('  1. Copy the URL above');
-    console.log('  2. Open your browser');
-    console.log('  3. Paste and press Enter');
-    console.log('  4. Sign in with Google, GitHub, or Email');
-    console.log('  5. You\'ll be redirected back automatically');
-    console.log('');
-    console.log('⏳ Waiting for you to sign in...');
-    console.log('═'.repeat(70));
-    console.log('');
-    
-    // NOW start the callback server after showing instructions
-    const authCode = await this.startCallbackServer(state);
-    
-    // Try to open browser quietly in background (might work, might not)
-    try {
-      if (this.platform === 'darwin') {
-        // On macOS, use execFile (not exec) to avoid shell injection vulnerabilities
-        // execFile doesn't spawn a shell, so the URL is passed as a safe argument
-        execFile('open', [authUrl.toString()], (error) => {
-          if (!error) {
-            console.log('✨ Browser opened automatically - check your browser tabs');
-          }
-          // If it fails, that's fine - user has manual instructions
-        });
-      } else {
-        // Try other platforms
-        await open(authUrl.toString(), { wait: false }).catch(() => {
-          // Silently fail - manual instructions are already shown
-        });
-      }
-    } catch {
-      // Silent fail - manual instructions are primary
-    }
-
-    // Wait for callback with auth code
-    const code = await authCode;
-
-    // Exchange code for token
-    const tokenResponse = await this.exchangeCodeForToken(code, codeVerifier);
-    
-    // Store token securely
-    await this.tokenStore.saveToken(tokenResponse);
-    
-    console.log('✅ Authentication successful!\n');
-    
-    return tokenResponse.access_token;
-  }
-
-  /**
-   * Start local server to handle OAuth callback
-   */
-  startCallbackServer(expectedState) {
-    return new Promise((resolve, reject) => {
-      const app = express();
-      let resolved = false;
-
-      app.get('/callback', async (req, res) => {
-        const { code, state, error, error_description } = req.query;
-
-        if (error) {
-          res.send(`
+    /**
+     * Start local server to handle OAuth callback
+     */
+    startCallbackServer(expectedState) {
+        return new Promise((resolve, reject) => {
+            const app = express();
+            let resolved = false;
+            app.get('/callback', async (req, res) => {
+                const { code, state, error, error_description } = req.query;
+                if (error) {
+                    res.send(`
             <html>
               <head>
                 <title>Authentication Failed</title>
@@ -208,17 +193,15 @@ class OAuthManager {
               </body>
             </html>
           `);
-          
-          if (!resolved) {
-            resolved = true;
-            this.stopCallbackServer();
-            reject(new Error(`OAuth error: ${error} - ${error_description}`));
-          }
-          return;
-        }
-
-        if (state !== expectedState) {
-          res.send(`
+                    if (!resolved) {
+                        resolved = true;
+                        this.stopCallbackServer();
+                        reject(new Error(`OAuth error: ${error} - ${error_description}`));
+                    }
+                    return;
+                }
+                if (state !== expectedState) {
+                    res.send(`
             <html>
               <head><title>Security Error</title></head>
               <body style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -227,17 +210,15 @@ class OAuthManager {
               </body>
             </html>
           `);
-          
-          if (!resolved) {
-            resolved = true;
-            this.stopCallbackServer();
-            reject(new Error('OAuth state mismatch'));
-          }
-          return;
-        }
-
-        // Success response
-        res.send(`
+                    if (!resolved) {
+                        resolved = true;
+                        this.stopCallbackServer();
+                        reject(new Error('OAuth state mismatch'));
+                    }
+                    return;
+                }
+                // Success response
+                res.send(`
           <html>
             <head>
               <title>Authentication Successful</title>
@@ -267,142 +248,120 @@ class OAuthManager {
             </body>
           </html>
         `);
-
-        if (!resolved) {
-          resolved = true;
-          this.stopCallbackServer();
-          resolve(code);
+                if (!resolved) {
+                    resolved = true;
+                    this.stopCallbackServer();
+                    resolve(code);
+                }
+            });
+            // Start server
+            this.server = app.listen(3456, () => {
+                console.log('🌐 Waiting for authentication callback...\n');
+            });
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    this.stopCallbackServer();
+                    reject(new Error('Authentication timeout'));
+                }
+            }, 5 * 60 * 1000);
+        });
+    }
+    /**
+     * Stop the callback server
+     */
+    stopCallbackServer() {
+        if (this.server) {
+            this.server.close();
+            this.server = null;
         }
-      });
-
-      // Start server
-      this.server = app.listen(3456, () => {
-        console.log('🌐 Waiting for authentication callback...\n');
-      });
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          this.stopCallbackServer();
-          reject(new Error('Authentication timeout'));
+    }
+    /**
+     * Exchange authorization code for access token
+     */
+    async exchangeCodeForToken(code, codeVerifier) {
+        const response = await fetch(`${this.apiUrl}/api/oauth/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'purmemo-mcp/2.0.0'
+            },
+            body: JSON.stringify({
+                grant_type: 'authorization_code',
+                code,
+                client_id: this.clientId,
+                redirect_uri: this.redirectUri,
+                code_verifier: codeVerifier
+            })
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Token exchange failed: ${error}`);
         }
-      }, 5 * 60 * 1000);
-    });
-  }
-
-  /**
-   * Stop the callback server
-   */
-  stopCallbackServer() {
-    if (this.server) {
-      this.server.close();
-      this.server = null;
+        const tokenData = await response.json();
+        // Add expiry time
+        if (tokenData.expires_in) {
+            tokenData.expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+        }
+        // Store user tier info
+        if (tokenData.user) {
+            tokenData.user_tier = tokenData.user.tier || 'free';
+            tokenData.memory_limit = tokenData.user.tier === 'pro' ? null : 100;
+        }
+        return tokenData;
     }
-  }
-
-  /**
-   * Exchange authorization code for access token
-   */
-  async exchangeCodeForToken(code, codeVerifier) {
-    const response = await fetch(`${this.apiUrl}/api/oauth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'purmemo-mcp/2.0.0'
-      },
-      body: JSON.stringify({
-        grant_type: 'authorization_code',
-        code,
-        client_id: this.clientId,
-        redirect_uri: this.redirectUri,
-        code_verifier: codeVerifier
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token exchange failed: ${error}`);
+    /**
+     * Refresh access token
+     */
+    async refreshToken(refreshToken) {
+        if (!refreshToken) {
+            throw new Error('No refresh token available');
+        }
+        console.log('🔄 Refreshing authentication token...');
+        const response = await fetch(`${this.apiUrl}/api/auth/refresh`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'purmemo-mcp/2.0.0'
+            },
+            body: JSON.stringify({
+                refresh_token: refreshToken
+            })
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Token refresh failed: ${error}`);
+        }
+        const tokenData = await response.json();
+        // Add expiry time
+        if (tokenData.expires_in) {
+            tokenData.expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+        }
+        // Store refreshed token
+        await this.tokenStore.saveToken(tokenData);
+        console.log('✅ Token refreshed successfully');
+        return tokenData.access_token;
     }
-
-    const tokenData = await response.json();
-    
-    // Add expiry time
-    if (tokenData.expires_in) {
-      tokenData.expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+    /**
+     * Clear stored authentication
+     */
+    async logout() {
+        await this.tokenStore.clearToken();
+        console.log('👋 Logged out successfully');
     }
-
-    // Store user tier info
-    if (tokenData.user) {
-      tokenData.user_tier = tokenData.user.tier || 'free';
-      tokenData.memory_limit = tokenData.user.tier === 'pro' ? null : 100;
+    /**
+     * Generate PKCE code verifier
+     */
+    generateCodeVerifier() {
+        return crypto.randomBytes(32).toString('base64url');
     }
-
-    return tokenData;
-  }
-
-  /**
-   * Refresh access token
-   */
-  async refreshToken(refreshToken) {
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
+    /**
+     * Generate PKCE code challenge from verifier
+     */
+    generateCodeChallenge(verifier) {
+        return crypto.createHash('sha256').update(verifier).digest('base64url');
     }
-
-    console.log('🔄 Refreshing authentication token...');
-
-    const response = await fetch(`${this.apiUrl}/api/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'purmemo-mcp/2.0.0'
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token refresh failed: ${error}`);
-    }
-
-    const tokenData = await response.json();
-    
-    // Add expiry time
-    if (tokenData.expires_in) {
-      tokenData.expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
-    }
-
-    // Store refreshed token
-    await this.tokenStore.saveToken(tokenData);
-    
-    console.log('✅ Token refreshed successfully');
-    
-    return tokenData.access_token;
-  }
-
-  /**
-   * Clear stored authentication
-   */
-  async logout() {
-    await this.tokenStore.clearToken();
-    console.log('👋 Logged out successfully');
-  }
-
-  /**
-   * Generate PKCE code verifier
-   */
-  generateCodeVerifier() {
-    return crypto.randomBytes(32).toString('base64url');
-  }
-
-  /**
-   * Generate PKCE code challenge from verifier
-   */
-  generateCodeChallenge(verifier) {
-    return crypto.createHash('sha256').update(verifier).digest('base64url');
-  }
 }
-
 export default OAuthManager;
+//# sourceMappingURL=oauth-manager.js.map

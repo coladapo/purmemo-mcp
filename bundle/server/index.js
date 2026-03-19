@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /**
- * PUO Memo MCP Server - Entry Point
+ * pūrmemo MCP Server - Entry Point
  */
 import('./server.js');
+export {};
+//# sourceMappingURL=index.js.map
