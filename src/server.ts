@@ -1867,7 +1867,7 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
     title,
     tags: [...tags, 'complete-conversation'],
     platform: PLATFORM,
-    conversation_id: metadata.conversationId || undefined,
+    conversation_id: metadata.conversationId || null,
     mode: metadata._mode || 'replace',
     metadata: {
       ...metadata,
