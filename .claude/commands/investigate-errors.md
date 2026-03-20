@@ -90,10 +90,55 @@ save_investigation_result({
 })
 ```
 
-### Step 9: Verify Deployment
+### Step 9: Save Fix Pattern to Purmemo (Learning Layer)
+Call `save_conversation` (via `mcp__purmemo-local__save_conversation`) with a structured fix pattern so future `/investigate-errors` sessions find it via `recall_memories`:
+
+```
+save_conversation({
+  title: "Fix Pattern - <ErrorClassName>: <short description>",
+  conversationId: "fix-pattern-<error-hash-or-slug>",
+  tags: ["fix-pattern", "error-resolution", "<error-class>", "<source-service>"],
+  priority: "high",
+  conversationContent: """
+=== FIX PATTERN ===
+
+ERROR CLASS: <ErrorClassName>
+ERROR MESSAGE: <normalized error message>
+SOURCE: <api|worker|mcp>
+FIRST SEEN: <date>
+OCCURRENCES BEFORE FIX: <N>
+
+ROOT CAUSE:
+<your root cause analysis>
+
+FIX APPLIED:
+Files changed:
+- <file_path:line_number>: <what changed>
+
+COMMIT: <hash>
+CONFIDENCE: <0.0-1.0>
+RISK: <low|medium|high>
+
+TEST PLAN USED:
+<how it was tested>
+
+ROLLBACK:
+<rollback steps>
+
+RESULT: Fixed ✓
+=== END FIX PATTERN ===
+  """
+})
+```
+
+**Why this matters:** The title format `Fix Pattern - ErrorClass: description` means next time the same error class appears, `recall_memories("ErrorClassName fix")` finds this immediately. No investigation needed — go straight to the fix.
+
+**Use a consistent conversationId slug** (e.g. `fix-pattern-jwt-expiredsignatureerror`) so re-runs of the same error *update* the pattern rather than creating duplicates.
+
+### Step 10: Verify Deployment
 1. Check deployment status on Render
 2. Verify the error is no longer occurring
-3. Report back to user: "Fix deployed successfully!"
+3. Report back to user: "Fix deployed and pattern saved to memory!"
 
 ## Important Notes
 
@@ -101,7 +146,9 @@ save_investigation_result({
 - **Be transparent** - Show all your research and reasoning
 - **Ask questions** - If unclear, ask the user for clarification
 - **Test thoroughly** - Run all tests before deploying
-- **Document everything** - save_investigation_result creates an audit trail for learning
+- **Document everything** - save_investigation_result creates a DB audit trail; save_conversation creates a searchable Purmemo memory
+- **Use consistent fix pattern titles** - `Fix Pattern - ErrorClass: description` so recall_memories finds them semantically next time
+- **Same error again?** - Check recall_memories FIRST at Step 3 before investigating — if a fix pattern exists, skip to the fix directly
 
 ## Example Session
 

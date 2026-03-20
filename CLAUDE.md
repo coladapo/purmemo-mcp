@@ -91,6 +91,24 @@ This approach minimizes trial-and-error debugging by ensuring you have the best 
 **Prevents:** Security vulnerabilities, technical debt, incomplete documentation
 **Creates:** Safer, higher-quality commits with documented reviews
 
+## Cross-Repo Auth Tests (CRITICAL)
+
+**Before ANY change to login, OAuth, extension sign-in, or token delivery code, run `/test ext:auth`.**
+
+The Chrome extension sign-in flow spans 4 codebases. These 42 tests verify the contracts between them:
+
+| Command | What it tests | When to run |
+|---------|--------------|-------------|
+| `/test ext:auth` | All 42 cross-repo auth tests | Before ANY auth change |
+| `/test ext:urls` | Extension URL params (popup, ext_id) | After extension code changes |
+| `/test ext:oauth` | Backend OAuth redirect params | After backend OAuth changes |
+| `/test ext:flow` | Frontend login/callback behavior | After frontend login changes |
+
+**Test locations:**
+- Extension: `chrome ext/chrome-extension-production/tests/signin-url-contracts.test.js` (24 tests)
+- Backend: `purmemo-api/src/__tests__/oauth-redirect.test.ts` (10 tests)
+- Frontend: `v1-mvp/frontend/e2e/auth-signin-flow.spec.ts` (8 tests)
+
 ## Pre-Deployment Checklist
 
 **Before deploying to production (Render/Supabase), use `/deploy`** which:

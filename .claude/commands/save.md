@@ -45,22 +45,23 @@ The system automatically detects whether this is a FIRST SAVE or an UPDATE:
    - Use consistent titles so updates work properly
 
 3. **Call save_conversation** with:
-   - `conversationContent`: COMPLETE conversation (ALL messages verbatim, ALL code blocks)
+   - `conversationContent`: Session notes (key decisions, accomplishments, code changes, learnings)
    - `title`: The intelligent title you generated
    - `tags`: Relevant tags (e.g., ["purmemo", "mcp", "setup"])
    - `conversationId`: OPTIONAL - only provide if you want explicit control (otherwise auto-generated from title)
+   - `mode`: **"append"** — adds new content below existing content instead of replacing it
 
 4. **Important rules**:
    - Include MINIMUM 500 characters (should be thousands)
-   - Include EVERY user message verbatim
-   - Include EVERY assistant response completely
-   - Include ALL code blocks with full syntax
-   - Use format: `=== CONVERSATION START ===` then message history
-   - If continuing same topic, use SAME title to trigger update
+   - **ALWAYS pass `mode: "append"`** — this grows the memory over time instead of overwriting it
+   - Use format: `=== SESSION TITLE ===` then key content
+   - If continuing same topic, use SAME title to trigger append to existing memory
+   - Each save adds to the memory — nothing is ever lost
 
 The tool automatically:
 - Detects if memory exists with that conversation_id
-- UPDATES existing memory (not creating duplicate)
+- **APPENDS** new content below existing content (with timestamp separator)
+- Re-generates embedding on the full combined content (all saves searchable)
 - Extracts project context, progress indicators, relationships
 - Chunks large conversations (>15K chars) automatically
 - Generates smart metadata and tags

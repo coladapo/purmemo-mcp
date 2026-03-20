@@ -126,152 +126,94 @@ grep -rn "\b[0-9]{3,}\b" --include="*.{js,ts,py}" . | grep -v "test\|spec"
 - Are edge cases handled?
 - Is the code DRY (Don't Repeat Yourself)?
 
-### Step 4: Test Coverage Check
+### Step 4: Run Backend Tests (purmemo-api)
 
-**Run existing tests:**
+**Run the full TypeScript backend test suite:**
 ```bash
-# Run tests based on project type
-npm test || pytest || go test -v || mvn test || echo "No test command found"
-
-# Check test coverage if available
-npm run test:coverage || pytest --cov || go test -cover || echo "No coverage command found"
+cd /Users/wivak/puo-jects/____active/purmemo-api && npx vitest run --reporter=verbose
 ```
 
-**Check for missing tests:**
+This runs 121 contract tests in <1 second covering: auth flows, memory CRUD, MCP tools, search, identity, dashboard, users, API keys, middleware, caching, and hashing.
 
-Use Grep to find files without corresponding tests:
-```bash
-# Find source files
-find src -name "*.js" -o -name "*.ts" | grep -v ".test\|.spec" | sort > /tmp/source_files.txt
+**Map changed files to targeted tests:**
 
-# Find test files
-find . -name "*.test.*" -o -name "*.spec.*" | sort > /tmp/test_files.txt
+| Changed File Pattern | Run Tests | Command |
+|---------------------|-----------|---------|
+| `src/routes/auth.ts` | Auth tests | `npx vitest run src/__tests__/routes/auth.test.ts` |
+| `src/routes/memories.ts` | Memory tests | `npx vitest run src/__tests__/routes/memories.test.ts` |
+| `src/routes/mcp.ts` | MCP tests | `npx vitest run src/__tests__/routes/mcp.test.ts` |
+| `src/routes/search.ts` | Search tests | `npx vitest run src/__tests__/routes/search.test.ts` |
+| `src/routes/identity.ts` | Identity tests | `npx vitest run src/__tests__/routes/identity.test.ts` |
+| `src/routes/dashboard.ts` | Dashboard tests | `npx vitest run src/__tests__/routes/dashboard.test.ts` |
+| `src/routes/users.ts` | User tests | `npx vitest run src/__tests__/routes/users.test.ts` |
+| `src/routes/api-keys.ts` | API key tests | `npx vitest run src/__tests__/routes/api-keys.test.ts` |
+| `src/middleware/*` | Middleware tests | `npx vitest run src/__tests__/middleware/` |
+| `src/lib/*` | Unit tests | `npx vitest run src/__tests__/unit/` |
+| Multiple areas | Full suite | `npx vitest run` |
 
-# Compare (manual check if source files have tests)
-# Look for new functions/classes that need tests
-grep -rn "function\|class\|def " --include="*.{js,ts,py}" src/ | grep -v "test\|spec"
+### Step 4b: Regression Test Check (Bug Fixes)
+
+**If the commit is a bug fix, check that a regression test was included.**
+
+Look at the diff. If the fix changes a response shape, field name, status code, query parameter handling, or error behavior — there MUST be a corresponding test that would have failed before the fix.
+
+**If no regression test exists:**
+```
+MISSING REGRESSION TEST
+
+This commit fixes a bug (response field "results" renamed to "memories")
+but no test was added to prevent re-introduction.
+
+Add to: src/__tests__/routes/mcp.test.ts
+Test: "recall_memories response uses 'memories' key not 'results'"
+
+The test should fail if the bug is re-introduced.
 ```
 
-**Test quality questions:**
-- Do new features have tests?
-- Are edge cases tested?
-- Are error cases tested?
-- Do tests actually test the functionality (not just pass)?
+**Where to add regression tests:**
 
-### Step 4b: Autonomous Safety System Tests (Purmemo Backend Only)
+| Bug Category | Test File |
+|-------------|-----------|
+| Auth response shape, JWT, 401 behavior | `src/__tests__/routes/auth.test.ts` |
+| Memory CRUD, field names, upsert | `src/__tests__/routes/memories.test.ts` |
+| MCP tool field names, dispatcher, quota | `src/__tests__/routes/mcp.test.ts` |
+| Search/recall filters, response format | `src/__tests__/routes/search.test.ts` |
+| Identity session behavior | `src/__tests__/routes/identity.test.ts` |
+| Dashboard endpoint shape | `src/__tests__/routes/dashboard.test.ts` |
+| User routes, API key generation | `src/__tests__/routes/users.test.ts` |
+| API key CRUD | `src/__tests__/routes/api-keys.test.ts` |
+| Error handling (Zod, 409, 404) | `src/__tests__/middleware/error-handler.test.ts` |
+| Pure functions (cache, hash) | `src/__tests__/unit/` |
 
-**For Purmemo backend** (`/Users/wivak/puo-jects/____active/purmemo/v1-mvp/backend`), automatically run relevant tests from the 124-test Autonomous Safety System:
-
-**1. Detect changed files:**
-```bash
-# Get list of changed files
-git diff --name-only HEAD
-```
-
-**2. Map files to test phases:**
-
-Use this intelligent mapping:
-
-| Changed File Pattern | Run Tests | Rationale |
-|---------------------|-----------|-----------|
-| `app/services/event_publisher.py` | Phase 2 (Redis + SQS) | Event publishing integration |
-| `app/services/embeddings.py` | Phase 1 + Phase 3 | API contracts + performance |
-| `app/services/redis_client.py` | Phase 2 | Redis integration |
-| `app/services/*` | Phase 2 | Integration tests |
-| `app/routers/memories.py` | Phase 1 + DB constraints | API + data integrity |
-| `app/routers/auth.py` | Phase 1 (auth flows) | Security critical |
-| `app/routers/*` | Phase 1 | API contracts |
-| `app/middleware/*` | Phase 2 | Integration layer |
-| `app/schemas/*` | Phase 1 | API contracts |
-| `tests/test_*.py` | Modified test file | Self-test |
-| Multiple areas | `/test quick` (Phase 1+2) | Broad impact |
-| Performance-sensitive | Include Phase 3 | Regression detection |
-
-**3. Run targeted tests:**
-
-```bash
-cd /Users/wivak/puo-jects/____active/purmemo/v1-mvp/backend
-source venv/bin/activate
-
-# Based on mapping above, run appropriate tests:
-
-# Phase 1: API + Auth + Embeddings (65 tests, ~15 sec)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py -v --tb=short
-
-# Phase 2: Redis + SQS + Database (47 tests, ~20 sec)
-pytest tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py -v --tb=short
-
-# Phase 3: Performance Benchmarks (12 tests, ~47 sec)
-pytest tests/test_performance_benchmarks.py -v --tb=short
-
-# Quick (Phase 1 + 2 - RECOMMENDED for most commits) (112 tests, ~35 sec)
-pytest tests/test_api_contracts.py tests/test_auth_flows.py tests/test_embeddings_service.py tests/test_redis_integration.py tests/test_sqs_publishing.py tests/test_database_constraints_v2.py -v --tb=short
-```
-
-**4. Recall past test failures:**
-
-Before running tests, use purmemo to recall similar past failures:
-```bash
-recall_memories(query="test failures pytest purmemo backend")
-recall_memories(query="FK constraint violations tests")
-recall_memories(query="boto3 mocking SQS tests")
-```
-
-**5. Report test results in review:**
+### Step 4c: Report Test Results
 
 **If all tests pass:**
 ```
-## 🧪 AUTONOMOUS SAFETY SYSTEM TESTS
-✅ Phase 1 (API + Auth + Embeddings): 65/65 passing
-✅ Phase 2 (Redis + SQS + Database): 47/47 passing
-⏱️  Total runtime: 33.7 seconds
+## BACKEND TESTS
+121/121 passing (<1s)
 
-All Autonomous Safety System tests passing - safe to commit
+All contract tests passing - safe to commit
 ```
 
 **If tests fail:**
 ```
-## 🧪 AUTONOMOUS SAFETY SYSTEM TESTS
-❌ Phase 2 (Redis + SQS + Database): 46/47 passing (98%)
-⏱️  Runtime: 18.4 seconds
+## BACKEND TESTS
+120/121 passing (99%)
 
-🔴 BLOCKER: 1 test failure must be fixed before commit
+BLOCKER: 1 test failure must be fixed before commit
 
-Failed Test: test_redis_connection_pool_exhaustion
-Error: Connection pool timeout after 10 seconds
-File: tests/test_redis_integration.py:285
+Failed: mcp.test.ts > save_conversation contracts > accepts content field name
+Error: Expected status 200, received 500
+File: src/__tests__/routes/mcp.test.ts:45
 
-🧠 Pattern Detected (from purmemo):
-This is a known connection pool issue. Tests under heavy load can exhaust pool.
-
-💡 Suggested Fix:
-Check Redis connection pool size in config:
-- Current: redis_pool_size = 10
-- Recommended: redis_pool_size = 20 (for production load)
-
-Reference: tests/test_redis_integration.py:285-302
-Similar fix: PHASE_3_PERFORMANCE_BENCHMARKS_COMPLETE.md (connection pool behavior)
+Pattern: Field name mismatch — route reads args.conversationContent but
+MCP client sends args.content. Accept both: (args.conversationContent ?? args.content)
 ```
 
-**6. Commit decision based on test results:**
-
-- **All tests pass** → ✅ SAFE TO COMMIT
-- **Non-critical tests fail** → ⚠️ REVIEW FAILURES (fix or document why committing)
-- **Critical tests fail** → 🛑 BLOCK COMMIT (must fix)
-
-**Critical tests (must pass):**
-- Database constraint tests (`test_database_constraints_v2.py`) - data integrity
-- Authentication tests (`test_auth_flows.py`) - security
-- Performance regression tests (>50% degradation) - user experience
-
-**7. Intelligent error reporting:**
-
-For failures, provide:
-- Failed test name + error message
-- Pattern detection (recall from purmemo)
-- Suggested fix with code example
-- Reference to file/line where fix needed
-- Link to similar past fixes
+**Commit decision:**
+- **All tests pass** → SAFE TO COMMIT
+- **Test fails** → BLOCK COMMIT (fix first)
+- **Bug fix without regression test** → WARNING (add test before committing)
 
 ### Step 5: Documentation Review
 

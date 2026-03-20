@@ -1,111 +1,144 @@
 # Workflow System Help
 
-Display comprehensive help for all available workflow commands in the Purmemo project.
+Display the complete command reference for the Purmemo AI-Native Founder OS.
 
-## Available Workflows
-
-### 🚀 Session & Context Management
-
-**`/context`** - Session Startup & Project State
-- **Purpose:** Get comprehensive project context after time away
-- **When to use:** Start of every session, returning to project after break
-- **What it does:** Recalls memories → Git status → Pending TODOs → Build/test status → Comprehensive report
-- **Example:** `/context`
-
-**`/save`** - Intelligent Conversation Saving
-- **Purpose:** Save or update conversations using living document pattern
-- **When to use:** "Save progress", end of session, after milestones
-- **What it does:** Auto-detects first save vs update, extracts project context, chunks if needed
-- **Example:** `/save` (auto-generates intelligent title)
+**Don't know which command to use? Start with `/os [describe your goal]`**
 
 ---
 
-### 🔍 Research & Planning
+## 58 COMMANDS ACROSS 10 DOMAINS
 
-**`/research`** - Pre-Implementation Research
-- **Purpose:** Gather context and best practices BEFORE coding
-- **When to use:** Starting new feature, unfamiliar technology, complex implementation
-- **What it does:** Recalls memories → Plans with krawlr_think → Searches with AI → Gets library docs → Research brief
-- **Example:** `/research implement authentication with Supabase`
+### ENGINEERING (9)
+| Command | What it does |
+|---------|-------------|
+| `/health` | Stack health check — API, MCP, Render, Supabase |
+| `/sprint` | Sprint planning, daily standup, unblock |
+| `/feature` | Full feature pipeline: spec → build → test → ship |
+| `/chrome-build` | Chrome extension build + release |
+| `/desktop-build` | Electron desktop app build + release |
+| `/release-notes` | Generate changelog from git log |
+| `/mcp-sync` | MCP config drift detection |
+| `/api-types` | FastAPI → TypeScript type sync |
+| `/cws-submit` | Chrome Web Store submission blocker tracker |
 
-**`/decide`** - Architecture Decision Records (ADRs)
-- **Purpose:** Make and document architectural decisions with research
-- **When to use:** Database selection, framework choices, architecture patterns, major refactors
-- **What it does:** Recalls past decisions → Researches options → Creates ADR → Saves to purmemo
-- **Example:** `/decide which database to use for production: PostgreSQL vs MongoDB`
+### DESIGN & FRONTEND (5)
+| Command | What it does |
+|---------|-------------|
+| `/design` | Senior UX Engineer — pixel-perfect, accessible, dark glassmorphic |
+| `/component` | Component Engineer — isolation, props, variants |
+| `/v0` | Design-system-aware prompt generator for v0.dev |
+| `/animate` | Motion Design Engineer — Motion library, reduced motion |
+| `/audit-ui` | Design quality inspector — before any ship |
+
+### PRODUCT (5)
+| Command | What it does |
+|---------|-------------|
+| `/prd` | Product Requirements Document — senior PM |
+| `/story` | RICE-scored user stories |
+| `/roadmap` | CPO roadmap — now/next/later |
+| `/retro` | Sprint retrospective — agile coach |
+| `/onboarding-flow` | Activation funnel designer for morphing cluster system |
+
+### BUSINESS INTELLIGENCE (5)
+| Command | What it does |
+|---------|-------------|
+| `/ceo` | Strategic advisor — RICE, Ansoff, two-door decisions |
+| `/cfo` | Financial analyst — MRR, ARR, runway, unit economics |
+| `/growth` | Head of growth — bowtie model, ICE experiments |
+| `/metrics` | Weekly SaaS dashboard — all key numbers |
+| `/cost-audit` | Infrastructure cost optimizer |
+
+### CUSTOMER & GROWTH (7)
+| Command | What it does |
+|---------|-------------|
+| `/funnel` | Conversion funnel analysis — find the leaks |
+| `/ab-test` | Experiment design + statistical analysis |
+| `/feedback` | User feedback synthesizer — all sources → themes |
+| `/user` | Voice of customer — personas, JTBD, interviews |
+| `/support` | Customer support triage |
+| `/launch` | Product Hunt + HN launch coordinator |
+| `/social` | Twitter/X threads, LinkedIn, developer content |
+
+### CONTENT & BRAND (4)
+| Command | What it does |
+|---------|-------------|
+| `/copy` | Senior copywriter — PAS/AIDA/BAB, brand voice |
+| `/content` | Thought leadership + developer content strategy |
+| `/changelog` | Marketing changelog for users |
+| `/narrative` | Positioning + messaging coherence audit |
+
+### OPERATIONS (5)
+| Command | What it does |
+|---------|-------------|
+| `/incident` | Production incident commander |
+| `/migrate` | Database migration orchestrator |
+| `/rotate-secrets` | Credentials and API key rotation |
+| `/legal` | GDPR/CCPA compliance + data subject requests |
+| `/sow` | Statement of work + contractor IP management |
+
+### STRATEGIC INTELLIGENCE (6)
+| Command | What it does |
+|---------|-------------|
+| `/intel` | Daily AI landscape intelligence briefing |
+| `/mcp-ecosystem` | MCP protocol ecosystem tracker |
+| `/tos-watch` | Platform TOS monitor — Anthropic/OpenAI/Google |
+| `/moat` | Competitive moat assessment (5 moat tests) |
+| `/partner` | BD + platform partnerships pipeline |
+| `/investors` | Fundraising CRM + investor relationship management |
+
+### FOUNDER RHYTHM (4)
+| Command | What it does |
+|---------|-------------|
+| `/reflect` | Weekly co-founder session — 7 honest questions |
+| `/week` | Monday startup + Friday shutdown ritual |
+| `/pitch` | Investor relations + fundraising materials |
+| `/dogfood` | Self-usage audit — are you using your own product? |
+
+### NAVIGATION & MEMORY (9)
+| Command | What it does |
+|---------|-------------|
+| `/os` | **Intelligent dispatch — describe your goal, get a workflow** |
+| `/context` | Session startup + project context loader |
+| `/save` | Intelligent conversation saving (living documents) |
+| `/research` | Pre-implementation research workflow |
+| `/debug` | Structured debugging workflow |
+| `/review` | Pre-commit security + quality review |
+| `/deploy` | Pre-deployment checklist |
+| `/decide` | Architecture Decision Records (ADRs) |
+| `/investigate-errors` | Error resolution from admin panel |
 
 ---
 
-### 🐛 Debugging & Problem Solving
+## WORKFLOW CHAINS
 
-**`/debug`** - Structured Debugging Workflow
-- **Purpose:** Debug errors with research and context
-- **When to use:** Encountering bugs, unclear error messages, stuck on problem
-- **What it does:** Recalls similar issues → Plans with krawlr_think → Researches solutions → Gets docs → Debug brief → Documents fix
-- **Example:** `/debug TypeError: Cannot read property 'map' of undefined in Timeline component`
+**Ship a feature**: `/prd` → `/story` → `/feature` → `/test` → `/review` → `/deploy` → `/changelog` → `/social`
 
----
+**Fix a bug**: `/debug` → `/test` → `/review` → `/deploy`
 
-### ✅ Quality & Deployment
+**Weekly Monday**: `/intel` → `/mcp-ecosystem` → `/metrics` → `/health` → `/week monday` → `/sprint`
 
-**`/review`** - Pre-Commit Security & Quality Checks
-- **Purpose:** Comprehensive security and quality review before committing
-- **When to use:** Before every commit (make it a habit!)
-- **What it does:** Security scan (SQL injection, XSS, secrets) → Code quality → Tests → Documentation → Dependencies → Review report → Saves audit trail
-- **Example:** `/review`
+**Weekly Friday**: `/reflect` → `/week friday` → `/save`
 
-**`/deploy`** - Pre-Deployment Checklist
-- **Purpose:** Safe deployment to Render/Supabase with comprehensive checks
-- **When to use:** Before every production deployment
-- **What it does:** Tests → Env vars → Logs → DB migrations → Build → Security → Rollback plan → Deploy → Verify → Document
-- **Example:** `/deploy to production`
+**Grow activation**: `/funnel` → `/onboarding-flow` → `/ab-test` → `/user`
+
+**Launch to PH/HN**: `/audit-ui` → `/funnel` → `/launch` → `/social`
+
+**Raise money**: `/metrics` → `/cfo` → `/investors` → `/pitch`
+
+**Security sweep**: `/rotate-secrets` → `/tos-watch` → `/legal`
+
+**Not sure**: `/os [describe your goal]`
 
 ---
 
-## Quick Start Guide
+## MCP Integrations
 
-### New Session
-```
-/context                    # Get project state
-/research [task]            # Research before implementing
-```
-
-### During Development
-```
-/debug [error]             # Debug with context
-/decide [decision]         # Make architectural decision
-```
-
-### Before Commit/Deploy
-```
-/review                    # Security & quality check
-/deploy                    # Safe production deployment
-/save                      # Save progress
-```
+- **Purmemo MCP** — memory recall, saving, error investigation
+- **Krawlr MCP** — krawlr_think, search_web_ai, scrape_url
+- **Context7 MCP** — library docs (FastAPI, Next.js, Electron, Motion, etc.)
+- **Render MCP** — service status, logs, deploys, metrics
+- **Supabase MCP** — migrations, advisors, SQL, TypeScript types
 
 ---
 
-## Workflow Integration
-
-All workflows integrate with:
-- **Purmemo MCP** - Memory recall and saving
-- **Krawlr MCP** - Web research with AI (search_web_ai, krawlr_think)
-- **Context7 MCP** - Library documentation
-- **Render MCP** - Service management, logs
-- **Supabase MCP** - Database, migrations, advisors
-
-See `CLAUDE.md` for detailed workflow instructions and best practices.
-
----
-
-## Tips
-
-💡 **Make it a habit:** Use `/context` every session, `/review` before commits, `/deploy` before production
-💡 **Save often:** Use `/save` to build knowledge base of your work
-💡 **Research first:** Use `/research` and `/decide` to avoid unnecessary debugging
-💡 **Document bugs:** `/debug` automatically saves solutions for future reference
-
----
-
-**Total Workflows:** 7 commands, 1,538 lines of workflow automation
-**Documentation:** See `.claude/README.md` and `CLAUDE.md`
+**58 commands. One OS. Use `/os` when you don't know where to start.**
