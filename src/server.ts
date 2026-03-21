@@ -1171,6 +1171,150 @@ Returns the full catalog of workflows organized by category with descriptions.`,
       required: []
     }
   },
+  // Sharing & Community tools (Migration 068)
+  {
+    name: 'share_memory',
+    annotations: {
+      title: 'Share Memory',
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Set the visibility of a memory you own.
+
+VISIBILITY LEVELS:
+- private: Only you can see it (default)
+- unlisted: Anyone with the direct link can view it
+- public: Discoverable in the community tab by all users
+
+WHEN TO USE:
+- User says "share this memory" or "make this public"
+- User wants to share knowledge with the community
+- User wants to generate a shareable link
+
+QUOTA:
+- Free tier: 5 shares/month
+- Pro/Teams: Unlimited
+
+EXAMPLE:
+share_memory({ memory_id: "abc-123", visibility: "public" })
+
+RETURNS: Updated visibility status and confirmation message.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        memory_id: {
+          type: 'string',
+          description: 'UUID of the memory to share'
+        },
+        visibility: {
+          type: 'string',
+          enum: ['private', 'unlisted', 'public'],
+          description: 'Target visibility level'
+        }
+      },
+      required: ['memory_id', 'visibility']
+    }
+  },
+  {
+    name: 'recall_public',
+    annotations: {
+      title: 'Search Public Memories',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Search public memories shared by all Purmemo users. This is the community knowledge base.
+
+WHEN TO USE:
+- User asks "what have other people saved about X?"
+- User wants to explore community knowledge
+- User asks to search public/shared memories
+- Looking for solutions others have found
+
+DOES NOT COUNT AGAINST RECALL QUOTA — public knowledge is free.
+
+FILTERS:
+- query: Semantic search query (uses vector similarity)
+- tag: Filter by tag
+- platform: Filter by source platform
+- sort: "recent" or "popular" (by recall count)
+
+EXAMPLE:
+recall_public({ query: "MCP server testing best practices" })
+
+RETURNS: List of public memories with author attribution, relevance scores, and recall counts.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query for semantic search across public memories'
+        },
+        tag: {
+          type: 'string',
+          description: 'Filter by tag'
+        },
+        platform: {
+          type: 'string',
+          description: 'Filter by source platform (chatgpt, claude, gemini, etc.)'
+        },
+        sort: {
+          type: 'string',
+          enum: ['recent', 'popular'],
+          description: 'Sort order: recent (newest first) or popular (most recalled first)'
+        },
+        page: {
+          type: 'number',
+          description: 'Page number (default 1)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'report_memory',
+    annotations: {
+      title: 'Report Public Memory',
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Report a public memory for inappropriate content.
+
+WHEN TO USE:
+- User encounters spam, misleading, or inappropriate public content
+- User wants to flag content that contains personal information
+
+REASONS: spam, inappropriate, misleading, personal_info, other
+
+After 3 reports, a memory is automatically hidden from public view pending admin review.
+
+EXAMPLE:
+report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional content" })`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        memory_id: {
+          type: 'string',
+          description: 'UUID of the public memory to report'
+        },
+        reason: {
+          type: 'string',
+          enum: ['spam', 'inappropriate', 'misleading', 'personal_info', 'other'],
+          description: 'Reason for reporting'
+        },
+        description: {
+          type: 'string',
+          description: 'Optional additional details about the report'
+        }
+      },
+      required: ['memory_id', 'reason']
+    }
+  },
   // Admin-only tools — only included when PURMEMO_ADMIN=1
   ...(ADMIN_MODE ? [{
     name: 'get_acknowledged_errors',
@@ -1364,9 +1508,14 @@ KEY PATTERNS:
 - Intelligent Extraction: save_conversation auto-extracts project context, technologies, status, and generates smart titles.
 - Quality Filtering: Use has_observations=true to find substantial technical discussions; entity="name" for specific topics.
 
+COMMUNITY & SHARING:
+5. share_memory — Make a memory public or unlisted. Public memories appear in the community tab.
+6. recall_public — Search public memories from ALL users. Free for all tiers — does not count against quota.
+7. report_memory — Flag inappropriate public content. 3+ reports auto-hides until admin review.
+
 WORKFLOWS:
-5. run_workflow — Run memory-powered workflows (PRD, debug, sprint, growth, etc). Describe what you need or name a specific workflow. Memories and identity are pre-loaded automatically.
-6. list_workflows — See all available workflows organized by category.
+8. run_workflow — Run memory-powered workflows (PRD, debug, sprint, growth, etc). Describe what you need or name a specific workflow. Memories and identity are pre-loaded automatically.
+9. list_workflows — See all available workflows organized by category.
 
 BEST PRACTICES:
 - Always send complete conversation content when saving — never summaries or partial content.
@@ -2908,6 +3057,149 @@ async function handleListWorkflows(args) {
   };
 }
 
+// ============================================================================
+// Sharing & Community Handlers (Migration 068)
+// ============================================================================
+
+async function handleShareMemory(args) {
+  const requestId = `share_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  structuredLog.info(`[${requestId}] share_memory called`, { memory_id: args.memory_id, visibility: args.visibility });
+
+  try {
+    const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility: args.visibility })
+    });
+
+    const data = typeof response === 'string' ? JSON.parse(response) : response;
+
+    let emoji = '🔒';
+    if (args.visibility === 'public') emoji = '🌍';
+    else if (args.visibility === 'unlisted') emoji = '🔗';
+
+    let output = `${emoji} **Memory visibility updated to \`${args.visibility}\`**\n\n`;
+    output += `Memory ID: \`${args.memory_id}\`\n`;
+
+    if (args.visibility === 'public') {
+      output += `\nThis memory is now discoverable in the community tab. Other users can find it via \`recall_public\`.\n`;
+    } else if (args.visibility === 'unlisted') {
+      output += `\nAnyone with the direct link can view this memory, but it won't appear in community search.\n`;
+    } else {
+      output += `\nThis memory is now private — only you can see it.\n`;
+    }
+
+    if (data.shared_by_username) {
+      output += `\nShared as: **${data.shared_by_username}**`;
+    }
+
+    return { content: [{ type: 'text', text: output }] };
+  } catch (error) {
+    structuredLog.error(`[${requestId}] share_memory failed`, { error: error.message });
+    const errorMsg = error.message || String(error);
+    if (errorMsg.includes('429') || errorMsg.includes('limit')) {
+      return { content: [{ type: 'text', text: `⚠️ Share limit reached for this month.\n\nFree tier allows 5 shares/month. Upgrade to Pro ($19/mo) for unlimited sharing → https://app.purmemo.ai/settings` }] };
+    }
+    return { content: [{ type: 'text', text: `❌ Failed to update visibility: ${errorMsg}` }] };
+  }
+}
+
+async function handleRecallPublic(args) {
+  const requestId = `recall_public_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  structuredLog.info(`[${requestId}] recall_public called`, { query: args.query, sort: args.sort });
+
+  try {
+    const params = new URLSearchParams();
+    if (args.query) params.set('query', args.query);
+    if (args.tag) params.set('tag', args.tag);
+    if (args.platform) params.set('platform', args.platform);
+    if (args.sort) params.set('sort', args.sort);
+    params.set('page', String(args.page || 1));
+    params.set('page_size', '10');
+
+    const response = await makeApiCall(`/api/v1/memories/public?${params.toString()}`, {
+      method: 'GET'
+    });
+
+    const data = typeof response === 'string' ? JSON.parse(response) : response;
+
+    if (!data.memories || data.memories.length === 0) {
+      return { content: [{ type: 'text', text: `🔍 No public memories found${args.query ? ` for "${args.query}"` : ''}.\n\nThe community knowledge base is still growing. Be the first to share! Use \`share_memory\` to make your memories public.` }] };
+    }
+
+    let output = `🌍 **Community Memories** (${data.total} found${args.query ? ` for "${args.query}"` : ''})\n\n`;
+
+    const platformEmoji = {
+      chatgpt: '🤖', claude: '🟣', 'claude-code': '🟣', gemini: '💎',
+      cursor: '⚡', figma: '🎨', 'purmemo-web': '🧠'
+    };
+
+    for (const mem of data.memories) {
+      const pEmoji = platformEmoji[mem.platform] || '📝';
+      const author = mem.shared_by_username || 'Anonymous';
+      const recallBadge = mem.recall_count_public > 0 ? ` (${mem.recall_count_public} recalls)` : '';
+
+      output += `---\n`;
+      output += `${pEmoji} **${mem.title || 'Untitled'}**${recallBadge}\n`;
+      output += `*Shared by ${author}*`;
+      if (mem.shared_at) {
+        const sharedDate = new Date(mem.shared_at);
+        output += ` on ${sharedDate.toLocaleDateString()}`;
+      }
+      output += `\n\n`;
+
+      // Content preview (truncated at 300 chars for list view)
+      const preview = (mem.content || '').slice(0, 300);
+      output += `${preview}${(mem.content || '').length > 300 ? '...' : ''}\n\n`;
+
+      if (mem.tags && mem.tags.length > 0) {
+        output += `Tags: ${mem.tags.map(t => `\`${t}\``).join(', ')}\n`;
+      }
+
+      output += `🔗 ID: \`${mem.id}\` — use \`get_memory_details\` for full content\n\n`;
+    }
+
+    if (data.has_more) {
+      output += `\n📄 Page ${data.page} of ${Math.ceil(data.total / data.page_size)} — use \`page: ${data.page + 1}\` for more results.`;
+    }
+
+    return { content: [{ type: 'text', text: output }] };
+  } catch (error) {
+    structuredLog.error(`[${requestId}] recall_public failed`, { error: error.message });
+    return { content: [{ type: 'text', text: `❌ Failed to search public memories: ${error.message || String(error)}` }] };
+  }
+}
+
+async function handleReportMemory(args) {
+  const requestId = `report_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  structuredLog.info(`[${requestId}] report_memory called`, { memory_id: args.memory_id, reason: args.reason });
+
+  try {
+    const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({
+        reason: args.reason,
+        description: args.description || null
+      })
+    });
+
+    const data = typeof response === 'string' ? JSON.parse(response) : response;
+
+    return {
+      content: [{
+        type: 'text',
+        text: `✅ **Report submitted** for memory \`${args.memory_id}\`\n\nReason: ${args.reason}\n${data.message || 'Thank you for helping keep the community safe.'}`
+      }]
+    };
+  } catch (error) {
+    structuredLog.error(`[${requestId}] report_memory failed`, { error: error.message });
+    const errorMsg = error.message || String(error);
+    if (errorMsg.includes('409') || errorMsg.includes('already reported')) {
+      return { content: [{ type: 'text', text: `ℹ️ You have already reported this memory. Our team will review it.` }] };
+    }
+    return { content: [{ type: 'text', text: `❌ Failed to report memory: ${errorMsg}` }] };
+  }
+}
+
 async function handleGetAcknowledgedErrors(args) {
   try {
     const limit = args.limit || 10;
@@ -3090,6 +3382,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return withUpdateNotice(await handleRunWorkflow(args));
     case 'list_workflows':
       return withUpdateNotice(await handleListWorkflows(args));
+    case 'share_memory':
+      return withUpdateNotice(await handleShareMemory(args));
+    case 'recall_public':
+      return withUpdateNotice(await handleRecallPublic(args));
+    case 'report_memory':
+      return withUpdateNotice(await handleReportMemory(args));
     case 'get_acknowledged_errors':
       if (!ADMIN_MODE) break;
       return withUpdateNotice(await handleGetAcknowledgedErrors(args));
