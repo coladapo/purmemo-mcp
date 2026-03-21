@@ -44,6 +44,9 @@ export interface Message {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
+/** Stamped at build time by setup.ts — used for update-notifier pattern */
+export const HOOKS_VERSION = '__HOOKS_VERSION__';
+
 const API_URL    = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
 const STATE_FILE = path.join(os.homedir(), '.claude', 'hooks', 'purmemo_state.json');
 const DEBUG_LOG  = path.join(os.homedir(), '.claude', 'hooks', 'purmemo_debug.log');
@@ -185,6 +188,64 @@ export function apiPost(apiKey: string, urlPath: string, payload: unknown, timeo
     req.write(body);
     req.end();
   });
+}
+
+// ─── Version check (update-notifier pattern) ────────────────────────────────
+
+const VERSION_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // once per day
+
+function isNewer(remote: string, local: string): boolean {
+  const r = remote.split('.').map(Number);
+  const l = local.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((r[i] || 0) > (l[i] || 0)) return true;
+    if ((r[i] || 0) < (l[i] || 0)) return false;
+  }
+  return false;
+}
+
+export async function checkForUpdate(): Promise<string | null> {
+  if (HOOKS_VERSION.startsWith('__')) return null; // not stamped (dev mode)
+  const state = readState();
+  const lastCheck = (state['version_last_check'] as number) || 0;
+  if (Date.now() - lastCheck < VERSION_CHECK_INTERVAL) {
+    // Return cached result if checked recently
+    const cached = state['version_latest'] as string | undefined;
+    if (cached && isNewer(cached, HOOKS_VERSION)) return cached;
+    return null;
+  }
+
+  try {
+    const result = await new Promise<string | null>((resolve) => {
+      const req = https.request({
+        hostname: 'registry.npmjs.org',
+        path: '/purmemo-mcp/latest',
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        timeout: 3000,
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            resolve(data.version || null);
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.end();
+    });
+
+    if (result) {
+      state['version_last_check'] = Date.now();
+      state['version_latest'] = result;
+      writeState(state);
+      if (isNewer(result, HOOKS_VERSION)) return result;
+    }
+  } catch {}
+  return null;
 }
 
 // ─── Hook stdin reader ───────────────────────────────────────────────────────

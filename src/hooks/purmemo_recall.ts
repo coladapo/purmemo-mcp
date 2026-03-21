@@ -14,6 +14,7 @@ import * as path from 'node:path';
 import {
   dbg, readState, writeState, loadApiKey,
   apiGet, apiPost, readHookInput,
+  checkForUpdate, HOOKS_VERSION,
 } from './purmemo_lib.js';
 
 const TAG = 'recall';
@@ -94,6 +95,12 @@ async function main(): Promise<void> {
   };
   writeState(state);
 
+  // Check for hook updates (non-blocking, cached for 24h)
+  const latestVersion = await checkForUpdate();
+  const updateNotice = latestVersion
+    ? `\npurmemo hooks ${HOOKS_VERSION} → ${latestVersion} available. Run: npx purmemo-mcp@latest hooks\n`
+    : '';
+
   // Output: numbered list visible to user, full context silent to Claude
   const banner = memories
     .map((m, i) => `${i + 1}. ${(m.title as string) || 'Untitled'}`)
@@ -104,7 +111,7 @@ async function main(): Promise<void> {
       hookEventName: 'SessionStart',
       additionalContext: contextLines.join('\n'),
     },
-    systemMessage: `${banner}\n\nType a number to load a memory.`,
+    systemMessage: `${updateNotice}${banner}\n\nType a number to load a memory.`,
   }));
 }
 

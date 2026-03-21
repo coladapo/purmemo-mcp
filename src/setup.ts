@@ -309,11 +309,20 @@ async function installHooks() {
     }
 
     // 3. Copy hook scripts from package to ~/.claude/hooks/
+    //    Stamp __HOOKS_VERSION__ in purmemo_lib.js with actual version from package.json
     const srcHooksDir = path.join(__dirname, 'hooks');
+    const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
     for (const file of HOOK_SCRIPTS) {
       const src  = path.join(srcHooksDir, file);
       const dest = path.join(HOOKS_DIR, file);
-      fs.copyFileSync(src, dest);
+      if (file === 'purmemo_lib.js') {
+        // Stamp version placeholder with actual version
+        let content = fs.readFileSync(src, 'utf8');
+        content = content.replace(/__HOOKS_VERSION__/g, pkgVersion);
+        fs.writeFileSync(dest, content, 'utf8');
+      } else {
+        fs.copyFileSync(src, dest);
+      }
       if (process.platform !== 'win32') fs.chmodSync(dest, 0o755);
     }
 
