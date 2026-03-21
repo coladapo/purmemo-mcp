@@ -1611,6 +1611,19 @@ async function makeApiCall(endpoint, options = {}) {
           }
         }
 
+        // WAF 403 — Render's Cloudflare WAF blocks content with SQL/HTML patterns
+        if (response.status === 403 && (errorText.includes('<!DOCTYPE') || errorText.includes('Blocked'))) {
+          structuredLog.warn('WAF 403 — content triggered Cloudflare security filter', {
+            request_id: requestId,
+            endpoint,
+            content_length: options.body ? String(options.body).length : 0,
+          });
+          throw new Error(
+            'Content contains patterns that triggered security filtering (e.g. SQL keywords or HTML tags). ' +
+            'Try rephrasing or removing code snippets that look like SQL commands or script tags.'
+          );
+        }
+
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
 
