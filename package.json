@@ -12,6 +12,7 @@
   },
   "files": [
     "dist/",
+    "src/commands/",
     "src/remote/widgets/",
     "src/remote/login.html",
     "src/remote/success.html",

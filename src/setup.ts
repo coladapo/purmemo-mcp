@@ -26,8 +26,10 @@ const APP_URL    = process.env.PURMEMO_APP_URL || 'https://app.purmemo.ai';
 const tokenStore = new TokenStore();
 
 const HOOKS_DIR     = path.join(os.homedir(), '.claude', 'hooks');
+const COMMANDS_DIR  = path.join(os.homedir(), '.claude', 'commands');
 const SETTINGS_FILE = path.join(os.homedir(), '.claude', 'settings.json');
 const HOOK_SCRIPTS  = ['purmemo_lib.js', 'purmemo_recall.js', 'purmemo_capture.js', 'purmemo_first_message.js'];
+const COMMAND_FILES = ['save.md', 'recall.md', 'context.md', 'purmemo.md'];
 const OLD_HOOK_SCRIPTS = ['purmemo_save.js', 'purmemo_heartbeat.js', 'purmemo_precompact.js', 'purmemo_session_start.js', 'hook-utils.js'];
 
 const banner = `
@@ -269,11 +271,16 @@ async function promptInstallHooks() {
     return;
   }
 
-  console.log(chalk.white('Install Claude Code hooks?'));
-  console.log(chalk.gray('  Auto-captures every session + recalls past context at startup'));
+  console.log(chalk.white('Install Claude Code hooks + commands?'));
+  console.log(chalk.gray('  Hooks (automatic):'));
   console.log(chalk.gray('  • Recall        — shows your 5 most recent memories at startup'));
   console.log(chalk.gray('  • Quick-load    — type a number (1-5) to load a memory fully'));
   console.log(chalk.gray('  • Auto-capture  — saves progress on stop, compact, and every 10 tool calls'));
+  console.log(chalk.gray('  Commands (you type):'));
+  console.log(chalk.gray('  • /save         — save conversation as a living document'));
+  console.log(chalk.gray('  • /recall       — search past memories'));
+  console.log(chalk.gray('  • /context      — get full project context'));
+  console.log(chalk.gray('  • /purmemo      — run memory-powered workflows (debug, prd, review, etc.)'));
   console.log('');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -326,13 +333,28 @@ async function installHooks() {
       if (process.platform !== 'win32') fs.chmodSync(dest, 0o755);
     }
 
-    // 4. Patch ~/.claude/settings.json
+    // 4. Copy slash commands to ~/.claude/commands/
+    fs.mkdirSync(COMMANDS_DIR, { recursive: true });
+    const srcCommandsDir = path.join(__dirname, '..', 'src', 'commands');
+    // Fallback: commands may be in dist/ for published packages
+    const cmdSourceDir = fs.existsSync(srcCommandsDir) ? srcCommandsDir : path.join(__dirname, 'commands');
+    if (fs.existsSync(cmdSourceDir)) {
+      for (const file of COMMAND_FILES) {
+        const src = path.join(cmdSourceDir, file);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(COMMANDS_DIR, file));
+        }
+      }
+    }
+
+    // 5. Patch ~/.claude/settings.json
     patchSettings();
 
     spinner.stop();
-    console.log(chalk.green('✅ Claude Code hooks installed!'));
-    console.log(chalk.gray(`   Scripts: ~/.claude/hooks/purmemo_*.js`));
-    console.log(chalk.gray(`   Config:  ~/.claude/settings.json`));
+    console.log(chalk.green('✅ Claude Code hooks + commands installed!'));
+    console.log(chalk.gray(`   Hooks:    ~/.claude/hooks/purmemo_*.js`));
+    console.log(chalk.gray(`   Commands: /save, /recall, /context, /purmemo`));
+    console.log(chalk.gray(`   Config:   ~/.claude/settings.json`));
   } catch (err) {
     spinner.stop();
     console.log(chalk.yellow(`⚠️  Could not install hooks: ${err.message}`));
