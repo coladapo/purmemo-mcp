@@ -27,7 +27,8 @@ const tokenStore = new TokenStore();
 
 const HOOKS_DIR     = path.join(os.homedir(), '.claude', 'hooks');
 const SETTINGS_FILE = path.join(os.homedir(), '.claude', 'settings.json');
-const HOOK_SCRIPTS  = ['purmemo_save.js', 'purmemo_heartbeat.js', 'purmemo_precompact.js', 'purmemo_session_start.js'];
+const HOOK_SCRIPTS  = ['purmemo_lib.js', 'purmemo_recall.js', 'purmemo_capture.js', 'purmemo_first_message.js'];
+const OLD_HOOK_SCRIPTS = ['purmemo_save.js', 'purmemo_heartbeat.js', 'purmemo_precompact.js', 'purmemo_session_start.js', 'hook-utils.js'];
 
 const banner = `
 ╔═══════════════════════════════════════════╗
@@ -73,7 +74,10 @@ async function runSetup() {
       console.log('');
 
       // Offer hooks even if already connected (they may not have them yet)
-      if (!hooksAlreadyInstalled()) {
+      if (hasOldHooks()) {
+        console.log(chalk.yellow('⚡ Upgrading hooks to v2…'));
+        await installHooks();
+      } else if (!hooksAlreadyInstalled()) {
         await promptInstallHooks();
       } else {
         console.log(chalk.gray('Claude Code hooks already installed. ✓'));
@@ -207,6 +211,11 @@ async function runHooksOnly() {
     console.log(chalk.cyan('   npx purmemo-mcp setup'));
     process.exit(1);
   }
+  if (hasOldHooks()) {
+    console.log(chalk.yellow('⚡ Upgrading hooks to v2…'));
+    await installHooks();
+    return;
+  }
   if (hooksAlreadyInstalled()) {
     console.log(chalk.green('✅ Claude Code hooks are already installed.'));
     return;
@@ -220,6 +229,39 @@ function hooksAlreadyInstalled() {
   return HOOK_SCRIPTS.every(f => fs.existsSync(path.join(HOOKS_DIR, f)));
 }
 
+function hasOldHooks() {
+  return OLD_HOOK_SCRIPTS.some(f => fs.existsSync(path.join(HOOKS_DIR, f)));
+}
+
+function migrateOldHooks() {
+  // Remove old hook files
+  for (const file of OLD_HOOK_SCRIPTS) {
+    const p = path.join(HOOKS_DIR, file);
+    try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+  }
+
+  // Remove old hook entries from settings.json
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) return;
+    const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    if (!settings.hooks) return;
+
+    const oldNames = ['purmemo_session_start', 'purmemo_save', 'purmemo_heartbeat', 'purmemo_precompact'];
+    for (const eventKey of Object.keys(settings.hooks)) {
+      if (Array.isArray(settings.hooks[eventKey])) {
+        settings.hooks[eventKey] = settings.hooks[eventKey].filter(
+          (entry) => !entry.hooks?.some((h) => oldNames.some(n => h.command?.includes(n)))
+        );
+        if (settings.hooks[eventKey].length === 0) delete settings.hooks[eventKey];
+      }
+    }
+
+    const tmp = SETTINGS_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(settings, null, 2), 'utf8');
+    fs.renameSync(tmp, SETTINGS_FILE);
+  } catch {}
+}
+
 async function promptInstallHooks() {
   // Skip prompt if not a TTY (e.g. CI, piped input)
   if (!process.stdin.isTTY) {
@@ -229,10 +271,9 @@ async function promptInstallHooks() {
 
   console.log(chalk.white('Install Claude Code hooks?'));
   console.log(chalk.gray('  Auto-captures every session + recalls past context at startup'));
-  console.log(chalk.gray('  • SessionStart  — recalls past context when you open Claude'));
-  console.log(chalk.gray('  • PostToolUse   — saves progress every 10 tool calls'));
-  console.log(chalk.gray('  • PreCompact    — saves before context window resets'));
-  console.log(chalk.gray('  • Stop          — saves full session when Claude closes'));
+  console.log(chalk.gray('  • Recall        — shows your 5 most recent memories at startup'));
+  console.log(chalk.gray('  • Quick-load    — type a number (1-5) to load a memory fully'));
+  console.log(chalk.gray('  • Auto-capture  — saves progress on stop, compact, and every 10 tool calls'));
   console.log('');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -255,10 +296,19 @@ async function installHooks() {
   const spinner = ora('Installing Claude Code hooks…').start();
 
   try {
+    // 0. Migrate old hooks if present
+    if (hasOldHooks()) migrateOldHooks();
+
     // 1. Ensure ~/.claude/hooks/ exists
     fs.mkdirSync(HOOKS_DIR, { recursive: true });
 
-    // 2. Copy hook scripts from package to ~/.claude/hooks/
+    // 2. Write ESM package.json (hooks use import/export)
+    const hooksPkg = path.join(HOOKS_DIR, 'package.json');
+    if (!fs.existsSync(hooksPkg)) {
+      fs.writeFileSync(hooksPkg, '{"type":"module"}\n', 'utf8');
+    }
+
+    // 3. Copy hook scripts from package to ~/.claude/hooks/
     const srcHooksDir = path.join(__dirname, 'hooks');
     for (const file of HOOK_SCRIPTS) {
       const src  = path.join(srcHooksDir, file);
@@ -267,7 +317,7 @@ async function installHooks() {
       if (process.platform !== 'win32') fs.chmodSync(dest, 0o755);
     }
 
-    // 3. Patch ~/.claude/settings.json
+    // 4. Patch ~/.claude/settings.json
     patchSettings();
 
     spinner.stop();
@@ -282,7 +332,7 @@ async function installHooks() {
 }
 
 function patchSettings() {
-  let settings = {};
+  let settings: Record<string, unknown> = {};
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
@@ -290,34 +340,46 @@ function patchSettings() {
   } catch {}
 
   if (!settings.hooks) settings.hooks = {};
+  const hooks = settings.hooks as Record<string, unknown[]>;
 
-  const hookPath = (file) => `node ${path.join(HOOKS_DIR, file)}`;
+  const hookCmd = (file: string) => `node ${path.join(HOOKS_DIR, file)}`;
+  const has = (arr: unknown[], name: string) =>
+    arr.some((e: any) => e.hooks?.some((h: any) => h.command?.includes(name)));
 
-  // SessionStart
-  if (!settings.hooks.SessionStart) settings.hooks.SessionStart = [];
-  if (!settings.hooks.SessionStart.some(e => e.hooks?.some(h => h.command?.includes('purmemo_session_start')))) {
-    settings.hooks.SessionStart.push({ hooks: [{ type: 'command', command: hookPath('purmemo_session_start.js') }] });
+  // SessionStart → recall
+  if (!hooks.SessionStart) hooks.SessionStart = [];
+  if (!has(hooks.SessionStart, 'purmemo_recall')) {
+    hooks.SessionStart.push({ hooks: [{ type: 'command', command: hookCmd('purmemo_recall.js') }] });
   }
 
-  // PostToolUse — heartbeat on code-changing tools
-  if (!settings.hooks.PostToolUse) settings.hooks.PostToolUse = [];
-  if (!settings.hooks.PostToolUse.some(e => e.hooks?.some(h => h.command?.includes('purmemo_heartbeat')))) {
-    settings.hooks.PostToolUse.push({
-      matcher: 'Bash|Edit|Write|MultiEdit|Task',
-      hooks: [{ type: 'command', command: hookPath('purmemo_heartbeat.js') }],
+  // UserPromptSubmit → first_message (number quick-load)
+  if (!hooks.UserPromptSubmit) hooks.UserPromptSubmit = [];
+  if (!has(hooks.UserPromptSubmit, 'purmemo_first_message')) {
+    hooks.UserPromptSubmit.push({
+      matcher: '.*',
+      hooks: [{ type: 'command', command: hookCmd('purmemo_first_message.js') }],
     });
   }
 
-  // PreCompact
-  if (!settings.hooks.PreCompact) settings.hooks.PreCompact = [];
-  if (!settings.hooks.PreCompact.some(e => e.hooks?.some(h => h.command?.includes('purmemo_precompact')))) {
-    settings.hooks.PreCompact.push({ matcher: '.*', hooks: [{ type: 'command', command: hookPath('purmemo_precompact.js') }] });
+  // PostToolUse → capture (heartbeat)
+  if (!hooks.PostToolUse) hooks.PostToolUse = [];
+  if (!has(hooks.PostToolUse, 'purmemo_capture')) {
+    hooks.PostToolUse.push({
+      matcher: 'Bash|Edit|Write|MultiEdit|Task',
+      hooks: [{ type: 'command', command: hookCmd('purmemo_capture.js') }],
+    });
   }
 
-  // Stop
-  if (!settings.hooks.Stop) settings.hooks.Stop = [];
-  if (!settings.hooks.Stop.some(e => e.hooks?.some(h => h.command?.includes('purmemo_save')))) {
-    settings.hooks.Stop.push({ matcher: '.*', hooks: [{ type: 'command', command: hookPath('purmemo_save.js') }] });
+  // PreCompact → capture
+  if (!hooks.PreCompact) hooks.PreCompact = [];
+  if (!has(hooks.PreCompact, 'purmemo_capture')) {
+    hooks.PreCompact.push({ hooks: [{ type: 'command', command: hookCmd('purmemo_capture.js') }] });
+  }
+
+  // Stop → capture
+  if (!hooks.Stop) hooks.Stop = [];
+  if (!has(hooks.Stop, 'purmemo_capture')) {
+    hooks.Stop.push({ matcher: '.*', hooks: [{ type: 'command', command: hookCmd('purmemo_capture.js') }] });
   }
 
   // Write atomically
