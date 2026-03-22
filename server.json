@@ -1,20 +1,33 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.purmemo-ai/purmemo",
-  "description": "AI memory across Claude, ChatGPT, Gemini, and Cursor. Save, search, and recall context everywhere.",
+  "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "repository": {
     "url": "https://github.com/purmemo-ai/purmemo-mcp",
     "source": "github"
   },
-  "version": "12.9.5",
+  "version": "15.1.1",
   "icon": {
     "src": "https://purmemo.ai/favicon.png"
   },
+  "tools": [
+    { "name": "save_conversation" },
+    { "name": "recall_memories" },
+    { "name": "get_memory_details" },
+    { "name": "discover_related_conversations" },
+    { "name": "get_user_context" },
+    { "name": "run_workflow" },
+    { "name": "list_workflows" },
+    { "name": "share_memory" },
+    { "name": "recall_public" },
+    { "name": "get_public_memory" },
+    { "name": "report_memory" }
+  ],
   "packages": [
     {
       "registryType": "npm",
       "identifier": "purmemo-mcp",
-      "version": "12.9.5",
+      "version": "15.1.1",
       "runtimeHint": "node",
       "transport": {
         "type": "stdio"

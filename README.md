@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/purmemo-mcp.svg)](https://www.npmjs.com/package/purmemo-mcp)
-[![Tests](https://github.com/coladapo/purmemo-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/coladapo/purmemo-mcp/actions/workflows/test.yml)
+[![Tests](https://github.com/purmemo-ai/purmemo-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/purmemo-ai/purmemo-mcp/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 
@@ -52,9 +52,9 @@ claude mcp list
 
 ```bash
 mkdir -p ~/.claude/commands
-curl -s https://raw.githubusercontent.com/coladapo/purmemo-mcp/main/.claude/commands/save.md -o ~/.claude/commands/save.md
-curl -s https://raw.githubusercontent.com/coladapo/purmemo-mcp/main/.claude/commands/recall.md -o ~/.claude/commands/recall.md
-curl -s https://raw.githubusercontent.com/coladapo/purmemo-mcp/main/.claude/commands/context.md -o ~/.claude/commands/context.md
+curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/save.md -o ~/.claude/commands/save.md
+curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/recall.md -o ~/.claude/commands/recall.md
+curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/context.md -o ~/.claude/commands/context.md
 ```
 
 Then restart Claude Code and use `/save`, `/recall [topic]`, and `/context` in any session.
@@ -226,6 +226,8 @@ No re-explaining who you are. No repeating your stack. Just continue.
 
 ## Tools
 
+### Core
+
 | Tool | Description |
 |------|-------------|
 | `save_conversation` | Save conversations with smart titles and context extraction |
@@ -233,6 +235,22 @@ No re-explaining who you are. No repeating your stack. Just continue.
 | `get_memory_details` | Get full details of a specific memory |
 | `discover_related_conversations` | Find related discussions across platforms |
 | `get_user_context` | Load your identity profile and recent work context |
+
+### Workflows
+
+| Tool | Description |
+|------|-------------|
+| `run_workflow` | Run structured workflows (PRD, debug, sprint, deploy, etc.) |
+| `list_workflows` | List all available workflows by category |
+
+### Community
+
+| Tool | Description |
+|------|-------------|
+| `share_memory` | Set memory visibility (private, unlisted, or public) |
+| `recall_public` | Search public community memories (free for all tiers) |
+| `get_public_memory` | Get the full content of a shared memory |
+| `report_memory` | Report inappropriate public content |
 
 **`get_user_context` in action:**
 
@@ -311,8 +329,8 @@ Long conversations? Auto-chunked at 100K+ characters and reassembled on recall.
 
 - [Dashboard](https://app.purmemo.ai) — View and manage memories
 - [Chrome Extension](https://purmemo.ai/extension) — For ChatGPT, Claude.ai, Gemini
-- [Documentation](https://github.com/coladapo/purmemo-mcp/tree/main/docs)
-- [Support](https://github.com/coladapo/purmemo-mcp/issues)
+- [Documentation](https://github.com/purmemo-ai/purmemo-mcp/tree/main/docs)
+- [Support](https://github.com/purmemo-ai/purmemo-mcp/issues)
 
 ---
 
