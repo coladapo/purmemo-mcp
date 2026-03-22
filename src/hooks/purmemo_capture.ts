@@ -161,4 +161,5 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(() => {});
+// Top-level await keeps the process alive until all HTTP requests complete
+await main().catch(() => {});

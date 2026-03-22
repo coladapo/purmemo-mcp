@@ -100,4 +100,4 @@ async function main(): Promise<void> {
   dbg(TAG, `first message — no number shortcut, session ${session_id}`);
 }
 
-main().catch(() => {});
+await main().catch(() => {});

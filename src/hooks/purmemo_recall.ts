@@ -115,4 +115,4 @@ async function main(): Promise<void> {
   }));
 }
 
-main().catch(() => {});
+await main().catch(() => {});
