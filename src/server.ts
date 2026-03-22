@@ -1275,6 +1275,40 @@ RETURNS: List of public memories with author attribution, relevance scores, and 
     }
   },
   {
+    name: 'get_public_memory',
+    annotations: {
+      title: 'Get Full Public Memory',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Retrieve the FULL content of a public or unlisted memory by ID.
+
+WHEN TO USE:
+- After recall_public returns a preview and you need the complete content
+- When a user wants to read or implement from a shared community memory
+- When you have a public memory ID and need the full text
+
+This is the tool that closes the loop: recall_public finds memories, this tool retrieves them in full.
+No authentication required — public knowledge is free.
+
+EXAMPLE:
+get_public_memory({ memory_id: "abc-123-def-456" })
+
+RETURNS: Full memory content, observations, entities, tags, author attribution, and metadata.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        memory_id: {
+          type: 'string',
+          description: 'UUID of the public memory to retrieve in full'
+        }
+      },
+      required: ['memory_id']
+    }
+  },
+  {
     name: 'report_memory',
     annotations: {
       title: 'Report Public Memory',
@@ -3155,7 +3189,7 @@ async function handleRecallPublic(args) {
         output += `Tags: ${mem.tags.map(t => `\`${t}\``).join(', ')}\n`;
       }
 
-      output += `🔗 ID: \`${mem.id}\` — use \`get_memory_details\` for full content\n\n`;
+      output += `🔗 ID: \`${mem.id}\` — use \`get_public_memory\` for full content\n\n`;
     }
 
     if (data.has_more) {
@@ -3166,6 +3200,63 @@ async function handleRecallPublic(args) {
   } catch (error) {
     structuredLog.error(`[${requestId}] recall_public failed`, { error: error.message });
     return { content: [{ type: 'text', text: `❌ Failed to search public memories: ${error.message || String(error)}` }] };
+  }
+}
+
+async function handleGetPublicMemory(args) {
+  const requestId = `get_public_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  structuredLog.info(`[${requestId}] get_public_memory called`, { memory_id: args.memory_id });
+
+  try {
+    const response = await makeApiCall(`/api/v1/memories/public/${args.memory_id}`, {
+      method: 'GET'
+    });
+
+    const data = typeof response === 'string' ? JSON.parse(response) : response;
+
+    if (!data || !data.id) {
+      return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+    }
+
+    const platformEmoji = {
+      chatgpt: '🤖', claude: '🟣', 'claude-code': '🟣', gemini: '💎',
+      cursor: '⚡', figma: '🎨', 'purmemo-web': '🧠'
+    };
+
+    const pEmoji = platformEmoji[data.platform] || '📝';
+    const author = data.shared_by_username || 'Anonymous';
+
+    let output = `${pEmoji} **${data.title || 'Untitled'}**\n`;
+    output += `*Shared by ${author}*`;
+    if (data.shared_at) {
+      output += ` on ${new Date(data.shared_at).toLocaleDateString()}`;
+    }
+    output += ` | ${data.recall_count_public || 0} recalls | ${data.word_count || 0} words\n\n`;
+
+    if (data.tags && data.tags.length > 0) {
+      output += `Tags: ${data.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+    }
+
+    if (data.observations && data.observations.length > 0) {
+      output += `**Key Insights:**\n`;
+      for (const obs of data.observations.slice(0, 10)) {
+        output += `• ${obs}\n`;
+      }
+      output += `\n`;
+    }
+
+    output += `---\n\n`;
+    output += data.content || '(No content)';
+
+    const sanitizedText = sanitizeUnicode(output);
+    return { content: [{ type: 'text', text: sanitizedText }] };
+  } catch (error) {
+    structuredLog.error(`[${requestId}] get_public_memory failed`, { error: error.message });
+    const errorMsg = error.message || String(error);
+    if (errorMsg.includes('404')) {
+      return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+    }
+    return { content: [{ type: 'text', text: `❌ Failed to retrieve public memory: ${errorMsg}` }] };
   }
 }
 
@@ -3386,6 +3477,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return withUpdateNotice(await handleShareMemory(args));
     case 'recall_public':
       return withUpdateNotice(await handleRecallPublic(args));
+    case 'get_public_memory':
+      return withUpdateNotice(await handleGetPublicMemory(args));
     case 'report_memory':
       return withUpdateNotice(await handleReportMemory(args));
     case 'get_acknowledged_errors':
