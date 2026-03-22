@@ -25,7 +25,7 @@ import * as path from 'node:path';
 import {
   dbg, readState, writeState, loadApiKey,
   readTranscript, extractMessages, buildContent,
-  apiPost, readHookInput,
+  apiPost, readHookInput, shouldChunk, saveChunked,
   type TranscriptEntry,
 } from './purmemo_lib.js';
 
@@ -114,16 +114,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Cap at 99K to stay under API's 100K limit — keep most recent messages
-  const MAX_CONTENT = 99_000;
-  if (content.length > MAX_CONTENT) {
-    dbg(TAG, `truncating ${content.length} → ${MAX_CONTENT} chars (keeping recent)`);
-    content = content.slice(-MAX_CONTENT);
-    // Clean start: find the first complete message boundary
-    const firstBreak = content.indexOf('\n\nHuman: ');
-    if (firstBreak > 0) content = content.slice(firstBreak + 2);
-  }
-
   // ── Detect manual /save — adopt its conversation_id if found ─────────────
   const cwd         = hookData.cwd || process.env.PWD || process.cwd();
   const projectName = path.basename(cwd);
@@ -137,30 +127,37 @@ async function main(): Promise<void> {
     dbg(TAG, `adopting manual save — convId="${manualSave.convId}" title="${manualSave.title}"`);
   }
 
-  // ── Save to Purmemo ──────────────────────────────────────────────────────
-  const result = await apiPost(apiKey, '/api/v1/memories/', {
-    content,
-    title,
-    conversation_id: conversationId,
-    platform: 'claude-code',
-    tags: ['claude-code', 'auto-captured', projectName],
-    metadata: {
-      source: `claude_code_${event.toLowerCase()}_hook`,
-      session_id,
-      project_path: cwd,
-      captured_at: new Date().toISOString(),
-      adopted_manual_save: !!manualSave,
-    },
-  });
+  const tags = ['claude-code', 'auto-captured', projectName];
+  const metadata = {
+    source: `claude_code_${event.toLowerCase()}_hook`,
+    session_id,
+    project_path: cwd,
+    captured_at: new Date().toISOString(),
+    adopted_manual_save: !!manualSave,
+  };
 
-  if (result?.id || result?.memory_id) {
+  // ── Save to Purmemo (chunk if >90K, otherwise single save) ──────────────
+  let saved = false;
+
+  if (shouldChunk(content)) {
+    dbg(TAG, `chunking ${content.length} chars into parts`);
+    saved = await saveChunked(apiKey, content, title, conversationId, tags, metadata);
+  } else {
+    const result = await apiPost(apiKey, '/api/v1/memories/', {
+      content, title, conversation_id: conversationId,
+      platform: 'claude-code', tags, metadata,
+    });
+    saved = !!(result?.id || result?.memory_id);
+  }
+
+  if (saved) {
     if (cooldownMs) {
       state[`cd_${event}_${session_id}`] = Date.now();
       writeState(state);
     }
-    dbg(TAG, `${event} saved — ${messages.length} msgs, ${content.length} chars, convId=${conversationId}`);
+    dbg(TAG, `${event} saved — ${messages.length} msgs, ${content.length} chars, convId=${conversationId}${shouldChunk(content) ? ' (chunked)' : ''}`);
   } else {
-    dbg(TAG, `${event} error — ${JSON.stringify(result)?.slice(0, 200)}`);
+    dbg(TAG, `${event} error — save failed`);
   }
 }
 

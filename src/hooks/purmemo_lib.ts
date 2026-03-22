@@ -190,6 +190,79 @@ export function apiPost(apiKey: string, urlPath: string, payload: unknown, timeo
   });
 }
 
+// ─── Chunked save (for content >90K) ─────────────────────────────────────────
+
+const MAX_CONTENT = 90_000;  // stay under API's 100K Zod limit per chunk
+const CHUNK_SIZE  = 20_000;  // match MCP server's chunk size
+
+export function shouldChunk(content: string): boolean {
+  return content.length > MAX_CONTENT;
+}
+
+function chunkContent(content: string): string[] {
+  const chunks: string[] = [];
+  let pos = 0;
+  while (pos < content.length) {
+    let end = Math.min(pos + CHUNK_SIZE, content.length);
+    if (end < content.length) {
+      const searchStart = Math.max(end - 1000, pos);
+      const segment = content.slice(searchStart, end);
+      const sectionBreak = segment.lastIndexOf('\n===');
+      if (sectionBreak !== -1) { end = searchStart + sectionBreak; }
+      else {
+        const turnBreak = segment.lastIndexOf('\n\nHuman: ');
+        if (turnBreak !== -1) { end = searchStart + turnBreak; }
+        else {
+          const paraBreak = segment.lastIndexOf('\n\n');
+          if (paraBreak !== -1) { end = searchStart + paraBreak; }
+        }
+      }
+    }
+    chunks.push(content.slice(pos, end));
+    pos = end;
+  }
+  return chunks;
+}
+
+export async function saveChunked(
+  apiKey: string,
+  content: string,
+  title: string,
+  conversationId: string,
+  tags: string[],
+  metadata: Record<string, unknown>,
+): Promise<boolean> {
+  const chunks = chunkContent(content);
+  const totalParts = chunks.length;
+  let success = true;
+
+  for (let i = 0; i < chunks.length; i++) {
+    const partNumber = i + 1;
+    const result = await apiPost(apiKey, '/api/v1/memories/', {
+      content: chunks[i],
+      title: `${title} (${partNumber}/${totalParts})`,
+      conversation_id: `${conversationId}:part:${partNumber}`,
+      platform: 'claude-code',
+      tags: [...tags, 'chunked-conversation', `session:${conversationId}`],
+      metadata: { ...metadata, captureType: 'chunked', partNumber, totalParts, chunkSize: chunks[i].length },
+    });
+    if (!result?.id && !result?.memory_id) success = false;
+  }
+
+  // Create index
+  const indexContent = `# ${title} - Index\n\nParts: ${totalParts}\nSize: ${content.length} chars\nSaved: ${new Date().toISOString()}\n\n${chunks.map((c, i) => `- Part ${i + 1}: ${c.length} chars`).join('\n')}`;
+  await apiPost(apiKey, '/api/v1/memories/', {
+    content: indexContent,
+    title: `${title} — Index`,
+    conversation_id: `${conversationId}:index`,
+    platform: 'claude-code',
+    tags: [...tags, 'chunked-conversation'],
+    metadata: { ...metadata, captureType: 'index', totalParts },
+  });
+
+  return success;
+}
+
 // ─── Version check (update-notifier pattern) ────────────────────────────────
 
 const VERSION_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // once per day
