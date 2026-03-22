@@ -107,11 +107,21 @@ async function main(): Promise<void> {
   // ── Read and build content ───────────────────────────────────────────────
   const entries  = readTranscript(transcript_path);
   const messages = extractMessages(entries);
-  const content  = buildContent(messages);
+  let content    = buildContent(messages);
 
   if (content.length < MIN_CHARS) {
     dbg(TAG, `skip — ${content.length} chars < ${MIN_CHARS} min`);
     return;
+  }
+
+  // Cap at 99K to stay under API's 100K limit — keep most recent messages
+  const MAX_CONTENT = 99_000;
+  if (content.length > MAX_CONTENT) {
+    dbg(TAG, `truncating ${content.length} → ${MAX_CONTENT} chars (keeping recent)`);
+    content = content.slice(-MAX_CONTENT);
+    // Clean start: find the first complete message boundary
+    const firstBreak = content.indexOf('\n\nHuman: ');
+    if (firstBreak > 0) content = content.slice(firstBreak + 2);
   }
 
   // ── Detect manual /save — adopt its conversation_id if found ─────────────
