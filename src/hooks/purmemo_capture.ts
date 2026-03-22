@@ -25,7 +25,7 @@ import * as path from 'node:path';
 import {
   dbg, readState, writeState, loadApiKey,
   readTranscript, extractMessages, buildContent,
-  apiPost, readHookInput, shouldChunk, saveChunked,
+  apiPost, readHookInput,
   type TranscriptEntry,
 } from './purmemo_lib.js';
 
@@ -136,26 +136,19 @@ async function main(): Promise<void> {
     adopted_manual_save: !!manualSave,
   };
 
-  // ── Save to Purmemo (chunk if >90K, otherwise single save) ──────────────
-  let saved = false;
-
-  if (shouldChunk(content)) {
-    dbg(TAG, `chunking ${content.length} chars into parts`);
-    saved = await saveChunked(apiKey, content, title, conversationId, tags, metadata);
-  } else {
-    const result = await apiPost(apiKey, '/api/v1/memories/', {
-      content, title, conversation_id: conversationId,
-      platform: 'claude-code', tags, metadata,
-    });
-    saved = !!(result?.id || result?.memory_id);
-  }
+  // ── Save to Purmemo (single row, API accepts up to 1MB) ─────────────────
+  const result = await apiPost(apiKey, '/api/v1/memories/', {
+    content, title, conversation_id: conversationId,
+    platform: 'claude-code', tags, metadata,
+  });
+  const saved = !!(result?.id || result?.memory_id);
 
   if (saved) {
     if (cooldownMs) {
       state[`cd_${event}_${session_id}`] = Date.now();
       writeState(state);
     }
-    dbg(TAG, `${event} saved — ${messages.length} msgs, ${content.length} chars, convId=${conversationId}${shouldChunk(content) ? ' (chunked)' : ''}`);
+    dbg(TAG, `${event} saved — ${messages.length} msgs, ${content.length} chars, convId=${conversationId}`);
   } else {
     dbg(TAG, `${event} error — save failed`);
   }
