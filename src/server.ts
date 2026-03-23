@@ -2486,7 +2486,7 @@ async function handleRecallMemories(args) {
 
     const responseText = data.content[0].text;
 
-    const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**') && block.includes('ID:'));
+    const memoryBlocks = responseText.split('\n\n').filter(block => block.includes('**') && block.includes('ID:'));
 
     if (memoryBlocks.length === 0) {
       structuredLog.info(`${toolName}: completed`, {
