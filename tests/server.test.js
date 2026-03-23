@@ -115,7 +115,7 @@ describe('Purmemo MCP Server', () => {
     let extractProjectContext, generateIntelligentTitle;
 
     before(async () => {
-      const module = await import(join(__dirname, '..', 'src', 'intelligent-memory.js'));
+      const module = await import(join(__dirname, '..', 'dist', 'intelligent-memory.js'));
       extractProjectContext = module.extractProjectContext;
       generateIntelligentTitle = module.generateIntelligentTitle;
     });
