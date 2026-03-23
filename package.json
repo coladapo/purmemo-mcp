@@ -25,7 +25,7 @@
     "build": "tsc && npm run build:assets",
     "build:assets": "cp -r src/remote/widgets dist/remote/ && cp src/remote/login.html src/remote/success.html src/remote/icon.png src/remote/favicon.ico dist/remote/",
     "start": "node dist/server.js",
-    "dev": "node src/server.js",
+    "dev": "node dist/server.js",
     "setup": "node dist/setup.js setup",
     "status": "node dist/setup.js status",
     "logout": "node dist/setup.js logout",

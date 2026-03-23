@@ -133,6 +133,9 @@ function readCurrentSessionId() {
 // API key resolution: env var wins, then ~/.purmemo/auth.json (set by `npx purmemo-mcp setup`)
 let resolvedApiKey = process.env.PURMEMO_API_KEY || null;
 
+// Last recall result cache — maps ordinal "1"-"N" to UUID for get_memory_details
+let lastRecallIds = [];
+
 // ============================================================================
 // TIER 3: Structured Logging System
 // ============================================================================
@@ -970,7 +973,7 @@ const TOOLS = [
       properties: {
         memoryId: {
           type: 'string',
-          description: 'ID of the memory to retrieve'
+          description: 'UUID of the memory to retrieve, OR an ordinal number ("1", "2", etc.) referencing the position from the last recall_memories result'
         },
         includeLinkedParts: {
           type: 'boolean',
@@ -2500,6 +2503,9 @@ async function handleRecallMemories(args) {
 
     let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
 
+    // Cache IDs for ordinal resolution in get_memory_details
+    const recalledIds = [];
+
     memoryBlocks.forEach((block, index) => {
       const titleMatch = block.match(/\*\*(.+?)\*\*/);
       const relevanceMatch = block.match(/Relevance Score: ([\d.]+)/) || block.match(/Relevance: ([\d.]+)%/);
@@ -2512,6 +2518,8 @@ async function handleRecallMemories(args) {
       const memoryId = idMatch ? idMatch[1].trim() : 'unknown';
       const platform = platformMatch ? platformMatch[1] : 'unknown';
       const preview = previewMatch ? previewMatch[1] : '';
+
+      if (memoryId !== 'unknown') recalledIds.push(memoryId);
 
       const emoji = platform === 'chatgpt' ? '🤖' :
                      platform === 'claude' ? '🟣' :
@@ -2526,6 +2534,9 @@ async function handleRecallMemories(args) {
       }
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
+
+    // Update last recall cache for ordinal lookups
+    lastRecallIds = recalledIds;
 
     resultText += `${'─'.repeat(60)}\n\n`;
     resultText += `💡 **Discover More:**\n`;
@@ -2572,10 +2583,38 @@ async function handleGetMemoryDetails(args) {
   const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const startTime = Date.now();
 
+  // Resolve ordinal IDs ("1", "2", etc.) to UUIDs from last recall_memories result
+  let resolvedId = args.memoryId;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!uuidPattern.test(resolvedId)) {
+    const ordinal = parseInt(resolvedId, 10);
+    if (ordinal >= 1 && ordinal <= lastRecallIds.length) {
+      resolvedId = lastRecallIds[ordinal - 1];
+      structuredLog.info(`${toolName}: resolved ordinal ${args.memoryId} → ${resolvedId}`, {
+        tool_name: toolName,
+        request_id: requestId,
+        original_id: args.memoryId,
+        resolved_id: resolvedId
+      });
+    } else {
+      const hint = lastRecallIds.length > 0
+        ? `Valid range: 1-${lastRecallIds.length} (from last recall), or use a full UUID.`
+        : 'Run recall_memories first to enable ordinal lookups, or use a full UUID.';
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Invalid memory ID: "${args.memoryId}"\n\n${hint}\n\nMemory IDs are UUIDs like: 951be873-8364-400a-8075-50e8650b67a9`
+        }]
+      };
+    }
+  }
+
   structuredLog.info(`${toolName}: starting`, {
     tool_name: toolName,
     request_id: requestId,
-    memory_id: args.memoryId,
+    memory_id: resolvedId,
+    original_id: args.memoryId !== resolvedId ? args.memoryId : undefined,
     include_linked_parts: args.includeLinkedParts
   });
 
@@ -2588,7 +2627,7 @@ async function handleGetMemoryDetails(args) {
       body: JSON.stringify({
         tool: 'get_memory_details',
         arguments: {
-          memoryId: args.memoryId,
+          memoryId: resolvedId,
           includeLinkedParts: args.includeLinkedParts !== false
         }
       })
@@ -2598,13 +2637,13 @@ async function handleGetMemoryDetails(args) {
       structuredLog.warn(`${toolName}: no content in response`, {
         tool_name: toolName,
         request_id: requestId,
-        memory_id: args.memoryId
+        memory_id: resolvedId
       });
 
       return {
         content: [{
           type: 'text',
-          text: `❌ Memory not found or invalid response\n\nMemory ID: ${args.memoryId}`
+          text: `❌ Memory not found or invalid response\n\nMemory ID: ${resolvedId}`
         }]
       };
     }
@@ -2616,7 +2655,7 @@ async function handleGetMemoryDetails(args) {
       tool_name: toolName,
       request_id: requestId,
       duration_ms: Date.now() - startTime,
-      memory_id: args.memoryId,
+      memory_id: resolvedId,
       response_size: sanitizedText.length
     });
 
@@ -2631,7 +2670,7 @@ async function handleGetMemoryDetails(args) {
       tool_name: toolName,
       request_id: requestId,
       duration_ms: Date.now() - startTime,
-      memory_id: args.memoryId,
+      memory_id: resolvedId,
       error_message: error.message,
       error_type: error.constructor.name
     });
@@ -2639,7 +2678,7 @@ async function handleGetMemoryDetails(args) {
     return {
       content: [{
         type: 'text',
-        text: `❌ Error retrieving memory: ${errorMsg}\n\nMemory ID: ${args.memoryId}\n\nCheck logs for full details.`
+        text: `❌ Error retrieving memory: ${errorMsg}\n\nMemory ID: ${resolvedId}\n\nCheck logs for full details.`
       }]
     };
   }
