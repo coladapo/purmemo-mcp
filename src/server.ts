@@ -2521,7 +2521,9 @@ async function handleRecallMemories(args) {
 
       if (memoryId !== 'unknown') recalledIds.push(memoryId);
 
-      const hasScreenshot = block.includes('📷 Has screenshot');
+      const imageMatch = block.match(/📷\s*(\d+)\s*image/);
+      const hasImage = block.includes('📷');
+      const imageCount = imageMatch ? parseInt(imageMatch[1], 10) : (hasImage ? 1 : 0);
 
       const emoji = platform === 'chatgpt' ? '🤖' :
                      platform === 'claude' ? '🟣' :
@@ -2534,8 +2536,8 @@ async function handleRecallMemories(args) {
       if (preview) {
         resultText += `   📝 Preview: ${sanitizeUnicode(preview.substring(0, 150))}...\n`;
       }
-      if (hasScreenshot) {
-        resultText += `   📷 Has screenshot — use get_memory_details to view\n`;
+      if (imageCount > 0) {
+        resultText += `   📷 ${imageCount} image${imageCount > 1 ? 's' : ''} — use get_memory_details to view\n`;
       }
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
@@ -2656,7 +2658,7 @@ async function handleGetMemoryDetails(args) {
     // Pass through all content blocks (text + image) from API
     const contentBlocks = data.content.map((block: any) => {
       if (block.type === 'image') {
-        // Pass through image blocks directly (base64 screenshot)
+        // Pass through image blocks directly (base64 image)
         return { type: 'image', data: block.data, mimeType: block.mimeType };
       }
       // Sanitize text blocks
