@@ -2633,7 +2633,7 @@ async function handleGetMemoryDetails(args) {
       })
     });
 
-    if (!data.content || !data.content[0] || !data.content[0].text) {
+    if (!data.content || !data.content[0]) {
       structuredLog.warn(`${toolName}: no content in response`, {
         tool_name: toolName,
         request_id: requestId,
@@ -2648,20 +2648,26 @@ async function handleGetMemoryDetails(args) {
       };
     }
 
-    const responseText = data.content[0].text;
-    const sanitizedText = sanitizeUnicode(responseText);
+    // Pass through all content blocks (text + image) from API
+    const contentBlocks = data.content.map((block: any) => {
+      if (block.type === 'image') {
+        // Pass through image blocks directly (base64 screenshot)
+        return { type: 'image', data: block.data, mimeType: block.mimeType };
+      }
+      // Sanitize text blocks
+      return { type: 'text', text: sanitizeUnicode(block.text || '') };
+    });
 
     structuredLog.info(`${toolName}: completed`, {
       tool_name: toolName,
       request_id: requestId,
       duration_ms: Date.now() - startTime,
       memory_id: resolvedId,
-      response_size: sanitizedText.length
+      content_blocks: contentBlocks.length,
+      has_image: contentBlocks.some((b: any) => b.type === 'image')
     });
 
-    return {
-      content: [{ type: 'text', text: sanitizedText }]
-    };
+    return { content: contentBlocks };
 
   } catch (error) {
     const errorMsg = safeErrorMessage(error);
@@ -3135,11 +3141,16 @@ async function handleListWorkflows(args) {
 // ============================================================================
 
 async function handleShareMemory(args) {
+  const memoryId = args.memory_id || args.memoryId || args.id;
   const requestId = `share_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  structuredLog.info(`[${requestId}] share_memory called`, { memory_id: args.memory_id, visibility: args.visibility });
+  structuredLog.info(`[${requestId}] share_memory called`, { memory_id: memoryId, visibility: args.visibility });
+
+  if (!memoryId) {
+    return { content: [{ type: 'text', text: `❌ Missing required parameter: memory_id` }] };
+  }
 
   try {
-    const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/visibility`, {
+    const response = await makeApiCall(`/api/v1/memories/${memoryId}/visibility`, {
       method: 'PATCH',
       body: JSON.stringify({ visibility: args.visibility })
     });
@@ -3151,7 +3162,7 @@ async function handleShareMemory(args) {
     else if (args.visibility === 'unlisted') emoji = '🔗';
 
     let output = `${emoji} **Memory visibility updated to \`${args.visibility}\`**\n\n`;
-    output += `Memory ID: \`${args.memory_id}\`\n`;
+    output += `Memory ID: \`${memoryId}\`\n`;
 
     if (args.visibility === 'public') {
       output += `\nThis memory is now discoverable in the community tab. Other users can find it via \`recall_public\`.\n`;
@@ -3243,18 +3254,23 @@ async function handleRecallPublic(args) {
 }
 
 async function handleGetPublicMemory(args) {
+  const memoryId = args.memory_id || args.memoryId || args.id;
   const requestId = `get_public_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  structuredLog.info(`[${requestId}] get_public_memory called`, { memory_id: args.memory_id });
+  structuredLog.info(`[${requestId}] get_public_memory called`, { memory_id: memoryId });
+
+  if (!memoryId) {
+    return { content: [{ type: 'text', text: `❌ Missing required parameter: memory_id` }] };
+  }
 
   try {
-    const response = await makeApiCall(`/api/v1/memories/public/${args.memory_id}`, {
+    const response = await makeApiCall(`/api/v1/memories/public/${memoryId}`, {
       method: 'GET'
     });
 
     const data = typeof response === 'string' ? JSON.parse(response) : response;
 
     if (!data || !data.id) {
-      return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+      return { content: [{ type: 'text', text: `❌ Memory \`${memoryId}\` not found or is not public.` }] };
     }
 
     const platformEmoji = {
@@ -3293,18 +3309,23 @@ async function handleGetPublicMemory(args) {
     structuredLog.error(`[${requestId}] get_public_memory failed`, { error: error.message });
     const errorMsg = error.message || String(error);
     if (errorMsg.includes('404')) {
-      return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+      return { content: [{ type: 'text', text: `❌ Memory \`${memoryId}\` not found or is not public.` }] };
     }
     return { content: [{ type: 'text', text: `❌ Failed to retrieve public memory: ${errorMsg}` }] };
   }
 }
 
 async function handleReportMemory(args) {
+  const memoryId = args.memory_id || args.memoryId || args.id;
   const requestId = `report_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  structuredLog.info(`[${requestId}] report_memory called`, { memory_id: args.memory_id, reason: args.reason });
+  structuredLog.info(`[${requestId}] report_memory called`, { memory_id: memoryId, reason: args.reason });
+
+  if (!memoryId) {
+    return { content: [{ type: 'text', text: `❌ Missing required parameter: memory_id` }] };
+  }
 
   try {
-    const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/report`, {
+    const response = await makeApiCall(`/api/v1/memories/${memoryId}/report`, {
       method: 'POST',
       body: JSON.stringify({
         reason: args.reason,
@@ -3317,7 +3338,7 @@ async function handleReportMemory(args) {
     return {
       content: [{
         type: 'text',
-        text: `✅ **Report submitted** for memory \`${args.memory_id}\`\n\nReason: ${args.reason}\n${data.message || 'Thank you for helping keep the community safe.'}`
+        text: `✅ **Report submitted** for memory \`${memoryId}\`\n\nReason: ${args.reason}\n${data.message || 'Thank you for helping keep the community safe.'}`
       }]
     };
   } catch (error) {
