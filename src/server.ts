@@ -3883,14 +3883,21 @@ if (REMOTE_MODE) {
   const app = express();
   app.use(express.json());
 
-  // CORS — allow Claude.ai, ChatGPT, and other MCP clients
+  // CORS — allow known MCP client origins only
+  const TRUSTED_MCP_ORIGINS = [
+    'https://claude.ai', 'https://chat.openai.com', 'https://chatgpt.com',
+    'https://gemini.google.com', 'https://app.purmemo.ai', 'https://purmemo.ai',
+    'https://api.purmemo.ai', 'http://localhost:3000', 'http://localhost:3001',
+  ];
   app.use((req, res, next) => {
-    const origin = req.headers.origin || '*';
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    const origin = req.headers.origin;
+    if (origin && TRUSTED_MCP_ORIGINS.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
     res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
@@ -4040,13 +4047,23 @@ if (REMOTE_MODE) {
     res.end();
   }
 
-  const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, Accept',
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Expose-Headers': 'Mcp-Session-Id'
-  };
+  // SECURITY: No wildcard CORS — reflect only trusted origins
+  const STREAMABLE_TRUSTED_ORIGINS = [
+    'https://claude.ai', 'https://chat.openai.com', 'https://chatgpt.com',
+    'https://gemini.google.com', 'https://app.purmemo.ai',
+  ];
+  function getCorsHeaders(req) {
+    const origin = req?.headers?.origin;
+    const allowOrigin = (origin && STREAMABLE_TRUSTED_ORIGINS.includes(origin)) ? origin : STREAMABLE_TRUSTED_ORIGINS[0];
+    return {
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, Accept',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Expose-Headers': 'Mcp-Session-Id'
+    };
+  }
+  const CORS_HEADERS = getCorsHeaders(null);
 
   // Helper: JSON response with CORS
   function sendJSON(res, data, statusCode = 200, extraHeaders = {}) {
