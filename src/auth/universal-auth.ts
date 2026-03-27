@@ -9,10 +9,10 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import * as readline from 'readline';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 interface AuthOptions {
   client?: string;
@@ -140,13 +140,14 @@ class UniversalAuthManager {
 
     // Try to open browser
     try {
+      // SECURITY: Use execFile (no shell) to prevent command injection via URL
       if (process.platform === 'darwin') {
-        await execAsync(`open "${authUrl}"`);
+        await execFileAsync('open', [authUrl]);
         console.log('✨ Browser opened automatically');
       } else if (process.platform === 'win32') {
-        await execAsync(`start "${authUrl}"`);
+        await execFileAsync('cmd', ['/c', 'start', authUrl]);
       } else {
-        await execAsync(`xdg-open "${authUrl}"`);
+        await execFileAsync('xdg-open', [authUrl]);
       }
     } catch {
       // Silent fail - user has manual instructions

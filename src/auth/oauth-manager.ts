@@ -13,6 +13,10 @@ import TokenStore from './token-store.js';
 import type { TokenData } from '../types.js';
 import type { Server } from 'http';
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 interface OAuthConfig {
   apiUrl?: string;
   clientId?: string;
@@ -217,7 +221,7 @@ class OAuthManager {
                 <div class="container">
                   <h1>❌ Authentication Failed</h1>
                   <p>Unable to complete authentication</p>
-                  <div class="error">${error}: ${error_description || 'Unknown error'}</div>
+                  <div class="error">${escapeHtml(String(error))}: ${escapeHtml(String(error_description || 'Unknown error'))}</div>
                   <p style="margin-top: 20px; font-size: 14px;">You can close this window</p>
                 </div>
               </body>
