@@ -2521,6 +2521,8 @@ async function handleRecallMemories(args) {
 
       if (memoryId !== 'unknown') recalledIds.push(memoryId);
 
+      const hasScreenshot = block.includes('📷 Has screenshot');
+
       const emoji = platform === 'chatgpt' ? '🤖' :
                      platform === 'claude' ? '🟣' :
                      platform === 'gemini' ? '💎' : '❓';
@@ -2531,6 +2533,9 @@ async function handleRecallMemories(args) {
 
       if (preview) {
         resultText += `   📝 Preview: ${sanitizeUnicode(preview.substring(0, 150))}...\n`;
+      }
+      if (hasScreenshot) {
+        resultText += `   📷 Has screenshot — use get_memory_details to view\n`;
       }
       resultText += `   🔗 ID: ${memoryId}\n\n`;
     });
