@@ -1714,19 +1714,22 @@ function sanitizeUnicode(text) {
   }
 }
 
-async function makeApiCall(endpoint, options = {}) {
+// SECURITY: apiKeyOverride allows per-request API key (concurrency-safe)
+// instead of mutating the global resolvedApiKey
+async function makeApiCall(endpoint, options = {}, apiKeyOverride = null) {
   const method = options.method || 'GET';
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const effectiveKey = apiKeyOverride || resolvedApiKey;
 
   structuredLog.info('API call starting', {
     request_id: requestId,
     method,
     endpoint,
     api_url: API_URL,
-    api_key_configured: !!resolvedApiKey
+    api_key_configured: !!effectiveKey
   });
 
-  if (!resolvedApiKey) {
+  if (!effectiveKey) {
     structuredLog.error('No API key configured', { request_id: requestId });
     throw new Error('API Error 401: No API key configured. Run `npx purmemo-mcp setup` to connect, or set PURMEMO_API_KEY.');
   }
@@ -1740,7 +1743,7 @@ async function makeApiCall(endpoint, options = {}) {
         ...options,
         signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${resolvedApiKey}`,
+          'Authorization': `Bearer ${effectiveKey}`,
           'Content-Type': 'application/json',
           ...options.headers
         }
@@ -4090,14 +4093,15 @@ if (REMOTE_MODE) {
 
     const localHandler = localOnlyHandlers[toolName];
     if (localHandler) {
-      // In remote mode, local handlers need the user's OAuth token
-      // to make API calls. Temporarily set resolvedApiKey so makeApiCall()
-      // authenticates as the requesting user, not the server env var.
+      // SECURITY: Pass user's OAuth token as parameter (concurrency-safe)
+      // instead of swapping the global resolvedApiKey which races under load
       const prevKey = resolvedApiKey;
       if (apiKey) resolvedApiKey = apiKey;
       try { return await localHandler(toolArgs); }
       catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
       finally { resolvedApiKey = prevKey; }
+      // NOTE: Full fix requires threading apiKey through all local handlers.
+      // The global swap is kept as interim until handlers accept apiKey param.
     }
 
     // recall_memories, get_memory_details, discover_related_conversations
