@@ -191,6 +191,17 @@ export interface SaveConversationArgs {
   priority?: 'low' | 'medium' | 'high';
 }
 
+// ADR-025: Artifact Preservation
+export type ArtifactType = 'research' | 'code' | 'table' | 'framework' | 'spec' | 'diagram' | 'other';
+
+export interface SaveArtifactArgs {
+  conversationId: string;
+  title: string;
+  type: ArtifactType;
+  content: string;
+  tags?: string[];
+}
+
 export interface RecallMemoriesArgs {
   query: string;
   limit?: number;
