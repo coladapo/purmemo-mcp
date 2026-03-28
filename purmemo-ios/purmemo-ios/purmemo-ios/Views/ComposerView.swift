@@ -67,17 +67,21 @@ struct ComposerView: View {
         .background(Color.black)
         .animation(.easeInOut(duration: 0.2), value: hasText)
         .animation(.easeInOut(duration: 0.2), value: isRecording)
-        .overlay(alignment: .top) {
+        .safeAreaInset(edge: .top, spacing: 0) {
             if isRecording {
-                Text("Listening...")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(hex: "#E7FC44"))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(hex: "#E7FC44").opacity(0.1))
-                    .clipShape(Capsule())
-                    .offset(y: -24)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                HStack {
+                    Spacer()
+                    Text("Listening...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(hex: "#E7FC44"))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "#E7FC44").opacity(0.1))
+                        .clipShape(Capsule())
+                    Spacer()
+                }
+                .padding(.bottom, 6)
+                .transition(.opacity)
             }
         }
         .onChange(of: voiceService.transcript) { _, newValue in
@@ -153,6 +157,7 @@ class VoiceService {
     var transcript: String = ""
     var isFinal: Bool = false
     var isAuthorized: Bool = false
+    var isActive: Bool = false
 
     /// Accumulates finalized segments so pauses don't clear previous words
     private var finalizedText: String = ""
@@ -166,6 +171,7 @@ class VoiceService {
         transcript = ""
         finalizedText = ""
         isFinal = false
+        isActive = true
 
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             guard status == .authorized else { return }
@@ -177,6 +183,7 @@ class VoiceService {
     }
 
     func stopListening() {
+        isActive = false
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()
@@ -229,6 +236,13 @@ class VoiceService {
                 self.audioEngine.inputNode.removeTap(onBus: 0)
                 self.recognitionRequest = nil
                 self.recognitionTask = nil
+
+                // If still actively recording, restart recognition for continuous listening
+                if self.isActive {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.beginRecognition()
+                    }
+                }
             }
         }
 
