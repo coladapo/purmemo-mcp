@@ -158,6 +158,28 @@ class PurmemoAPI {
         }
     }
 
+    // MARK: - Get Full Memory
+
+    func getMemory(id: String) async throws -> FullMemory {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/memories/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+        if httpStatus == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return try JSONDecoder().decode(FullMemory.self, from: retryData)
+        }
+
+        return try JSONDecoder().decode(FullMemory.self, from: data)
+    }
+
     // MARK: - Recall Memories
 
     func recall(query: String) async throws -> RecallResponse {

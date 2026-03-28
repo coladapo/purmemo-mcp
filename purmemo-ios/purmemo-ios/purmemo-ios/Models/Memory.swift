@@ -26,3 +26,14 @@ struct RecallResponse: Codable {
     let memories: [RecallMemory]
     let query: String?
 }
+
+struct FullMemory: Codable {
+    let id: String
+    let title: String?
+    let content: String?
+    let created_at: String?
+    let updated_at: String?
+    let source_type: String?
+    let platform: String?
+    let tags: [String]?
+}

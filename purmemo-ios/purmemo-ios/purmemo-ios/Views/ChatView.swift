@@ -44,7 +44,7 @@ struct ChatView: View {
             SettingsView(authService: authService)
         }
         .sheet(item: $selectedMemory) { memory in
-            MemoryDetailView(memory: memory)
+            MemoryDetailView(memory: memory, authService: authService)
         }
     }
 
