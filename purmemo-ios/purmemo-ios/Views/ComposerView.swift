@@ -206,6 +206,10 @@ class VoiceService {
         }
 
         let inputNode = audioEngine.inputNode
+
+        // Remove any existing tap before installing a new one
+        inputNode.removeTap(onBus: 0)
+
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
         // Guard against invalid audio format (e.g. simulator with no mic)
