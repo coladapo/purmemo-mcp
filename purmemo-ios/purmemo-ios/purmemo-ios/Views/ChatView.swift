@@ -21,6 +21,13 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 header
                 messageList
+                // Drag handle hint for keyboard dismissal
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+
                 ComposerView(
                     text: $composerText,
                     isLoading: viewModel.isLoading,
@@ -114,6 +121,9 @@ struct ChatView: View {
                 .padding(.vertical, 12)
             }
             .scrollDismissesKeyboard(.interactively)
+            .onTapGesture {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
             .onAppear { scrollProxy = proxy }
             .onChange(of: viewModel.messages.count) {
                 // Small delay so user can still scroll up; only auto-scroll for new messages

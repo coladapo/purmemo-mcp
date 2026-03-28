@@ -154,6 +154,9 @@ class VoiceService {
     var isFinal: Bool = false
     var isAuthorized: Bool = false
 
+    /// Accumulates finalized segments so pauses don't clear previous words
+    private var finalizedText: String = ""
+
     private var audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
@@ -161,6 +164,7 @@ class VoiceService {
 
     func startListening() {
         transcript = ""
+        finalizedText = ""
         isFinal = false
 
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
@@ -207,7 +211,16 @@ class VoiceService {
             guard let self else { return }
             if let result {
                 DispatchQueue.main.async {
-                    self.transcript = result.bestTranscription.formattedString
+                    // Append to any previously finalized text
+                    let newText = result.bestTranscription.formattedString
+                    if self.finalizedText.isEmpty {
+                        self.transcript = newText
+                    } else {
+                        self.transcript = self.finalizedText + " " + newText
+                    }
+                    if result.isFinal {
+                        self.finalizedText = self.transcript
+                    }
                     self.isFinal = result.isFinal
                 }
             }
