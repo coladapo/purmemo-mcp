@@ -82,6 +82,9 @@ async function runSetup() {
         await installHooks();
       } else if (!hooksAlreadyInstalled()) {
         await promptInstallHooks();
+      } else if (hooksOutdated()) {
+        console.log(chalk.yellow('⚡ Updating hooks…'));
+        await installHooks();
       } else {
         console.log(chalk.gray('Claude Code hooks already installed. ✓'));
       }
@@ -233,6 +236,27 @@ async function runHooksOnly() {
 
 function hooksAlreadyInstalled() {
   return HOOK_SCRIPTS.every(f => fs.existsSync(path.join(HOOKS_DIR, f)));
+}
+
+function hooksOutdated(): boolean {
+  try {
+    const libPath = path.join(HOOKS_DIR, 'purmemo_lib.js');
+    if (!fs.existsSync(libPath)) return false;
+    const content = fs.readFileSync(libPath, 'utf8');
+    const match = content.match(/HOOKS_VERSION\s*=\s*["']([^"']+)["']/);
+    if (!match) return true; // can't determine version → treat as outdated
+    const installed = match[1];
+    if (installed.startsWith('__')) return true; // unstamped dev version
+    const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+    // Compare semver: if installed < package version, outdated
+    const i = installed.split('.').map(Number);
+    const p = pkgVersion.split('.').map(Number);
+    for (let n = 0; n < 3; n++) {
+      if ((i[n] || 0) < (p[n] || 0)) return true;
+      if ((i[n] || 0) > (p[n] || 0)) return false;
+    }
+    return false;
+  } catch { return false; }
 }
 
 function hasOldHooks() {
