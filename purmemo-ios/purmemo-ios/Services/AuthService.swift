@@ -25,6 +25,9 @@ class AuthService {
     private let baseURL = "https://api.purmemo.ai"
     static let oauthCallbackScheme = "purmemo"
 
+    /// Retain the auth session so it isn't deallocated mid-flow
+    private var activeAuthSession: ASWebAuthenticationSession?
+
     init() {
         if let token = KeychainService.load(.accessToken), !token.isEmpty {
             isAuthenticated = true
@@ -60,15 +63,17 @@ class AuthService {
 
     // MARK: - OAuth Login (Google / GitHub)
 
+    @MainActor
     func loginWithOAuth(provider: String) async throws {
         let callbackURL = "\(Self.oauthCallbackScheme)://oauth_callback"
         let loginURL = URL(string: "\(baseURL)/api/v1/oauth/\(provider)/login?return_url=\(callbackURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? callbackURL)")!
 
-        let callbackUrl = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+        let callbackUrl: URL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(
                 url: loginURL,
                 callbackURLScheme: Self.oauthCallbackScheme
-            ) { url, error in
+            ) { [weak self] url, error in
+                self?.activeAuthSession = nil
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let url {
@@ -80,9 +85,9 @@ class AuthService {
             session.prefersEphemeralWebBrowserSession = false
             session.presentationContextProvider = OAuthPresentationContext.shared
 
-            DispatchQueue.main.async {
-                session.start()
-            }
+            // Retain the session and start on main thread
+            self.activeAuthSession = session
+            session.start()
         }
 
         // Parse tokens from callback URL: purmemo://oauth_callback?token=...&refresh_token=...&provider=...
