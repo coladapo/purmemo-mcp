@@ -6,6 +6,7 @@ struct ChatView: View {
     @State private var composerText = ""
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var showImagePicker = false
+    @State private var showSettings = false
 
     init(authService: AuthService) {
         self.authService = authService
@@ -31,6 +32,9 @@ struct ChatView: View {
         .fullScreenCover(isPresented: $showImagePicker) {
             ImagePickerView(authService: authService)
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(authService: authService)
+        }
     }
 
     // MARK: - Header
@@ -55,8 +59,8 @@ struct ChatView: View {
                     .foregroundColor(Color(UIColor(red: 0.906, green: 0.988, blue: 0.267, alpha: 1)))
             }
 
-            Button(action: authService.logout) {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
                     .font(.system(size: 18))
                     .foregroundColor(.white.opacity(0.4))
             }
