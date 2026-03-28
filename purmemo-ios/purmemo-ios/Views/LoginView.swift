@@ -1,12 +1,10 @@
 import SwiftUI
-import AuthenticationServices
 
 struct LoginView: View {
     var authService: AuthService
     @State private var email = ""
     @State private var password = ""
     @State private var isLoading = false
-    @State private var oauthLoading: String? = nil
     @State private var errorMessage: String?
 
     var body: some View {
@@ -34,18 +32,18 @@ struct LoginView: View {
                         OAuthButton(
                             label: "Continue with Google",
                             logoImage: "GoogleLogo",
-                            isLoading: oauthLoading == "google",
-                            action: { loginWithOAuth("google") }
+                            isLoading: false,
+                            action: { authService.startOAuth(provider: "google") }
                         )
 
                         OAuthButton(
                             label: "Continue with GitHub",
                             logoImage: "GitHubLogo",
-                            isLoading: oauthLoading == "github",
-                            action: { loginWithOAuth("github") }
+                            isLoading: false,
+                            action: { authService.startOAuth(provider: "github") }
                         )
                     }
-                    .disabled(isLoading || oauthLoading != nil)
+                    .disabled(isLoading)
 
                     // Divider
                     HStack(spacing: 12) {
@@ -98,7 +96,7 @@ struct LoginView: View {
                             .background(Color(hex: "#E7FC44"))
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .disabled(isLoading || oauthLoading != nil || email.isEmpty || password.isEmpty)
+                        .disabled(isLoading || email.isEmpty || password.isEmpty)
                         .padding(.top, 4)
                     }
                 }
@@ -113,6 +111,12 @@ struct LoginView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: authService.oauthError) { _, newError in
+            if let newError {
+                errorMessage = newError
+                authService.oauthError = nil
+            }
+        }
     }
 
     private func login() {
@@ -126,22 +130,6 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
             }
             isLoading = false
-        }
-    }
-
-    private func loginWithOAuth(_ provider: String) {
-        oauthLoading = provider
-        errorMessage = nil
-        Task {
-            do {
-                try await authService.loginWithOAuth(provider: provider)
-            } catch let error as NSError where error.domain == ASWebAuthenticationSessionErrorDomain
-                && error.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                // User cancelled — no error message needed
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            oauthLoading = nil
         }
     }
 }

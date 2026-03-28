@@ -21,6 +21,7 @@ struct RefreshRequest: Codable {
 class AuthService {
     var isAuthenticated = false
     var userEmail: String = ""
+    var oauthError: String?
 
     private let baseURL = "https://api.purmemo.ai"
     static let oauthCallbackScheme = "purmemo"
@@ -55,76 +56,90 @@ class AuthService {
         KeychainService.save(loginResponse.refresh_token, for: .refreshToken)
         KeychainService.save(email, for: .userEmail)
 
-        await MainActor.run {
-            self.userEmail = email
-            self.isAuthenticated = true
-        }
+        self.userEmail = email
+        self.isAuthenticated = true
     }
 
     // MARK: - OAuth Login (Google / GitHub)
 
-    @MainActor
-    func loginWithOAuth(provider: String) async throws {
+    /// Start the OAuth flow. This is NOT async — it opens the browser sheet
+    /// and the completion handler fires when the user finishes or cancels.
+    func startOAuth(provider: String) {
         let callbackURL = "\(Self.oauthCallbackScheme)://oauth_callback"
-        let loginURL = URL(string: "\(baseURL)/api/v1/oauth/\(provider)/login?return_url=\(callbackURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? callbackURL)")!
-
-        let callbackUrl: URL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
-            let session = ASWebAuthenticationSession(
-                url: loginURL,
-                callbackURLScheme: Self.oauthCallbackScheme
-            ) { [weak self] url, error in
-                self?.activeAuthSession = nil
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let url {
-                    continuation.resume(returning: url)
-                } else {
-                    continuation.resume(throwing: AuthError.oauthFailed)
-                }
-            }
-            session.prefersEphemeralWebBrowserSession = false
-            session.presentationContextProvider = OAuthPresentationContext.shared
-
-            // Retain the session and start on main thread
-            self.activeAuthSession = session
-            session.start()
+        guard let encoded = callbackURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let loginURL = URL(string: "\(baseURL)/api/v1/oauth/\(provider)/login?return_url=\(encoded)") else {
+            return
         }
 
-        // Parse tokens from callback URL: purmemo://oauth_callback?token=...&refresh_token=...&provider=...
-        guard let components = URLComponents(url: callbackUrl, resolvingAgainstBaseURL: false),
+        let session = ASWebAuthenticationSession(
+            url: loginURL,
+            callbackURLScheme: Self.oauthCallbackScheme
+        ) { [weak self] callbackUrl, error in
+            // This fires on an arbitrary thread — dispatch to main
+            DispatchQueue.main.async {
+                self?.activeAuthSession = nil
+                self?.handleOAuthCallback(callbackUrl: callbackUrl, error: error)
+            }
+        }
+        session.prefersEphemeralWebBrowserSession = false
+        session.presentationContextProvider = OAuthPresentationContext.shared
+
+        activeAuthSession = session
+        session.start()
+    }
+
+    /// Process the OAuth callback URL on the main thread
+    private func handleOAuthCallback(callbackUrl: URL?, error: Error?) {
+        if let error = error as? NSError {
+            // User cancelled — don't show error
+            if error.domain == ASWebAuthenticationSessionErrorDomain
+                && error.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                return
+            }
+            oauthError = error.localizedDescription
+            return
+        }
+
+        guard let callbackUrl,
+              let components = URLComponents(url: callbackUrl, resolvingAgainstBaseURL: false),
               let items = components.queryItems,
               let token = items.first(where: { $0.name == "token" })?.value,
               let refreshToken = items.first(where: { $0.name == "refresh_token" })?.value else {
-            throw AuthError.oauthFailed
+            oauthError = "Sign in failed — no tokens received"
+            return
         }
 
         // Save tokens
         KeychainService.save(token, for: .accessToken)
         KeychainService.save(refreshToken, for: .refreshToken)
 
-        // Fetch user email from /auth/me
-        let email = try await fetchUserEmail(token: token)
-        KeychainService.save(email, for: .userEmail)
+        // Fetch email in background, authenticate immediately
+        self.isAuthenticated = true
+        self.userEmail = "..."
 
-        await MainActor.run {
+        Task { @MainActor in
+            let email = await self.fetchUserEmail(token: token)
+            KeychainService.save(email, for: .userEmail)
             self.userEmail = email
-            self.isAuthenticated = true
         }
     }
 
-    private func fetchUserEmail(token: String) async throws -> String {
+    private func fetchUserEmail(token: String) async -> String {
         let url = URL(string: "\(baseURL)/api/v1/auth/me")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let email = json["email"] as? String else {
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let email = json["email"] as? String else {
+                return "User"
+            }
+            return email
+        } catch {
             return "User"
         }
-        return email
     }
 
     // MARK: - Token Management
@@ -143,7 +158,7 @@ class AuthService {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            await MainActor.run { self.logout() }
+            self.logout()
             throw AuthError.sessionExpired
         }
 
@@ -169,15 +184,18 @@ class AuthService {
 
 // MARK: - OAuth Presentation Context
 
+@MainActor
 class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
-    static let shared = OAuthPresentationContext()
+    nonisolated static let shared = OAuthPresentationContext()
 
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first else {
-            return ASPresentationAnchor()
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        DispatchQueue.main.sync {
+            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let window = scene.windows.first else {
+                return ASPresentationAnchor()
+            }
+            return window
         }
-        return window
     }
 }
 
