@@ -139,7 +139,7 @@ async function main(): Promise<void> {
   // ── Save to Purmemo (single row, API accepts up to 1MB) ─────────────────
   const result = await apiPost(apiKey, '/api/v1/memories/', {
     content, title, conversation_id: conversationId,
-    platform: 'claude-code', tags, metadata,
+    platform: 'claude-code', source_type: 'auto_capture', tags, metadata,
   });
   const saved = !!(result?.id || result?.memory_id);
 
