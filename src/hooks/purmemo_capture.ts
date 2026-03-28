@@ -124,7 +124,7 @@ async function main(): Promise<void> {
   const projectName = path.basename(cwd);
   const date        = new Date().toISOString().split('T')[0];
 
-  const platformName = platform === 'gemini' ? 'gemini-cli' : 'claude-code';
+  const platformName = platform === 'gemini' ? 'gemini' : 'claude-code';
   const platformLabel = platform === 'gemini' ? 'Gemini CLI' : 'Claude Code';
 
   const manualSave = findManualSaveId(entries);

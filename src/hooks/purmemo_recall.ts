@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   const projectName = path.basename(cwd || process.cwd());
 
   // Post session context (fire-and-forget)
-  const platformName = platform === 'gemini' ? 'gemini-cli' : 'claude-code';
+  const platformName = platform === 'gemini' ? 'gemini' : 'claude-code';
   apiPost(apiKey, '/api/v1/identity/session', {
     project: projectName, platform: platformName, auto: true,
   }, 5000).then(r => dbg(TAG, `session POST → ${r ? 'ok' : 'error'}`));
