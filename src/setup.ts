@@ -44,13 +44,14 @@ const banner = `
 const command = process.argv[2] || 'setup';
 
 switch (command) {
-  case 'setup':  await runSetup();  break;
+  case 'setup':
+  case 'init':   await runSetup();  break;
   case 'status': await runStatus(); break;
   case 'logout': await runLogout(); break;
   case 'hooks':  await runHooksOnly(); break;
   default:
     console.log(chalk.red(`Unknown command: ${command}`));
-    console.log(chalk.gray('Usage: npx purmemo-mcp [setup|status|logout|hooks]'));
+    console.log(chalk.gray('Usage: npx purmemo-mcp [setup|init|status|logout|hooks]'));
     process.exit(1);
 }
 

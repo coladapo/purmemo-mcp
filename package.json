@@ -1,6 +1,6 @@
 {
   "name": "purmemo-mcp",
-  "version": "15.1.5",
+  "version": "15.1.6",
   "mcpName": "io.github.purmemo-ai/purmemo",
   "description": "MCP server for pūrmemo - AI conversation memory that works everywhere. Save and recall conversations across Claude Desktop, Cursor, and other MCP-compatible platforms. Intelligent context extraction, smart titles, living documents.",
   "main": "dist/server.js",
@@ -33,7 +33,7 @@
     "test": "node --test tests/*.test.js",
     "build:mcpb": "node scripts/build-mcpb.js",
     "prepublishOnly": "npm run build",
-    "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp setup\\\\n')\""
+    "postinstall": "node -e \"console.log('\\\\n🧠 pūrmemo MCP ready! Run: npx purmemo-mcp init\\\\n')\""
   },
   "keywords": [
     "mcp",

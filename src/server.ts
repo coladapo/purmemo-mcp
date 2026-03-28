@@ -62,9 +62,9 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
-// Route subcommands: `npx purmemo-mcp setup|status|logout` → setup.js
+// Route subcommands: `npx purmemo-mcp setup|init|status|logout|hooks` → setup.js
 const _subcommand = process.argv[2];
-if (_subcommand === 'setup' || _subcommand === 'status' || _subcommand === 'logout') {
+if (['setup', 'init', 'status', 'logout', 'hooks'].includes(_subcommand)) {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const setupPath = path.join(__dirname, 'setup.js');
   import(setupPath).catch(err => { console.error(err); process.exit(1); });
@@ -5255,6 +5255,20 @@ if (REMOTE_MODE) {
   // ========================================================================
   // STDIO MODE — Standard local MCP (default for npm/Claude Desktop/Claude Code)
   // ========================================================================
+
+  // If running interactively in a terminal (not piped by an MCP client) and
+  // no auth is configured, redirect to setup instead of silently hanging.
+  if (process.stdin.isTTY && !process.env.PURMEMO_API_KEY) {
+    const _ts = new TokenStore();
+    const _tok = await _ts.getToken();
+    if (!_tok?.access_token) {
+      console.log('\n🧠 pūrmemo MCP — Memory for your AI tools\n');
+      console.log('Not connected yet. Run setup to get started:\n');
+      console.log('  npx purmemo-mcp setup\n');
+      process.exit(0);
+    }
+  }
+
   const transport = new StdioServerTransport();
 
   resolveApiKey().then(apiKey => {
