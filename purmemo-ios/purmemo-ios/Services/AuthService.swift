@@ -184,18 +184,22 @@ class AuthService {
 
 // MARK: - OAuth Presentation Context
 
-@MainActor
-class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
-    nonisolated static let shared = OAuthPresentationContext()
+class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding, @unchecked Sendable {
+    static let shared = OAuthPresentationContext()
 
-    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        DispatchQueue.main.sync {
-            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                  let window = scene.windows.first else {
-                return ASPresentationAnchor()
-            }
-            return window
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        if Thread.isMainThread {
+            return getWindow()
         }
+        return DispatchQueue.main.sync { getWindow() }
+    }
+
+    private func getWindow() -> ASPresentationAnchor {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = scene.windows.first else {
+            return ASPresentationAnchor()
+        }
+        return window
     }
 }
 
