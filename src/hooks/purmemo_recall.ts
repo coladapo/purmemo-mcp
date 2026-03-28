@@ -14,7 +14,7 @@ import * as path from 'node:path';
 import {
   dbg, readState, writeState, loadApiKey,
   apiGet, apiPost, readHookInput,
-  checkForUpdate, HOOKS_VERSION,
+  checkForUpdate, autoUpdateHooks, HOOKS_VERSION,
 } from './purmemo_lib.js';
 
 const TAG = 'recall';
@@ -97,9 +97,14 @@ async function main(): Promise<void> {
 
   // Check for hook updates (non-blocking, cached for 24h)
   const latestVersion = await checkForUpdate();
-  const updateNotice = latestVersion
-    ? `\npurmemo hooks ${HOOKS_VERSION} → ${latestVersion} available. Run: npx purmemo-mcp@latest hooks\n`
-    : '';
+  let updateNotice = '';
+  if (latestVersion) {
+    // Try auto-update in background (at most once per 6h)
+    const triggered = await autoUpdateHooks();
+    updateNotice = triggered
+      ? `\npurmemo hooks updating ${HOOKS_VERSION} → ${latestVersion}… (will apply next session)\n`
+      : `\npurmemo hooks ${HOOKS_VERSION} → ${latestVersion} available. Run: npx purmemo-mcp@latest init\n`;
+  }
 
   // Output: numbered list visible to user, full context silent to Claude
   const banner = memories

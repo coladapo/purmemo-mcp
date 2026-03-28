@@ -321,6 +321,48 @@ export async function checkForUpdate(): Promise<string | null> {
   return null;
 }
 
+// ─── Auto-update hooks ───────────────────────────────────────────────────────
+
+const AUTO_UPDATE_COOLDOWN = 6 * 60 * 60 * 1000; // at most once per 6 hours
+
+/**
+ * Auto-update hooks by running `npx purmemo-mcp@latest hooks` in the background.
+ * Returns true if an update was triggered, false otherwise.
+ * Never blocks — fires and forgets with a 30s timeout.
+ */
+export async function autoUpdateHooks(): Promise<boolean> {
+  if (HOOKS_VERSION.startsWith('__')) return false; // dev mode
+
+  const state = readState();
+  const lastUpdate = (state['hooks_last_auto_update'] as number) || 0;
+  if (Date.now() - lastUpdate < AUTO_UPDATE_COOLDOWN) return false;
+
+  const latest = state['version_latest'] as string | undefined;
+  if (!latest || !isNewer(latest, HOOKS_VERSION)) return false;
+
+  dbg('auto-update', `updating hooks ${HOOKS_VERSION} → ${latest}`);
+  state['hooks_last_auto_update'] = Date.now();
+  writeState(state);
+
+  try {
+    const { spawn } = await import('node:child_process');
+    const child = spawn('npx', ['purmemo-mcp@latest', 'hooks'], {
+      timeout: 30_000,
+      stdio: 'ignore',
+      detached: true,
+    });
+    child.unref();
+    child.on('exit', (code) => {
+      if (code === 0) dbg('auto-update', 'hooks updated successfully');
+      else dbg('auto-update', `exited with code ${code}`);
+    });
+    return true;
+  } catch (err) {
+    dbg('auto-update', `spawn failed: ${(err as Error).message}`);
+    return false;
+  }
+}
+
 // ─── Hook stdin reader ───────────────────────────────────────────────────────
 
 export async function readHookInput(): Promise<HookInput | null> {
