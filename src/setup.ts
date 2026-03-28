@@ -85,6 +85,9 @@ async function runSetup() {
       } else {
         console.log(chalk.gray('Claude Code hooks already installed. ✓'));
       }
+
+      // Wire into any newly installed platforms (Codex, Gemini)
+      await wireMcpServer();
       return;
     }
   }
@@ -422,7 +425,15 @@ function patchSettings() {
 
 // ─── Wire MCP server into Claude Code ─────────────────────────────────────────
 
-function wireMcpServer() {
+async function wireMcpServer() {
+  // Get API key for platform configs
+  let apiKey = process.env.PURMEMO_API_KEY || '';
+  if (!apiKey) {
+    const token = await tokenStore.getToken();
+    apiKey = token?.access_token || '';
+  }
+
+  // Claude Code
   try {
     execSync('claude mcp add purmemo -- npx -y purmemo-mcp', {
       stdio: 'ignore',
@@ -430,10 +441,80 @@ function wireMcpServer() {
     });
     console.log(chalk.green('✅ MCP server registered with Claude Code'));
   } catch {
-    // claude CLI may not be in PATH — print manual instructions instead
     console.log(chalk.gray('To add the MCP server manually, run:'));
     console.log(chalk.cyan('   claude mcp add purmemo -- npx -y purmemo-mcp'));
     console.log('');
+  }
+
+  // Codex (OpenAI)
+  wireCodex(apiKey);
+
+  // Gemini CLI (Google)
+  wireGemini(apiKey);
+}
+
+// ─── Wire MCP server into OpenAI Codex ────────────────────────────────────────
+
+function wireCodex(apiKey: string) {
+  const codexConfig = path.join(os.homedir(), '.codex', 'config.toml');
+  if (!fs.existsSync(codexConfig)) return;
+
+  try {
+    let content = fs.readFileSync(codexConfig, 'utf8');
+    if (content.includes('purmemo')) {
+      console.log(chalk.green('✅ MCP server already registered with Codex'));
+      return;
+    }
+
+    const purmemoLine = apiKey
+      ? `purmemo = { command = "npx", args = ["-y", "purmemo-mcp@latest"], env = { PURMEMO_API_KEY = "${apiKey}", MCP_PLATFORM = "codex" } }`
+      : `purmemo = { command = "npx", args = ["-y", "purmemo-mcp@latest"], env = { MCP_PLATFORM = "codex" } }`;
+
+    if (content.includes('[mcp_servers]')) {
+      content = content.replace(/(\[mcp_servers\]\n)/, `$1${purmemoLine}\n`);
+    } else {
+      content = content.trimEnd() + `\n\n[mcp_servers]\n${purmemoLine}\n`;
+    }
+
+    const tmp = codexConfig + '.tmp';
+    fs.writeFileSync(tmp, content, 'utf8');
+    fs.renameSync(tmp, codexConfig);
+    console.log(chalk.green('✅ MCP server registered with Codex'));
+  } catch (err) {
+    console.log(chalk.gray(`Could not configure Codex: ${(err as Error).message}`));
+  }
+}
+
+// ─── Wire MCP server into Gemini CLI ──────────────────────────────────────────
+
+function wireGemini(apiKey: string) {
+  const geminiConfig = path.join(os.homedir(), '.gemini', 'settings.json');
+  if (!fs.existsSync(geminiConfig)) return;
+
+  try {
+    const settings = JSON.parse(fs.readFileSync(geminiConfig, 'utf8'));
+    if (!settings.mcpServers) settings.mcpServers = {};
+
+    if (settings.mcpServers.purmemo) {
+      console.log(chalk.green('✅ MCP server already registered with Gemini CLI'));
+      return;
+    }
+
+    settings.mcpServers.purmemo = {
+      command: 'npx',
+      args: ['-y', 'purmemo-mcp@latest'],
+      env: {
+        ...(apiKey ? { PURMEMO_API_KEY: apiKey } : {}),
+        MCP_PLATFORM: 'gemini',
+      },
+    };
+
+    const tmp = geminiConfig + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(settings, null, 2), 'utf8');
+    fs.renameSync(tmp, geminiConfig);
+    console.log(chalk.green('✅ MCP server registered with Gemini CLI'));
+  } catch (err) {
+    console.log(chalk.gray(`Could not configure Gemini CLI: ${(err as Error).message}`));
   }
 }
 
@@ -444,7 +525,7 @@ function printSuccess() {
   console.log(chalk.gray('  Save a conversation: ') + chalk.white('"Save this conversation"'));
   console.log(chalk.gray('  Recall later:        ') + chalk.white('"What did we discuss about X?"'));
   console.log('');
-  console.log(chalk.gray('Open a new Claude Code session to activate.'));
+  console.log(chalk.gray('Open a new session in Claude Code, Codex, or Gemini to activate.'));
 }
 
 // ─── Status ───────────────────────────────────────────────────────────────────
