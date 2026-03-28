@@ -181,7 +181,7 @@ class PurmemoAPI {
         return try Self.parseRecallResponse(data)
     }
 
-    /// Parse the tiered recall response — prefer summary tier for clean mobile display
+    /// Parse the recall response — handles both v9 flat results and tiered formats
     private static func parseRecallResponse(_ data: Data) throws -> RecallResponse {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.decodingError
@@ -192,34 +192,40 @@ class PurmemoAPI {
         }
 
         let query = json["query"] as? String ?? ""
-
-        guard let tiersRaw = json["tiers"] as? [String: Any] else {
-            return RecallResponse(memories: [], query: query)
-        }
-
         var memories: [RecallMemory] = []
 
-        // Prefer summary tier — cleanest for mobile (has title + summary text)
-        // Fall back to full tier if summary is empty
-        let preferredTier = (tiersRaw["summary"] as? [[String: Any]])?.isEmpty == false ? "summary" : "full"
-
-        if let items = tiersRaw[preferredTier] as? [[String: Any]] {
-            for item in items {
-                let id = (item["id"] as? String) ?? UUID().uuidString
-                let title = item["title"] as? String
-                let content = (item["summary"] as? String)
-                    ?? (item["content"] as? String)
-                    ?? (item["title"] as? String)
-                    ?? ""
-                let score = item["relevance_score"] as? Double
-                let createdAt = item["created_at"] as? String
-                if !content.isEmpty {
-                    memories.append(RecallMemory(id: id, title: title, content: content, score: score, created_at: createdAt))
+        // v9 endpoint returns { results: [...] }
+        if let results = json["results"] as? [[String: Any]] {
+            for item in results {
+                let memory = parseMemoryItem(item)
+                if memory != nil { memories.append(memory!) }
+            }
+        }
+        // Tiered format returns { tiers: { summary: [...], full: [...] } }
+        else if let tiers = json["tiers"] as? [String: Any] {
+            let preferredTier = (tiers["summary"] as? [[String: Any]])?.isEmpty == false ? "summary" : "full"
+            if let items = tiers[preferredTier] as? [[String: Any]] {
+                for item in items {
+                    let memory = parseMemoryItem(item)
+                    if memory != nil { memories.append(memory!) }
                 }
             }
         }
 
         return RecallResponse(memories: memories, query: query)
+    }
+
+    private static func parseMemoryItem(_ item: [String: Any]) -> RecallMemory? {
+        let id = (item["id"] as? String) ?? UUID().uuidString
+        let title = item["title"] as? String
+        let content = (item["summary"] as? String)
+            ?? (item["content"] as? String)
+            ?? (item["title"] as? String)
+            ?? ""
+        let score = item["relevance_score"] as? Double
+        let createdAt = item["created_at"] as? String
+        guard !content.isEmpty else { return nil }
+        return RecallMemory(id: id, title: title, content: content, score: score, created_at: createdAt)
     }
 
     // MARK: - Private
