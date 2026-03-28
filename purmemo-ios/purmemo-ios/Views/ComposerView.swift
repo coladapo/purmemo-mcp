@@ -9,15 +9,23 @@ struct ComposerView: View {
 
     @State private var voiceService = VoiceService()
     @State private var isRecording = false
+    @FocusState private var isTextFieldFocused: Bool
 
     private var hasText: Bool {
         !text.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// What the morphing pill shows
+    private var pillState: PillState {
+        if isLoading { return .sending }
+        if isRecording { return .listening }
+        return .rest
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Unified handle — morphs between grab bar and listening indicator
-            morphingHandle
+            // Unified morphing pill
+            morphingPill
                 .padding(.top, 8)
                 .padding(.bottom, 6)
 
@@ -27,6 +35,7 @@ struct ComposerView: View {
                     .font(.system(size: 16))
                     .foregroundColor(.white)
                     .lineLimit(1...5)
+                    .focused($isTextFieldFocused)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color(hex: "#1a1a1a"))
@@ -35,74 +44,79 @@ struct ComposerView: View {
                         RoundedRectangle(cornerRadius: 22)
                             .stroke(isRecording ? Color(hex: "#E7FC44").opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
                     )
-                    .onSubmit { if !isLoading && hasText { onSend() } }
+                    .onSubmit { if !isLoading && hasText { sendAndReset() } }
                     .submitLabel(.send)
 
-                // Send or Mic button — fixed alignment
-                if hasText || isLoading {
-                    Button(action: onSend) {
-                        Group {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                                    .frame(width: 20, height: 20)
-                            } else {
-                                Image(systemName: "arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.black)
-                            }
-                        }
-                        .frame(width: 44, height: 44)
-                        .background(Color(hex: "#E7FC44"))
-                        .clipShape(Circle())
-                    }
-                    .disabled(!hasText || isLoading)
-                } else {
-                    // Mic button
-                    Button {
-                        if isRecording { stopRecording() } else { startRecording() }
-                    } label: {
-                        Image(systemName: isRecording ? "waveform" : "mic.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(isRecording ? .black : .white.opacity(0.6))
-                            .symbolEffect(.variableColor.iterative, isActive: isRecording)
-                            .frame(width: 44, height: 44)
-                            .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
-                            )
-                    }
-                }
+                // Action button — mic or send, same position
+                actionButton
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
         .background(Color.black)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isRecording)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: pillState)
         .animation(.easeInOut(duration: 0.2), value: hasText)
         .onChange(of: voiceService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue
             }
         }
-        .onChange(of: voiceService.isFinal) { _, isFinal in
-            if isFinal && !text.trimmingCharacters(in: .whitespaces).isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    onSend()
+    }
+
+    // MARK: - Action Button
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if hasText || isLoading {
+            // Send button
+            Button(action: sendAndReset) {
+                Group {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.black)
+                    }
                 }
+                .frame(width: 44, height: 44)
+                .background(Color(hex: "#E7FC44"))
+                .clipShape(Circle())
+            }
+            .disabled(!hasText || isLoading)
+        } else {
+            // Mic button
+            Button {
+                if isRecording { stopRecording() } else { startRecording() }
+            } label: {
+                Image(systemName: isRecording ? "waveform" : "mic.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(isRecording ? .black : .white.opacity(0.6))
+                    .symbolEffect(.variableColor.iterative, isActive: isRecording)
+                    .frame(width: 44, height: 44)
+                    .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
+                    )
             }
         }
     }
 
-    // MARK: - Morphing Handle
+    // MARK: - Morphing Pill
 
-    /// Unified component: grab bar (rest) ↔ listening capsule (active)
-    /// Animates width, color, and content with a spring transition
-    private var morphingHandle: some View {
+    enum PillState: Equatable {
+        case rest
+        case listening
+        case sending
+    }
+
+    private var morphingPill: some View {
         HStack(spacing: 6) {
-            if isRecording {
+            if pillState == .listening {
                 Circle()
                     .fill(Color(hex: "#E7FC44"))
                     .frame(width: 6, height: 6)
@@ -112,20 +126,39 @@ struct ComposerView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Color(hex: "#E7FC44"))
                     .transition(.opacity)
+            } else if pillState == .sending {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "#E7FC44")))
+                    .scaleEffect(0.6)
+                    .frame(width: 10, height: 10)
+                    .transition(.scale.combined(with: .opacity))
+
+                Text("Sending")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(hex: "#E7FC44").opacity(0.7))
+                    .transition(.opacity)
             }
         }
         .frame(height: 4)
-        .padding(.horizontal, isRecording ? 14 : 0)
-        .padding(.vertical, isRecording ? 6 : 0)
-        .frame(width: isRecording ? nil : 36)
+        .padding(.horizontal, pillState == .rest ? 0 : 14)
+        .padding(.vertical, pillState == .rest ? 0 : 6)
+        .frame(width: pillState == .rest ? 36 : nil)
         .background(
             Capsule()
-                .fill(isRecording ? Color(hex: "#E7FC44").opacity(0.12) : Color.white.opacity(0.12))
+                .fill(pillState == .rest
+                      ? Color.white.opacity(0.12)
+                      : Color(hex: "#E7FC44").opacity(0.12))
         )
         .clipShape(Capsule())
     }
 
+    // MARK: - Actions
+
     private func startRecording() {
+        // Dismiss keyboard when entering voice mode
+        isTextFieldFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         isRecording = true
@@ -137,6 +170,20 @@ struct ComposerView: View {
         haptic.impactOccurred()
         isRecording = false
         voiceService.stopListening()
+    }
+
+    /// Send message and clean up voice state
+    private func sendAndReset() {
+        // Stop voice if active
+        if isRecording {
+            isRecording = false
+            voiceService.stopListening()
+        }
+
+        // Dismiss keyboard
+        isTextFieldFocused = false
+
+        onSend()
     }
 }
 
@@ -156,6 +203,8 @@ class VoiceService {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+
+    deinit {}
 
     func startListening() {
         transcript = ""
@@ -183,6 +232,8 @@ class VoiceService {
     }
 
     private func beginRecognition() {
+        guard isActive else { return }
+
         // Cancel any existing task
         recognitionTask?.cancel()
         recognitionTask = nil
@@ -204,11 +255,10 @@ class VoiceService {
             recognitionRequest.requiresOnDeviceRecognition = true
         }
 
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { @Sendable [weak self] result, error in
             guard let self else { return }
             if let result {
                 DispatchQueue.main.async {
-                    // Append to any previously finalized text
                     let newText = result.bestTranscription.formattedString
                     if self.finalizedText.isEmpty {
                         self.transcript = newText
@@ -227,9 +277,9 @@ class VoiceService {
                 self.recognitionRequest = nil
                 self.recognitionTask = nil
 
-                // If still actively recording, restart recognition for continuous listening
+                // Seamlessly restart recognition for continuous listening
                 if self.isActive {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         self.beginRecognition()
                     }
                 }
@@ -237,13 +287,9 @@ class VoiceService {
         }
 
         let inputNode = audioEngine.inputNode
-
-        // Remove any existing tap before installing a new one
         inputNode.removeTap(onBus: 0)
 
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-
-        // Guard against invalid audio format (e.g. simulator with no mic)
         guard recordingFormat.sampleRate > 0 && recordingFormat.channelCount > 0 else {
             self.recognitionRequest = nil
             self.recognitionTask = nil
