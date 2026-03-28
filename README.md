@@ -24,18 +24,22 @@ pūrmemo gives your AI a persistent memory and identity layer — your role, exp
 
 ## Quick Start
 
-### 1. Get Your API Key
+### One command:
 
-1. Sign up for free at [app.purmemo.ai](https://app.purmemo.ai)
-2. Go to Settings → API Keys
-3. Create a new API key
+```bash
+npx purmemo-mcp@latest init
+```
 
-### 2. Add to Your Platform
+This opens your browser to sign in, configures the MCP server, and installs hooks + slash commands (`/save`, `/recall`, `/context`). That's it.
 
-<details open>
-<summary><b>Claude Code (Terminal)</b></summary>
+### Manual Setup (alternative)
 
-One command:
+If you prefer to configure manually, or you're not using Claude Code:
+
+<details>
+<summary><b>Claude Code (Terminal) — manual</b></summary>
+
+1. Get your API key from [app.purmemo.ai](https://app.purmemo.ai) → Settings → API Keys
 
 ```bash
 claude mcp add purmemo -e PURMEMO_API_KEY=your-api-key-here -- npx -y purmemo-mcp
@@ -47,17 +51,6 @@ Verify it connected:
 claude mcp list
 # purmemo: npx -y purmemo-mcp - ✓ Connected
 ```
-
-**Optional: Add slash commands** for `/save`, `/recall`, and `/context`:
-
-```bash
-mkdir -p ~/.claude/commands
-curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/save.md -o ~/.claude/commands/save.md
-curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/recall.md -o ~/.claude/commands/recall.md
-curl -s https://raw.githubusercontent.com/purmemo-ai/purmemo-mcp/main/.claude/commands/context.md -o ~/.claude/commands/context.md
-```
-
-Then restart Claude Code and use `/save`, `/recall [topic]`, and `/context` in any session.
 
 </details>
 
@@ -172,7 +165,7 @@ Add to `~/.config/zed/settings.json` under the `context_servers` key:
 ```
 </details>
 
-### 3. Start Using
+### Start Using
 
 ```
 You: "What's the project status?"
