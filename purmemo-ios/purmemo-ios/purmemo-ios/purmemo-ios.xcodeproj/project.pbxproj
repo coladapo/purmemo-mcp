@@ -25,6 +25,7 @@
 		E3201C6E2F64AB4500F9DCFA /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C582F64AB4500F9DCFA /* Message.swift */; };
 		E3201C6F2F64AB4500F9DCFA /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5F2F64AB4500F9DCFA /* ChatViewModel.swift */; };
 		E3201C702F64AB4500F9DCFA /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5C2F64AB4500F9DCFA /* KeychainService.swift */; };
+		DD000001SETT000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001SETT000000000002 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 		E3201C632F64AB4500F9DCFA /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		E3201C642F64AB4500F9DCFA /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		CC000001IMGP0000000000002 /* ImagePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerView.swift; sourceTree = "<group>"; };
+		DD000001SETT000000000002 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -263,6 +265,7 @@
 				E3201C642F64AB4500F9DCFA /* MessageBubble.swift */,
 				BB000001SCRN0000000000014 /* ScreenshotCaptureView.swift */,
 				CC000001IMGP0000000000002 /* ImagePickerView.swift */,
+				DD000001SETT000000000002 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -510,6 +513,7 @@
 				BB000001SCRN0000000000002 /* SaveScreenshotIntent.swift in Sources */,
 				BB000001SCRN0000000000003 /* AppShortcuts.swift in Sources */,
 				BB000001SCRN0000000000004 /* ScreenshotCaptureView.swift in Sources */,
+				DD000001SETT000000000001 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
