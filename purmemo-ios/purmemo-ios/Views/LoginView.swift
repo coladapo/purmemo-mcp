@@ -32,17 +32,15 @@ struct LoginView: View {
                     // OAuth buttons
                     VStack(spacing: 10) {
                         OAuthButton(
-                            provider: "google",
                             label: "Continue with Google",
-                            icon: "g.circle.fill",
+                            logoImage: "GoogleLogo",
                             isLoading: oauthLoading == "google",
                             action: { loginWithOAuth("google") }
                         )
 
                         OAuthButton(
-                            provider: "github",
                             label: "Continue with GitHub",
-                            icon: "chevron.left.forwardslash.chevron.right",
+                            logoImage: "GitHubLogo",
                             isLoading: oauthLoading == "github",
                             action: { loginWithOAuth("github") }
                         )
@@ -151,9 +149,8 @@ struct LoginView: View {
 // MARK: - OAuth Button Component
 
 struct OAuthButton: View {
-    let provider: String
     let label: String
-    let icon: String
+    let logoImage: String
     let isLoading: Bool
     let action: () -> Void
 
@@ -165,9 +162,9 @@ struct OAuthButton: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .frame(width: 20, height: 20)
                 } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white)
+                    Image(logoImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
                         .frame(width: 20, height: 20)
                 }
                 Text(label)
