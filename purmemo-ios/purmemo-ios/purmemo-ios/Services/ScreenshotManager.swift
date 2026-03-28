@@ -12,6 +12,7 @@ class ScreenshotManager {
     var isShowingCapture: Bool = false
 
     private init() {}
+    deinit {}
 
     func receiveScreenshot(_ data: Data) {
         pendingScreenshotData = data

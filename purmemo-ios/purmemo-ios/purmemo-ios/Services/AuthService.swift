@@ -36,6 +36,10 @@ class AuthService {
         }
     }
 
+    /// Explicit deinit avoids Swift runtime crash with SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor
+    /// on iOS < 26.4 (swiftlang/swift#88036)
+    deinit {}
+
     // MARK: - Email/Password Login
 
     func login(email: String, password: String) async throws {
@@ -74,8 +78,8 @@ class AuthService {
         let session = ASWebAuthenticationSession(
             url: loginURL,
             callbackURLScheme: Self.oauthCallbackScheme
-        ) { [weak self] callbackUrl, error in
-            // This fires on an arbitrary thread — dispatch to main
+        ) { @Sendable [weak self] callbackUrl, error in
+            // Completion fires on arbitrary thread — dispatch to main
             DispatchQueue.main.async {
                 self?.activeAuthSession = nil
                 self?.handleOAuthCallback(callbackUrl: callbackUrl, error: error)
@@ -84,7 +88,7 @@ class AuthService {
         session.prefersEphemeralWebBrowserSession = false
         session.presentationContextProvider = OAuthPresentationContext.shared
 
-        activeAuthSession = session
+        self.activeAuthSession = session
         session.start()
     }
 
@@ -184,23 +188,16 @@ class AuthService {
 
 // MARK: - OAuth Presentation Context
 
+/// Minimal presentation context — ASPresentationAnchor() lets the system choose the right window.
+/// No UIApplication.shared access needed (avoids MainActor isolation issues).
 class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding, @unchecked Sendable {
     static let shared = OAuthPresentationContext()
 
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        if Thread.isMainThread {
-            return getWindow()
-        }
-        return DispatchQueue.main.sync { getWindow() }
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return ASPresentationAnchor()
     }
 
-    private func getWindow() -> ASPresentationAnchor {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first else {
-            return ASPresentationAnchor()
-        }
-        return window
-    }
+    deinit {}
 }
 
 // MARK: - Errors
