@@ -448,9 +448,11 @@ async function wireMcpServer() {
 
   // Codex (OpenAI)
   wireCodex(apiKey);
+  installCodexSkill();
 
   // Gemini CLI (Google)
   wireGemini(apiKey);
+  installGeminiExtension();
 }
 
 // ─── Wire MCP server into OpenAI Codex ────────────────────────────────────────
@@ -515,6 +517,112 @@ function wireGemini(apiKey: string) {
     console.log(chalk.green('✅ MCP server registered with Gemini CLI'));
   } catch (err) {
     console.log(chalk.gray(`Could not configure Gemini CLI: ${(err as Error).message}`));
+  }
+}
+
+// ─── Install Gemini CLI Extension (hooks + commands) ──────────────────────────
+
+function installGeminiExtension() {
+  const geminiDir = path.join(os.homedir(), '.gemini');
+  if (!fs.existsSync(geminiDir)) return;
+
+  try {
+    const extDir = path.join(os.homedir(), '.purmemo', 'gemini-extension');
+    const scriptsDir = path.join(extDir, 'scripts');
+    const commandsDir = path.join(extDir, 'commands');
+    const hooksDir = path.join(extDir, 'hooks');
+
+    // Create extension directory structure
+    fs.mkdirSync(scriptsDir, { recursive: true });
+    fs.mkdirSync(commandsDir, { recursive: true });
+    fs.mkdirSync(hooksDir, { recursive: true });
+
+    // Write ESM package.json for hooks
+    const pkgJson = path.join(scriptsDir, 'package.json');
+    if (!fs.existsSync(pkgJson)) {
+      fs.writeFileSync(pkgJson, '{"type":"module"}\n', 'utf8');
+    }
+
+    // Source directories (from npm package dist/)
+    const srcHooksDir = path.join(__dirname, 'hooks');
+    const srcGeminiDir = path.join(__dirname, '..', 'src', 'gemini');
+    // Fallback: in published packages, gemini assets may be in dist/
+    const geminiAssetsDir = fs.existsSync(srcGeminiDir) ? srcGeminiDir : path.join(__dirname, 'gemini');
+
+    // Copy hook scripts to extension/scripts/
+    const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+    for (const file of HOOK_SCRIPTS) {
+      const src = path.join(srcHooksDir, file);
+      if (!fs.existsSync(src)) continue;
+      const dest = path.join(scriptsDir, file);
+      if (file === 'purmemo_lib.js') {
+        let content = fs.readFileSync(src, 'utf8');
+        content = content.replace(/__HOOKS_VERSION__/g, pkgVersion);
+        fs.writeFileSync(dest, content, 'utf8');
+      } else {
+        fs.copyFileSync(src, dest);
+      }
+    }
+
+    // Copy gemini-extension.json
+    const manifestSrc = path.join(geminiAssetsDir, 'gemini-extension.json');
+    if (fs.existsSync(manifestSrc)) {
+      fs.copyFileSync(manifestSrc, path.join(extDir, 'gemini-extension.json'));
+    }
+
+    // Copy hooks.json
+    const hooksSrc = path.join(geminiAssetsDir, 'hooks', 'hooks.json');
+    if (fs.existsSync(hooksSrc)) {
+      fs.copyFileSync(hooksSrc, path.join(hooksDir, 'hooks.json'));
+    }
+
+    // Copy TOML commands
+    const cmdsSrc = path.join(geminiAssetsDir, 'commands');
+    if (fs.existsSync(cmdsSrc)) {
+      for (const file of fs.readdirSync(cmdsSrc)) {
+        if (file.endsWith('.toml')) {
+          fs.copyFileSync(path.join(cmdsSrc, file), path.join(commandsDir, file));
+        }
+      }
+    }
+
+    // Try to link the extension with Gemini CLI
+    try {
+      execSync(`gemini extensions link "${extDir}"`, {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
+      console.log(chalk.green('✅ Gemini CLI extension installed (hooks + commands)'));
+    } catch {
+      console.log(chalk.green('✅ Gemini CLI extension prepared at ~/.purmemo/gemini-extension/'));
+      console.log(chalk.gray('   To activate: gemini extensions link ~/.purmemo/gemini-extension/'));
+    }
+  } catch (err) {
+    console.log(chalk.gray(`Could not install Gemini extension: ${(err as Error).message}`));
+  }
+}
+
+// ─── Install Codex Skill ──────────────────────────────────────────────────────
+
+function installCodexSkill() {
+  const codexDir = path.join(os.homedir(), '.codex');
+  if (!fs.existsSync(codexDir)) return;
+
+  try {
+    const skillDir = path.join(codexDir, 'skills', 'purmemo');
+    fs.mkdirSync(skillDir, { recursive: true });
+
+    // Source: from npm package
+    const srcSkill = path.join(__dirname, '..', 'src', 'codex', 'SKILL.md');
+    const distSkill = path.join(__dirname, 'codex', 'SKILL.md');
+    const skillSrc = fs.existsSync(srcSkill) ? srcSkill : distSkill;
+
+    if (fs.existsSync(skillSrc)) {
+      fs.copyFileSync(skillSrc, path.join(skillDir, 'SKILL.md'));
+      console.log(chalk.green('✅ Codex skill installed'));
+    }
+  } catch (err) {
+    console.log(chalk.gray(`Could not install Codex skill: ${(err as Error).message}`));
   }
 }
 

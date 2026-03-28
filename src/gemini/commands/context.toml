@@ -1,0 +1,17 @@
+description = "Get full context on what you've been working on"
+prompt = """
+Get full context on what I've been working on. Run these in parallel:
+
+1. Call `recall_memories` with the current project name, limit=5, has_observations=true
+2. Run `git status` and `git log --oneline -10`
+3. Scan for TODOs: grep -r "TODO|FIXME|HACK|XXX" --include="*.ts" --include="*.js" --include="*.py" -n . 2>/dev/null | head -20
+
+Present a structured report:
+## Project Context: [project name]
+### Recent Purmemo Memories
+### Git Status
+### Open TODOs
+### Recommended Next Steps
+
+{{args}}
+"""

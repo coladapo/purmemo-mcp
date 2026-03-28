@@ -1,0 +1,20 @@
+description = "Run a purmemo memory-powered workflow (debug, prd, sprint, growth, etc.)"
+prompt = """
+Run a purmemo workflow. These are memory-powered processes that load your past context automatically.
+
+If no workflow specified, call `list_workflows` and show:
+  Available workflows:
+  Product: prd, roadmap, story, design, feedback
+  Strategy: ceo, growth, intel
+  Engineering: debug, review, deploy, incident
+  Business: metrics
+  Operations: sprint
+  Content: copy
+
+If a workflow is specified, parse the first word as workflow name and pass the rest as input.
+Call `run_workflow` with the workflow name and input.
+
+If the first word doesn't match a known workflow, pass everything to run_workflow without a workflow name — it has an intent classifier.
+
+{{args}}
+"""

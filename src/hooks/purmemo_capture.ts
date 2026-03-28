@@ -26,6 +26,7 @@ import {
   dbg, readState, writeState, loadApiKey,
   readTranscript, extractMessages, buildContent,
   apiPost, readHookInput,
+  detectPlatform, initPlatformPaths, normalizeEvent,
   type TranscriptEntry,
 } from './purmemo_lib.js';
 
@@ -66,10 +67,14 @@ async function main(): Promise<void> {
   try { hookData = await readHookInput(); } catch { return; }
   if (!hookData) return;
 
+  const platform = detectPlatform(hookData);
+  initPlatformPaths(platform);
+
   const { session_id, transcript_path, hook_event_name, tool_name } = hookData;
   if (!session_id) return;
 
-  const event = hook_event_name || 'unknown';
+  // Normalize Gemini event names to internal (Claude) names
+  const event = normalizeEvent(hook_event_name || 'unknown');
   const state = readState();
 
   // ── Heartbeat: count tool calls, only save at intervals ──────────────────
@@ -119,17 +124,20 @@ async function main(): Promise<void> {
   const projectName = path.basename(cwd);
   const date        = new Date().toISOString().split('T')[0];
 
+  const platformName = platform === 'gemini' ? 'gemini-cli' : 'claude-code';
+  const platformLabel = platform === 'gemini' ? 'Gemini CLI' : 'Claude Code';
+
   const manualSave = findManualSaveId(entries);
-  const conversationId = manualSave?.convId || `claude-code-${session_id}`;
-  const title = manualSave?.title || `${projectName} - Claude Code - ${date}`;
+  const conversationId = manualSave?.convId || `${platformName}-${session_id}`;
+  const title = manualSave?.title || `${projectName} - ${platformLabel} - ${date}`;
 
   if (manualSave) {
     dbg(TAG, `adopting manual save — convId="${manualSave.convId}" title="${manualSave.title}"`);
   }
 
-  const tags = ['claude-code', 'auto-captured', projectName];
+  const tags = [platformName, 'auto-captured', projectName];
   const metadata = {
-    source: `claude_code_${event.toLowerCase()}_hook`,
+    source: `${platformName}_${event.toLowerCase()}_hook`,
     session_id,
     project_path: cwd,
     captured_at: new Date().toISOString(),
@@ -139,7 +147,7 @@ async function main(): Promise<void> {
   // ── Save to Purmemo (single row, API accepts up to 1MB) ─────────────────
   const result = await apiPost(apiKey, '/api/v1/memories/', {
     content, title, conversation_id: conversationId,
-    platform: 'claude-code', source_type: 'auto_capture', tags, metadata,
+    platform: platformName, source_type: 'auto_capture', tags, metadata,
   });
   const saved = !!(result?.id || result?.memory_id);
 

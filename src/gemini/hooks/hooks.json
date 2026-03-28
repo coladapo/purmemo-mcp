@@ -1,0 +1,57 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/scripts/purmemo_recall.js"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/scripts/purmemo_first_message.js"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/scripts/purmemo_capture.js"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/scripts/purmemo_capture.js"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/scripts/purmemo_capture.js"
+          }
+        ]
+      }
+    ]
+  }
+}

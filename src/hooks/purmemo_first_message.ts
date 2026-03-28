@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import {
   dbg, readState, writeState, loadApiKey,
   apiGet, readHookInput,
+  detectPlatform, initPlatformPaths, platformEvent,
 } from './purmemo_lib.js';
 
 const TAG = 'first_msg';
@@ -20,9 +21,23 @@ function countUserMessages(transcriptPath: string): number {
   try {
     const expanded = transcriptPath.replace(/^~/, os.homedir());
     if (!fs.existsSync(expanded)) return 0;
-    const lines = fs.readFileSync(expanded, 'utf8').trim().split('\n').filter(Boolean);
+    const raw = fs.readFileSync(expanded, 'utf8').trim();
+    if (!raw) return 0;
+
+    // Gemini JSON format: { messages: [{ type: "user" | "gemini" }] }
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+      try {
+        const data = JSON.parse(raw);
+        const msgs = data.messages || data.turns || [];
+        return msgs.filter((m: Record<string, unknown>) =>
+          m.type === 'user' || m.role === 'user' || m.role === 'human'
+        ).length;
+      } catch { return 0; }
+    }
+
+    // Claude JSONL format
     let count = 0;
-    for (const line of lines) {
+    for (const line of raw.split('\n').filter(Boolean)) {
       try {
         const entry = JSON.parse(line);
         if (entry.type === 'user') count++;
@@ -36,6 +51,9 @@ async function main(): Promise<void> {
   let hookData;
   try { hookData = await readHookInput(); } catch { return; }
   if (!hookData) return;
+
+  const platform = detectPlatform(hookData);
+  initPlatformPaths(platform);
 
   const { session_id, transcript_path } = hookData;
   if (!session_id || !transcript_path) return;
@@ -86,7 +104,7 @@ async function main(): Promise<void> {
           dbg(TAG, `loaded "${memTitle}" — ${content.length} chars`);
           process.stdout.write(JSON.stringify({
             hookSpecificOutput: {
-              hookEventName: 'UserPromptSubmit',
+              hookEventName: platformEvent('UserPromptSubmit', platform),
               additionalContext: `[Purmemo — full memory loaded: "${memTitle}"]\n\n${content}`,
             },
           }));

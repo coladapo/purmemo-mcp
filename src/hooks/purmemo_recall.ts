@@ -15,6 +15,7 @@ import {
   dbg, readState, writeState, loadApiKey,
   apiGet, apiPost, readHookInput,
   checkForUpdate, autoUpdateHooks, HOOKS_VERSION,
+  detectPlatform, initPlatformPaths, platformEvent,
 } from './purmemo_lib.js';
 
 const TAG = 'recall';
@@ -37,8 +38,11 @@ async function main(): Promise<void> {
   try { hookData = await readHookInput(); } catch { return; }
   if (!hookData) return;
 
+  const platform = detectPlatform(hookData);
+  initPlatformPaths(platform);
+
   const { session_id, cwd, source } = hookData;
-  dbg(TAG, `fired — source=${source} session=${session_id} cwd=${cwd}`);
+  dbg(TAG, `fired — platform=${platform} source=${source} session=${session_id} cwd=${cwd}`);
 
   if (source === 'compact' || source === 'clear') {
     dbg(TAG, `skip — source=${source}`);
@@ -51,8 +55,9 @@ async function main(): Promise<void> {
   const projectName = path.basename(cwd || process.cwd());
 
   // Post session context (fire-and-forget)
+  const platformName = platform === 'gemini' ? 'gemini-cli' : 'claude-code';
   apiPost(apiKey, '/api/v1/identity/session', {
-    project: projectName, platform: 'claude-code', auto: true,
+    project: projectName, platform: platformName, auto: true,
   }, 5000).then(r => dbg(TAG, `session POST → ${r ? 'ok' : 'error'}`));
 
   // Fetch most recent memories by user activity (not background processing)
@@ -113,7 +118,7 @@ async function main(): Promise<void> {
 
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
-      hookEventName: 'SessionStart',
+      hookEventName: platformEvent('SessionStart', platform),
       additionalContext: contextLines.join('\n'),
     },
     systemMessage: `${updateNotice}${banner}\n\nType a number to load a memory.`,

@@ -1,11 +1,12 @@
 /**
- * Purmemo Claude Code Hooks — Shared Library
+ * Purmemo Hooks — Shared Library (Cross-Platform)
  *
  * Single source of truth for auth, transcript reading, API calls,
  * and state management. All hooks import from here.
  *
- * Self-contained: no imports from parent directories. These files are
- * copied standalone to ~/.claude/hooks/ during setup.
+ * Supports Claude Code AND Gemini CLI — auto-detects platform from
+ * hook_event_name or transcript path. Self-contained: no imports
+ * from parent directories. Copied standalone during setup.
  */
 
 import * as fs from 'node:fs';
@@ -47,27 +48,103 @@ export interface Message {
 /** Stamped at build time by setup.ts — used for update-notifier pattern */
 export const HOOKS_VERSION = '__HOOKS_VERSION__';
 
-const API_URL    = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
-const STATE_FILE = path.join(os.homedir(), '.claude', 'hooks', 'purmemo_state.json');
-const DEBUG_LOG  = path.join(os.homedir(), '.claude', 'hooks', 'purmemo_debug.log');
+const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
+
+// ─── Platform detection ─────────────────────────────────────────────────────
+
+export type Platform = 'claude' | 'gemini';
+
+const GEMINI_EVENTS = new Set([
+  'AfterTool', 'BeforeTool', 'AfterAgent', 'BeforeAgent',
+  'PreCompress', 'SessionEnd',
+]);
+
+/** Normalize Gemini event names to Claude Code equivalents for internal logic */
+const GEMINI_TO_INTERNAL: Record<string, string> = {
+  'AfterTool': 'PostToolUse',
+  'BeforeTool': 'PreToolUse',
+  'AfterAgent': 'Stop',
+  'BeforeAgent': 'UserPromptSubmit',
+  'PreCompress': 'PreCompact',
+  'SessionEnd': 'SessionEnd',
+  'SessionStart': 'SessionStart',
+};
+
+const INTERNAL_TO_GEMINI: Record<string, string> = Object.fromEntries(
+  Object.entries(GEMINI_TO_INTERNAL).map(([k, v]) => [v, k])
+);
+
+let _detectedPlatform: Platform | null = null;
+
+export function detectPlatform(input?: HookInput): Platform {
+  if (_detectedPlatform) return _detectedPlatform;
+  if (input?.hook_event_name && GEMINI_EVENTS.has(input.hook_event_name)) {
+    _detectedPlatform = 'gemini';
+  } else if (input?.transcript_path?.includes('.gemini/')) {
+    _detectedPlatform = 'gemini';
+  } else if (process.env.MCP_PLATFORM === 'gemini') {
+    _detectedPlatform = 'gemini';
+  } else {
+    _detectedPlatform = 'claude';
+  }
+  return _detectedPlatform;
+}
+
+/** Normalize incoming event name to internal (Claude Code) name */
+export function normalizeEvent(eventName: string): string {
+  return GEMINI_TO_INTERNAL[eventName] || eventName;
+}
+
+/** Convert internal event name back to platform-specific name */
+export function platformEvent(internalName: string, platform: Platform): string {
+  if (platform === 'gemini') return INTERNAL_TO_GEMINI[internalName] || internalName;
+  return internalName;
+}
+
+// ─── Platform-aware paths ────────────────────────────────────────────────────
+
+function getPaths(platform: Platform) {
+  if (platform === 'gemini') {
+    const dir = path.join(os.homedir(), '.gemini');
+    return {
+      stateFile: path.join(dir, 'purmemo_state.json'),
+      debugLog: path.join(dir, 'purmemo_debug.log'),
+    };
+  }
+  const dir = path.join(os.homedir(), '.claude', 'hooks');
+  return {
+    stateFile: path.join(dir, 'purmemo_state.json'),
+    debugLog: path.join(dir, 'purmemo_debug.log'),
+  };
+}
+
+// Default to claude until platform is detected
+let _paths = getPaths('claude');
+
+/** Call after detectPlatform() to switch state/debug paths */
+export function initPlatformPaths(platform: Platform): void {
+  _paths = getPaths(platform);
+}
 
 // ─── Debug logging ───────────────────────────────────────────────────────────
 
 export function dbg(tag: string, msg: string): void {
-  try { fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] [${tag}] ${msg}\n`); } catch {}
+  try { fs.appendFileSync(_paths.debugLog, `[${new Date().toISOString()}] [${tag}] ${msg}\n`); } catch {}
 }
 
 // ─── State management ────────────────────────────────────────────────────────
 
 export function readState(): Record<string, unknown> {
-  try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; }
+  try { return JSON.parse(fs.readFileSync(_paths.stateFile, 'utf8')); } catch { return {}; }
 }
 
 export function writeState(state: Record<string, unknown>): void {
   try {
-    const tmp = STATE_FILE + '.tmp';
+    const dir = path.dirname(_paths.stateFile);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = _paths.stateFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(state), 'utf8');
-    fs.renameSync(tmp, STATE_FILE);
+    fs.renameSync(tmp, _paths.stateFile);
   } catch {}
 }
 
@@ -94,13 +171,56 @@ export function loadApiKey(): string | null {
 
 // ─── Transcript reading ──────────────────────────────────────────────────────
 
+/** Read Claude Code JSONL transcript */
 export function readTranscript(transcriptPath: string | undefined): TranscriptEntry[] {
   try {
     if (!transcriptPath || !fs.existsSync(transcriptPath)) return [];
-    const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n').filter(Boolean);
+    const raw = fs.readFileSync(transcriptPath, 'utf8').trim();
+    if (!raw) return [];
+
+    // Auto-detect: if it starts with '{' or '[', it's Gemini JSON; otherwise JSONL
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+      return readGeminiTranscript(raw);
+    }
+
+    const lines = raw.split('\n').filter(Boolean);
     return lines.map(line => {
       try { return JSON.parse(line) as TranscriptEntry; } catch { return null; }
     }).filter((e): e is TranscriptEntry => e !== null);
+  } catch { return []; }
+}
+
+/** Parse Gemini CLI session JSON into TranscriptEntry[] format */
+function readGeminiTranscript(raw: string): TranscriptEntry[] {
+  try {
+    const data = JSON.parse(raw);
+    const messages = data.messages || data.turns || [];
+    if (!Array.isArray(messages)) return [];
+
+    return messages.map((msg: Record<string, unknown>) => {
+      const msgType = (msg.type as string) || (msg.role as string) || '';
+      let role: string;
+      if (msgType === 'user' || msgType === 'human') role = 'user';
+      else if (msgType === 'gemini' || msgType === 'model' || msgType === 'assistant') role = 'assistant';
+      else return null;
+
+      // Content can be string or array of {text} objects
+      const content = msg.content;
+      let text = '';
+      if (typeof content === 'string') {
+        text = content;
+      } else if (Array.isArray(content)) {
+        text = (content as Array<{ text?: string }>)
+          .map(c => c.text || '')
+          .join('\n');
+      }
+
+      return {
+        type: role,
+        message: { content: text },
+        toolCalls: msg.toolCalls,
+      } as TranscriptEntry;
+    }).filter((e: TranscriptEntry | null): e is TranscriptEntry => e !== null);
   } catch { return []; }
 }
 

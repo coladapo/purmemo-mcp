@@ -1,0 +1,20 @@
+description = "Search purmemo for past conversations and knowledge"
+prompt = """
+Search purmemo for past conversations and knowledge.
+
+Call `recall_memories` with the search query. Present results as a numbered list:
+  Found X memories:
+  1. [Title] (platform, date) — [2-line preview]
+  2. ...
+
+Then ask: "Type a number to load the full memory, or refine your search."
+
+If user picks a number, call `get_memory_details` with that memory's ID.
+
+Filters (use when relevant):
+- entity="name" for specific people, projects, or technologies
+- intent="decision" for decisions made
+- intent="blocker" for past blockers
+
+Search for: {{args}}
+"""
