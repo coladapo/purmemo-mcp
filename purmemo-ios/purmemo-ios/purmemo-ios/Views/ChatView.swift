@@ -21,13 +21,6 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 header
                 messageList
-                // Drag handle hint for keyboard dismissal
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 36, height: 4)
-                    .padding(.top, 6)
-                    .padding(.bottom, 2)
-
                 ComposerView(
                     text: $composerText,
                     isLoading: viewModel.isLoading,

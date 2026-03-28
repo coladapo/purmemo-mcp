@@ -9,16 +9,20 @@ struct ComposerView: View {
 
     @State private var voiceService = VoiceService()
     @State private var isRecording = false
-    @State private var micPulse = false
 
     private var hasText: Bool {
         !text.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            // Text field
-            ZStack(alignment: .leading) {
+        VStack(spacing: 0) {
+            // Unified handle — morphs between grab bar and listening indicator
+            morphingHandle
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+
+            HStack(alignment: .center, spacing: 12) {
+                // Text field
                 TextField("Save a thought or ask anything...", text: $text, axis: .vertical)
                     .font(.system(size: 16))
                     .foregroundColor(.white)
@@ -33,57 +37,51 @@ struct ComposerView: View {
                     )
                     .onSubmit { if !isLoading && hasText { onSend() } }
                     .submitLabel(.send)
-            }
 
-            // Send or Mic button
-            if hasText || isLoading {
-                // Send button
-                Button(action: onSend) {
-                    Group {
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                                .frame(width: 20, height: 20)
-                        } else {
-                            Image(systemName: "arrow.up")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.black)
+                // Send or Mic button — fixed alignment
+                if hasText || isLoading {
+                    Button(action: onSend) {
+                        Group {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    .frame(width: 20, height: 20)
+                            } else {
+                                Image(systemName: "arrow.up")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.black)
+                            }
                         }
+                        .frame(width: 44, height: 44)
+                        .background(Color(hex: "#E7FC44"))
+                        .clipShape(Circle())
                     }
-                    .frame(width: 44, height: 44)
-                    .background(Color(hex: "#E7FC44"))
-                    .clipShape(Circle())
+                    .disabled(!hasText || isLoading)
+                } else {
+                    // Mic button
+                    Button {
+                        if isRecording { stopRecording() } else { startRecording() }
+                    } label: {
+                        Image(systemName: isRecording ? "waveform" : "mic.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(isRecording ? .black : .white.opacity(0.6))
+                            .symbolEffect(.variableColor.iterative, isActive: isRecording)
+                            .frame(width: 44, height: 44)
+                            .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                    }
                 }
-                .disabled(!hasText || isLoading)
-                .transition(.scale.combined(with: .opacity))
-            } else {
-                // Mic button — hold to record
-                micButton
-                    .transition(.scale.combined(with: .opacity))
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
         .background(Color.black)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isRecording)
         .animation(.easeInOut(duration: 0.2), value: hasText)
-        .animation(.easeInOut(duration: 0.2), value: isRecording)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if isRecording {
-                HStack {
-                    Spacer()
-                    Text("Listening...")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color(hex: "#E7FC44"))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color(hex: "#E7FC44").opacity(0.1))
-                        .clipShape(Capsule())
-                    Spacer()
-                }
-                .padding(.bottom, 6)
-                .transition(.opacity)
-            }
-        }
         .onChange(of: voiceService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue
@@ -91,7 +89,6 @@ struct ComposerView: View {
         }
         .onChange(of: voiceService.isFinal) { _, isFinal in
             if isFinal && !text.trimmingCharacters(in: .whitespaces).isEmpty {
-                // Auto-send after final transcription
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     onSend()
                 }
@@ -99,40 +96,33 @@ struct ComposerView: View {
         }
     }
 
-    private var micButton: some View {
-        ZStack {
-            // Pulsing ring when recording
+    // MARK: - Morphing Handle
+
+    /// Unified component: grab bar (rest) ↔ listening capsule (active)
+    /// Animates width, color, and content with a spring transition
+    private var morphingHandle: some View {
+        HStack(spacing: 6) {
             if isRecording {
                 Circle()
-                    .stroke(Color(hex: "#E7FC44").opacity(0.3), lineWidth: 2)
-                    .frame(width: 56, height: 56)
-                    .scaleEffect(micPulse ? 1.3 : 1.0)
-                    .opacity(micPulse ? 0 : 0.6)
-                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false), value: micPulse)
-                    .onAppear { micPulse = true }
-                    .onDisappear { micPulse = false }
-            }
+                    .fill(Color(hex: "#E7FC44"))
+                    .frame(width: 6, height: 6)
+                    .transition(.scale.combined(with: .opacity))
 
-            Image(systemName: isRecording ? "waveform" : "mic.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(isRecording ? .black : .white.opacity(0.6))
-                .symbolEffect(.variableColor.iterative, isActive: isRecording)
-                .frame(width: 44, height: 44)
-                .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
-                )
-                .scaleEffect(isRecording ? 1.1 : 1.0)
-        }
-        .onTapGesture {
-            if isRecording {
-                stopRecording()
-            } else {
-                startRecording()
+                Text("Listening")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(hex: "#E7FC44"))
+                    .transition(.opacity)
             }
         }
+        .frame(height: 4)
+        .padding(.horizontal, isRecording ? 14 : 0)
+        .padding(.vertical, isRecording ? 6 : 0)
+        .frame(width: isRecording ? nil : 36)
+        .background(
+            Capsule()
+                .fill(isRecording ? Color(hex: "#E7FC44").opacity(0.12) : Color.white.opacity(0.12))
+        )
+        .clipShape(Capsule())
     }
 
     private func startRecording() {
