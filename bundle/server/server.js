@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-nocheck — 4665-line server, full typing in incremental follow-ups
 /**
- * pūrmemo MCP Server v15.0.0 - Unified TypeScript
+ * pūrmemo MCP Server - Unified TypeScript (version from package.json)
  *
  * Comprehensive solution that combines all our learnings:
  * - Smart content detection and routing
@@ -123,6 +123,8 @@ else {
     }
     // API key resolution: env var wins, then ~/.purmemo/auth.json (set by `npx purmemo-mcp setup`)
     let resolvedApiKey = process.env.PURMEMO_API_KEY || null;
+    // Last recall result cache — maps ordinal "1"-"N" to UUID for get_memory_details
+    let lastRecallIds = [];
     // ============================================================================
     // TIER 3: Structured Logging System
     // ============================================================================
@@ -923,7 +925,7 @@ You are an intelligence analyst delivering a landscape briefing.
                 properties: {
                     memoryId: {
                         type: 'string',
-                        description: 'ID of the memory to retrieve'
+                        description: 'UUID of the memory to retrieve, OR an ordinal number ("1", "2", etc.) referencing the position from the last recall_memories result'
                     },
                     includeLinkedParts: {
                         type: 'boolean',
@@ -1124,6 +1126,184 @@ Returns the full catalog of workflows organized by category with descriptions.`,
                 required: []
             }
         },
+        // Sharing & Community tools (Migration 068)
+        {
+            name: 'share_memory',
+            annotations: {
+                title: 'Share Memory',
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: true
+            },
+            description: `Set the visibility of a memory you own.
+
+VISIBILITY LEVELS:
+- private: Only you can see it (default)
+- unlisted: Anyone with the direct link can view it
+- public: Discoverable in the community tab by all users
+
+WHEN TO USE:
+- User says "share this memory" or "make this public"
+- User wants to share knowledge with the community
+- User wants to generate a shareable link
+
+QUOTA:
+- Free tier: 5 shares/month
+- Pro/Teams: Unlimited
+
+EXAMPLE:
+share_memory({ memory_id: "abc-123", visibility: "public" })
+
+RETURNS: Updated visibility status and confirmation message.`,
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    memory_id: {
+                        type: 'string',
+                        description: 'UUID of the memory to share'
+                    },
+                    visibility: {
+                        type: 'string',
+                        enum: ['private', 'unlisted', 'public'],
+                        description: 'Target visibility level'
+                    }
+                },
+                required: ['memory_id', 'visibility']
+            }
+        },
+        {
+            name: 'recall_public',
+            annotations: {
+                title: 'Search Public Memories',
+                readOnlyHint: true,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: true
+            },
+            description: `Search public memories shared by all Purmemo users. This is the community knowledge base.
+
+WHEN TO USE:
+- User asks "what have other people saved about X?"
+- User wants to explore community knowledge
+- User asks to search public/shared memories
+- Looking for solutions others have found
+
+DOES NOT COUNT AGAINST RECALL QUOTA — public knowledge is free.
+
+FILTERS:
+- query: Semantic search query (uses vector similarity)
+- tag: Filter by tag
+- platform: Filter by source platform
+- sort: "recent" or "popular" (by recall count)
+
+EXAMPLE:
+recall_public({ query: "MCP server testing best practices" })
+
+RETURNS: List of public memories with author attribution, relevance scores, and recall counts.`,
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    query: {
+                        type: 'string',
+                        description: 'Search query for semantic search across public memories'
+                    },
+                    tag: {
+                        type: 'string',
+                        description: 'Filter by tag'
+                    },
+                    platform: {
+                        type: 'string',
+                        description: 'Filter by source platform (chatgpt, claude, gemini, etc.)'
+                    },
+                    sort: {
+                        type: 'string',
+                        enum: ['recent', 'popular'],
+                        description: 'Sort order: recent (newest first) or popular (most recalled first)'
+                    },
+                    page: {
+                        type: 'number',
+                        description: 'Page number (default 1)'
+                    }
+                },
+                required: []
+            }
+        },
+        {
+            name: 'get_public_memory',
+            annotations: {
+                title: 'Get Full Public Memory',
+                readOnlyHint: true,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: true
+            },
+            description: `Retrieve the FULL content of a public or unlisted memory by ID.
+
+WHEN TO USE:
+- After recall_public returns a preview and you need the complete content
+- When a user wants to read or implement from a shared community memory
+- When you have a public memory ID and need the full text
+
+This is the tool that closes the loop: recall_public finds memories, this tool retrieves them in full.
+No authentication required — public knowledge is free.
+
+EXAMPLE:
+get_public_memory({ memory_id: "abc-123-def-456" })
+
+RETURNS: Full memory content, observations, entities, tags, author attribution, and metadata.`,
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    memory_id: {
+                        type: 'string',
+                        description: 'UUID of the public memory to retrieve in full'
+                    }
+                },
+                required: ['memory_id']
+            }
+        },
+        {
+            name: 'report_memory',
+            annotations: {
+                title: 'Report Public Memory',
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: true
+            },
+            description: `Report a public memory for inappropriate content.
+
+WHEN TO USE:
+- User encounters spam, misleading, or inappropriate public content
+- User wants to flag content that contains personal information
+
+REASONS: spam, inappropriate, misleading, personal_info, other
+
+After 3 reports, a memory is automatically hidden from public view pending admin review.
+
+EXAMPLE:
+report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional content" })`,
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    memory_id: {
+                        type: 'string',
+                        description: 'UUID of the public memory to report'
+                    },
+                    reason: {
+                        type: 'string',
+                        enum: ['spam', 'inappropriate', 'misleading', 'personal_info', 'other'],
+                        description: 'Reason for reporting'
+                    },
+                    description: {
+                        type: 'string',
+                        description: 'Optional additional details about the report'
+                    }
+                },
+                required: ['memory_id', 'reason']
+            }
+        },
         // Admin-only tools — only included when PURMEMO_ADMIN=1
         ...(ADMIN_MODE ? [{
                 name: 'get_acknowledged_errors',
@@ -1298,7 +1478,7 @@ Returns the full catalog of workflows organized by category with descriptions.`,
                 }
             }] : [])
     ];
-    const server = new Server({ name: 'purmemo-mcp', version: '15.0.0' }, {
+    const server = new Server({ name: 'purmemo-mcp', version: CLIENT_VERSION }, {
         capabilities: { tools: {}, resources: {}, prompts: {} },
         instructions: `Purmemo is a cross-platform AI conversation memory system. Use these tools to save, search, and discover conversations across ChatGPT, Claude, Gemini, and other platforms.
 
@@ -1314,9 +1494,14 @@ KEY PATTERNS:
 - Intelligent Extraction: save_conversation auto-extracts project context, technologies, status, and generates smart titles.
 - Quality Filtering: Use has_observations=true to find substantial technical discussions; entity="name" for specific topics.
 
+COMMUNITY & SHARING:
+5. share_memory — Make a memory public or unlisted. Public memories appear in the community tab.
+6. recall_public — Search public memories from ALL users. Free for all tiers — does not count against quota.
+7. report_memory — Flag inappropriate public content. 3+ reports auto-hides until admin review.
+
 WORKFLOWS:
-5. run_workflow — Run memory-powered workflows (PRD, debug, sprint, growth, etc). Describe what you need or name a specific workflow. Memories and identity are pre-loaded automatically.
-6. list_workflows — See all available workflows organized by category.
+8. run_workflow — Run memory-powered workflows (PRD, debug, sprint, growth, etc). Describe what you need or name a specific workflow. Memories and identity are pre-loaded automatically.
+9. list_workflows — See all available workflows organized by category.
 
 BEST PRACTICES:
 - Always send complete conversation content when saving — never summaries or partial content.
@@ -1544,6 +1729,16 @@ BEST PRACTICES:
                             throw new Error(`Monthly quota exceeded. Upgrade to Pro for unlimited access:\nhttps://app.purmemo.ai/dashboard?modal=plans`);
                         }
                     }
+                    // WAF 403 — Render's Cloudflare WAF blocks content with SQL/HTML patterns
+                    if (response.status === 403 && (errorText.includes('<!DOCTYPE') || errorText.includes('Blocked'))) {
+                        structuredLog.warn('WAF 403 — content triggered Cloudflare security filter', {
+                            request_id: requestId,
+                            endpoint,
+                            content_length: options.body ? String(options.body).length : 0,
+                        });
+                        throw new Error('Content contains patterns that triggered security filtering (e.g. SQL keywords or HTML tags). ' +
+                            'Try rephrasing or removing code snippets that look like SQL commands or script tags.');
+                    }
                     throw new Error(`API Error ${response.status}: ${errorText}`);
                 }
                 const data = await response.json();
@@ -1768,7 +1963,7 @@ BEST PRACTICES:
             title,
             tags: [...tags, 'complete-conversation'],
             platform: PLATFORM,
-            conversation_id: metadata.conversationId || undefined,
+            conversation_id: metadata.conversationId || null,
             mode: metadata._mode || 'replace',
             metadata: {
                 ...metadata,
@@ -2138,7 +2333,7 @@ BEST PRACTICES:
                 };
             }
             const responseText = data.content[0].text;
-            const memoryBlocks = responseText.split('\n\n').filter(block => block.trim().startsWith('**') && block.includes('ID:'));
+            const memoryBlocks = responseText.split('\n\n').filter(block => block.includes('**') && block.includes('ID:'));
             if (memoryBlocks.length === 0) {
                 structuredLog.info(`${toolName}: completed`, {
                     tool_name: toolName,
@@ -2151,6 +2346,8 @@ BEST PRACTICES:
                 };
             }
             let resultText = `🔍 Found ${memoryBlocks.length} memories for "${safeQuery}" (ranked by relevance)\n\n`;
+            // Cache IDs for ordinal resolution in get_memory_details
+            const recalledIds = [];
             memoryBlocks.forEach((block, index) => {
                 const titleMatch = block.match(/\*\*(.+?)\*\*/);
                 const relevanceMatch = block.match(/Relevance Score: ([\d.]+)/) || block.match(/Relevance: ([\d.]+)%/);
@@ -2162,6 +2359,8 @@ BEST PRACTICES:
                 const memoryId = idMatch ? idMatch[1].trim() : 'unknown';
                 const platform = platformMatch ? platformMatch[1] : 'unknown';
                 const preview = previewMatch ? previewMatch[1] : '';
+                if (memoryId !== 'unknown')
+                    recalledIds.push(memoryId);
                 const emoji = platform === 'chatgpt' ? '🤖' :
                     platform === 'claude' ? '🟣' :
                         platform === 'gemini' ? '💎' : '❓';
@@ -2173,6 +2372,8 @@ BEST PRACTICES:
                 }
                 resultText += `   🔗 ID: ${memoryId}\n\n`;
             });
+            // Update last recall cache for ordinal lookups
+            lastRecallIds = recalledIds;
             resultText += `${'─'.repeat(60)}\n\n`;
             resultText += `💡 **Discover More:**\n`;
             resultText += `Use 'discover_related_conversations' with your query to find related\n`;
@@ -2211,10 +2412,37 @@ BEST PRACTICES:
         const toolName = 'get_memory_details';
         const requestId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const startTime = Date.now();
+        // Resolve ordinal IDs ("1", "2", etc.) to UUIDs from last recall_memories result
+        let resolvedId = args.memoryId;
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidPattern.test(resolvedId)) {
+            const ordinal = parseInt(resolvedId, 10);
+            if (ordinal >= 1 && ordinal <= lastRecallIds.length) {
+                resolvedId = lastRecallIds[ordinal - 1];
+                structuredLog.info(`${toolName}: resolved ordinal ${args.memoryId} → ${resolvedId}`, {
+                    tool_name: toolName,
+                    request_id: requestId,
+                    original_id: args.memoryId,
+                    resolved_id: resolvedId
+                });
+            }
+            else {
+                const hint = lastRecallIds.length > 0
+                    ? `Valid range: 1-${lastRecallIds.length} (from last recall), or use a full UUID.`
+                    : 'Run recall_memories first to enable ordinal lookups, or use a full UUID.';
+                return {
+                    content: [{
+                            type: 'text',
+                            text: `❌ Invalid memory ID: "${args.memoryId}"\n\n${hint}\n\nMemory IDs are UUIDs like: 951be873-8364-400a-8075-50e8650b67a9`
+                        }]
+                };
+            }
+        }
         structuredLog.info(`${toolName}: starting`, {
             tool_name: toolName,
             request_id: requestId,
-            memory_id: args.memoryId,
+            memory_id: resolvedId,
+            original_id: args.memoryId !== resolvedId ? args.memoryId : undefined,
             include_linked_parts: args.includeLinkedParts
         });
         try {
@@ -2226,7 +2454,7 @@ BEST PRACTICES:
                 body: JSON.stringify({
                     tool: 'get_memory_details',
                     arguments: {
-                        memoryId: args.memoryId,
+                        memoryId: resolvedId,
                         includeLinkedParts: args.includeLinkedParts !== false
                     }
                 })
@@ -2235,12 +2463,12 @@ BEST PRACTICES:
                 structuredLog.warn(`${toolName}: no content in response`, {
                     tool_name: toolName,
                     request_id: requestId,
-                    memory_id: args.memoryId
+                    memory_id: resolvedId
                 });
                 return {
                     content: [{
                             type: 'text',
-                            text: `❌ Memory not found or invalid response\n\nMemory ID: ${args.memoryId}`
+                            text: `❌ Memory not found or invalid response\n\nMemory ID: ${resolvedId}`
                         }]
                 };
             }
@@ -2250,7 +2478,7 @@ BEST PRACTICES:
                 tool_name: toolName,
                 request_id: requestId,
                 duration_ms: Date.now() - startTime,
-                memory_id: args.memoryId,
+                memory_id: resolvedId,
                 response_size: sanitizedText.length
             });
             return {
@@ -2263,14 +2491,14 @@ BEST PRACTICES:
                 tool_name: toolName,
                 request_id: requestId,
                 duration_ms: Date.now() - startTime,
-                memory_id: args.memoryId,
+                memory_id: resolvedId,
                 error_message: error.message,
                 error_type: error.constructor.name
             });
             return {
                 content: [{
                         type: 'text',
-                        text: `❌ Error retrieving memory: ${errorMsg}\n\nMemory ID: ${args.memoryId}\n\nCheck logs for full details.`
+                        text: `❌ Error retrieving memory: ${errorMsg}\n\nMemory ID: ${resolvedId}\n\nCheck logs for full details.`
                     }]
             };
         }
@@ -2707,6 +2935,180 @@ BEST PRACTICES:
                 }]
         };
     }
+    // ============================================================================
+    // Sharing & Community Handlers (Migration 068)
+    // ============================================================================
+    async function handleShareMemory(args) {
+        const requestId = `share_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        structuredLog.info(`[${requestId}] share_memory called`, { memory_id: args.memory_id, visibility: args.visibility });
+        try {
+            const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/visibility`, {
+                method: 'PATCH',
+                body: JSON.stringify({ visibility: args.visibility })
+            });
+            const data = typeof response === 'string' ? JSON.parse(response) : response;
+            let emoji = '🔒';
+            if (args.visibility === 'public')
+                emoji = '🌍';
+            else if (args.visibility === 'unlisted')
+                emoji = '🔗';
+            let output = `${emoji} **Memory visibility updated to \`${args.visibility}\`**\n\n`;
+            output += `Memory ID: \`${args.memory_id}\`\n`;
+            if (args.visibility === 'public') {
+                output += `\nThis memory is now discoverable in the community tab. Other users can find it via \`recall_public\`.\n`;
+            }
+            else if (args.visibility === 'unlisted') {
+                output += `\nAnyone with the direct link can view this memory, but it won't appear in community search.\n`;
+            }
+            else {
+                output += `\nThis memory is now private — only you can see it.\n`;
+            }
+            if (data.shared_by_username) {
+                output += `\nShared as: **${data.shared_by_username}**`;
+            }
+            return { content: [{ type: 'text', text: output }] };
+        }
+        catch (error) {
+            structuredLog.error(`[${requestId}] share_memory failed`, { error: error.message });
+            const errorMsg = error.message || String(error);
+            if (errorMsg.includes('429') || errorMsg.includes('limit')) {
+                return { content: [{ type: 'text', text: `⚠️ Share limit reached for this month.\n\nFree tier allows 5 shares/month. Upgrade to Pro ($19/mo) for unlimited sharing → https://app.purmemo.ai/settings` }] };
+            }
+            return { content: [{ type: 'text', text: `❌ Failed to update visibility: ${errorMsg}` }] };
+        }
+    }
+    async function handleRecallPublic(args) {
+        const requestId = `recall_public_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        structuredLog.info(`[${requestId}] recall_public called`, { query: args.query, sort: args.sort });
+        try {
+            const params = new URLSearchParams();
+            if (args.query)
+                params.set('query', args.query);
+            if (args.tag)
+                params.set('tag', args.tag);
+            if (args.platform)
+                params.set('platform', args.platform);
+            if (args.sort)
+                params.set('sort', args.sort);
+            params.set('page', String(args.page || 1));
+            params.set('page_size', '10');
+            const response = await makeApiCall(`/api/v1/memories/public?${params.toString()}`, {
+                method: 'GET'
+            });
+            const data = typeof response === 'string' ? JSON.parse(response) : response;
+            if (!data.memories || data.memories.length === 0) {
+                return { content: [{ type: 'text', text: `🔍 No public memories found${args.query ? ` for "${args.query}"` : ''}.\n\nThe community knowledge base is still growing. Be the first to share! Use \`share_memory\` to make your memories public.` }] };
+            }
+            let output = `🌍 **Community Memories** (${data.total} found${args.query ? ` for "${args.query}"` : ''})\n\n`;
+            const platformEmoji = {
+                chatgpt: '🤖', claude: '🟣', 'claude-code': '🟣', gemini: '💎',
+                cursor: '⚡', figma: '🎨', 'purmemo-web': '🧠'
+            };
+            for (const mem of data.memories) {
+                const pEmoji = platformEmoji[mem.platform] || '📝';
+                const author = mem.shared_by_username || 'Anonymous';
+                const recallBadge = mem.recall_count_public > 0 ? ` (${mem.recall_count_public} recalls)` : '';
+                output += `---\n`;
+                output += `${pEmoji} **${mem.title || 'Untitled'}**${recallBadge}\n`;
+                output += `*Shared by ${author}*`;
+                if (mem.shared_at) {
+                    const sharedDate = new Date(mem.shared_at);
+                    output += ` on ${sharedDate.toLocaleDateString()}`;
+                }
+                output += `\n\n`;
+                // Content preview (truncated at 300 chars for list view)
+                const preview = (mem.content || '').slice(0, 300);
+                output += `${preview}${(mem.content || '').length > 300 ? '...' : ''}\n\n`;
+                if (mem.tags && mem.tags.length > 0) {
+                    output += `Tags: ${mem.tags.map(t => `\`${t}\``).join(', ')}\n`;
+                }
+                output += `🔗 ID: \`${mem.id}\` — use \`get_public_memory\` for full content\n\n`;
+            }
+            if (data.has_more) {
+                output += `\n📄 Page ${data.page} of ${Math.ceil(data.total / data.page_size)} — use \`page: ${data.page + 1}\` for more results.`;
+            }
+            return { content: [{ type: 'text', text: output }] };
+        }
+        catch (error) {
+            structuredLog.error(`[${requestId}] recall_public failed`, { error: error.message });
+            return { content: [{ type: 'text', text: `❌ Failed to search public memories: ${error.message || String(error)}` }] };
+        }
+    }
+    async function handleGetPublicMemory(args) {
+        const requestId = `get_public_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        structuredLog.info(`[${requestId}] get_public_memory called`, { memory_id: args.memory_id });
+        try {
+            const response = await makeApiCall(`/api/v1/memories/public/${args.memory_id}`, {
+                method: 'GET'
+            });
+            const data = typeof response === 'string' ? JSON.parse(response) : response;
+            if (!data || !data.id) {
+                return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+            }
+            const platformEmoji = {
+                chatgpt: '🤖', claude: '🟣', 'claude-code': '🟣', gemini: '💎',
+                cursor: '⚡', figma: '🎨', 'purmemo-web': '🧠'
+            };
+            const pEmoji = platformEmoji[data.platform] || '📝';
+            const author = data.shared_by_username || 'Anonymous';
+            let output = `${pEmoji} **${data.title || 'Untitled'}**\n`;
+            output += `*Shared by ${author}*`;
+            if (data.shared_at) {
+                output += ` on ${new Date(data.shared_at).toLocaleDateString()}`;
+            }
+            output += ` | ${data.recall_count_public || 0} recalls | ${data.word_count || 0} words\n\n`;
+            if (data.tags && data.tags.length > 0) {
+                output += `Tags: ${data.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+            }
+            if (data.observations && data.observations.length > 0) {
+                output += `**Key Insights:**\n`;
+                for (const obs of data.observations.slice(0, 10)) {
+                    output += `• ${obs}\n`;
+                }
+                output += `\n`;
+            }
+            output += `---\n\n`;
+            output += data.content || '(No content)';
+            const sanitizedText = sanitizeUnicode(output);
+            return { content: [{ type: 'text', text: sanitizedText }] };
+        }
+        catch (error) {
+            structuredLog.error(`[${requestId}] get_public_memory failed`, { error: error.message });
+            const errorMsg = error.message || String(error);
+            if (errorMsg.includes('404')) {
+                return { content: [{ type: 'text', text: `❌ Memory \`${args.memory_id}\` not found or is not public.` }] };
+            }
+            return { content: [{ type: 'text', text: `❌ Failed to retrieve public memory: ${errorMsg}` }] };
+        }
+    }
+    async function handleReportMemory(args) {
+        const requestId = `report_memory_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        structuredLog.info(`[${requestId}] report_memory called`, { memory_id: args.memory_id, reason: args.reason });
+        try {
+            const response = await makeApiCall(`/api/v1/memories/${args.memory_id}/report`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    reason: args.reason,
+                    description: args.description || null
+                })
+            });
+            const data = typeof response === 'string' ? JSON.parse(response) : response;
+            return {
+                content: [{
+                        type: 'text',
+                        text: `✅ **Report submitted** for memory \`${args.memory_id}\`\n\nReason: ${args.reason}\n${data.message || 'Thank you for helping keep the community safe.'}`
+                    }]
+            };
+        }
+        catch (error) {
+            structuredLog.error(`[${requestId}] report_memory failed`, { error: error.message });
+            const errorMsg = error.message || String(error);
+            if (errorMsg.includes('409') || errorMsg.includes('already reported')) {
+                return { content: [{ type: 'text', text: `ℹ️ You have already reported this memory. Our team will review it.` }] };
+            }
+            return { content: [{ type: 'text', text: `❌ Failed to report memory: ${errorMsg}` }] };
+        }
+    }
     async function handleGetAcknowledgedErrors(args) {
         try {
             const limit = args.limit || 10;
@@ -2879,6 +3281,14 @@ BEST PRACTICES:
                 return withUpdateNotice(await handleRunWorkflow(args));
             case 'list_workflows':
                 return withUpdateNotice(await handleListWorkflows(args));
+            case 'share_memory':
+                return withUpdateNotice(await handleShareMemory(args));
+            case 'recall_public':
+                return withUpdateNotice(await handleRecallPublic(args));
+            case 'get_public_memory':
+                return withUpdateNotice(await handleGetPublicMemory(args));
+            case 'report_memory':
+                return withUpdateNotice(await handleReportMemory(args));
             case 'get_acknowledged_errors':
                 if (!ADMIN_MODE)
                     break;
@@ -3242,7 +3652,7 @@ BEST PRACTICES:
             const mem = process.memoryUsage();
             res.json({
                 status: 'healthy',
-                version: '15.0.0',
+                version: CLIENT_VERSION,
                 timestamp: new Date().toISOString(),
                 active_connections: Object.keys(transports).length,
                 metrics: {
@@ -3268,7 +3678,7 @@ BEST PRACTICES:
                     consecutive_failures: apiCircuitBreaker.failureCount
                 },
                 service_info: {
-                    version: '15.0.0',
+                    version: CLIENT_VERSION,
                     runtime: 'node',
                     api_backend: API_URL,
                     environment: process.env.NODE_ENV || 'production',
@@ -3312,7 +3722,7 @@ BEST PRACTICES:
             const token = auth.split(' ')[1];
             try {
                 const resp = await fetch(`${API_URL}/api/v1/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'purmemo-mcp/15.0.0' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` },
                     signal: AbortSignal.timeout(10000)
                 });
                 if (resp.ok)
@@ -3409,8 +3819,8 @@ BEST PRACTICES:
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json',
-                        'User-Agent': 'purmemo-mcp/15.0.0',
-                        'X-MCP-Version': '15.0.0'
+                        'User-Agent': `purmemo-mcp/${CLIENT_VERSION}`,
+                        'X-MCP-Version': CLIENT_VERSION
                     },
                     body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
                     signal: AbortSignal.timeout(30000)
@@ -3438,7 +3848,7 @@ BEST PRACTICES:
                                         headers: {
                                             'Authorization': `Bearer ${newToken}`,
                                             'Content-Type': 'application/json',
-                                            'User-Agent': 'purmemo-mcp/15.0.0'
+                                            'User-Agent': `purmemo-mcp/${CLIENT_VERSION}`
                                         },
                                         body: JSON.stringify({ tool: toolName, arguments: toolArgs }),
                                         signal: AbortSignal.timeout(30000)
@@ -3529,7 +3939,7 @@ BEST PRACTICES:
                         result: {
                             protocolVersion: negotiatedVersion,
                             capabilities: { tools: { listChanged: true }, resources: { subscribe: false, listChanged: false }, prompts: { listChanged: false }, logging: {} },
-                            serverInfo: { name: 'purmemo-mcp', version: '15.0.0' },
+                            serverInfo: { name: 'purmemo-mcp', version: CLIENT_VERSION },
                             instructions: 'pūrmemo tools are ready. Save memories, recall information, and run memory-powered workflows.'
                         }
                     }, 200, { 'Mcp-Session-Id': sessionId });
@@ -3592,7 +4002,7 @@ BEST PRACTICES:
                     }
                     // Memory resources — proxy to backend
                     try {
-                        const authHeaders = { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/15.0.0' };
+                        const authHeaders = { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` };
                         let text = '', mimeType = 'text/plain';
                         if (uri === 'memory://me') {
                             const [meResp, statsResp, memsResp, sessResp] = await Promise.allSettled([
@@ -3869,7 +4279,7 @@ BEST PRACTICES:
             res.json({
                 mcp_version: '2025-06-18',
                 server_name: 'pūrmemo MCP Server',
-                server_version: '15.0.0',
+                server_version: CLIENT_VERSION,
                 transports: [
                     { type: 'http', url: `${serverUrl}/mcp` },
                     { type: 'sse', url: `${serverUrl}/sse` }
@@ -3892,7 +4302,7 @@ BEST PRACTICES:
             const serverUrl = `https://${req.get('host')}`;
             res.json({
                 name: 'purmemo',
-                version: '15.0.0',
+                version: CLIENT_VERSION,
                 description: 'AI-powered memory and knowledge management platform — save and recall conversations across Claude, ChatGPT, Gemini, and more',
                 icon: `${serverUrl}/icon.png`,
                 author: 'Purmemo',
@@ -4004,7 +4414,7 @@ BEST PRACTICES:
                     const apiKey = Buffer.from(session, 'base64').toString('utf8');
                     // Validate against backend
                     const meResp = await fetch(`${API_URL}/api/v1/auth/me`, {
-                        headers: { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': 'purmemo-mcp/15.0.0' },
+                        headers: { 'Authorization': `Bearer ${apiKey}`, 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` },
                         signal: AbortSignal.timeout(10000)
                     });
                     if (meResp.ok) {
@@ -4054,7 +4464,7 @@ BEST PRACTICES:
             try {
                 const authResp = await fetch(`${API_URL}/api/v1/auth/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/15.0.0' },
+                    headers: { 'Content-Type': 'application/json', 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` },
                     body: JSON.stringify({ email, password }),
                     signal: AbortSignal.timeout(10000)
                 });
@@ -4099,7 +4509,7 @@ BEST PRACTICES:
             try {
                 const regResp = await fetch(`${API_URL}/api/v1/auth/register`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/15.0.0' },
+                    headers: { 'Content-Type': 'application/json', 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` },
                     body: JSON.stringify({ email, password }),
                     signal: AbortSignal.timeout(10000)
                 });
@@ -4145,7 +4555,7 @@ BEST PRACTICES:
                 const { email } = req.body;
                 const resp = await fetch(`${API_URL}/api/v1/auth/check-email`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'User-Agent': 'purmemo-mcp/15.0.0' },
+                    headers: { 'Content-Type': 'application/json', 'User-Agent': `purmemo-mcp/${CLIENT_VERSION}` },
                     body: JSON.stringify({ email }),
                     signal: AbortSignal.timeout(10000)
                 });
@@ -4293,7 +4703,7 @@ BEST PRACTICES:
             const serverUrl = `https://${req.get('host')}`;
             res.json({
                 name: 'pūrmemo MCP Server',
-                version: '15.0.0',
+                version: CLIENT_VERSION,
                 status: 'running',
                 endpoints: {
                     mcp: `${serverUrl}/mcp`,
@@ -4311,7 +4721,7 @@ BEST PRACTICES:
             app.listen(PORT, () => {
                 structuredLog.info('Purmemo Remote MCP Server started', {
                     mode: 'remote',
-                    version: '15.0.0',
+                    version: CLIENT_VERSION,
                     port: PORT,
                     api_url: API_URL,
                     api_key_configured: !!resolvedApiKey,
@@ -4357,7 +4767,7 @@ BEST PRACTICES:
             checkForUpdates();
             structuredLog.info('Purmemo MCP Server started successfully', {
                 mode: 'stdio',
-                version: '15.0.0',
+                version: CLIENT_VERSION,
                 tier: '4-resources-prompts',
                 api_url: API_URL,
                 api_key_configured: !!resolvedApiKey,

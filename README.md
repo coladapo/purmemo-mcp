@@ -231,6 +231,7 @@ No re-explaining who you are. No repeating your stack. Just continue.
 | Tool | Description |
 |------|-------------|
 | `save_conversation` | Save conversations with smart titles and context extraction |
+| `save_artifact` | Save artifacts (research reports, tables, specs) linked to conversations |
 | `recall_memories` | Search memories with natural language |
 | `get_memory_details` | Get full details of a specific memory |
 | `discover_related_conversations` | Find related discussions across platforms |

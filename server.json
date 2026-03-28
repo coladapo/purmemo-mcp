@@ -6,12 +6,13 @@
     "url": "https://github.com/purmemo-ai/purmemo-mcp",
     "source": "github"
   },
-  "version": "15.1.4",
+  "version": "15.1.5",
   "icon": {
     "src": "https://purmemo.ai/favicon.png"
   },
   "tools": [
     { "name": "save_conversation" },
+    { "name": "save_artifact" },
     { "name": "recall_memories" },
     { "name": "get_memory_details" },
     { "name": "discover_related_conversations" },
@@ -27,7 +28,7 @@
     {
       "registryType": "npm",
       "identifier": "purmemo-mcp",
-      "version": "15.1.4",
+      "version": "15.1.5",
       "runtimeHint": "node",
       "transport": {
         "type": "stdio"
