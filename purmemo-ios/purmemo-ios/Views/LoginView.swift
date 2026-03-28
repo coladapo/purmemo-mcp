@@ -1,10 +1,12 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     var authService: AuthService
     @State private var email = ""
     @State private var password = ""
     @State private var isLoading = false
+    @State private var oauthLoading: String? = nil
     @State private var errorMessage: String?
 
     var body: some View {
@@ -24,48 +26,83 @@ struct LoginView: View {
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.4))
                 }
-                .padding(.bottom, 48)
+                .padding(.bottom, 40)
 
-                // Form
-                VStack(spacing: 12) {
-                    TextField("Email", text: $email)
-                        .textFieldStyle(PurmemoFieldStyle())
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                        .autocorrectionDisabled()
+                VStack(spacing: 16) {
+                    // OAuth buttons
+                    VStack(spacing: 10) {
+                        OAuthButton(
+                            provider: "google",
+                            label: "Continue with Google",
+                            icon: "g.circle.fill",
+                            isLoading: oauthLoading == "google",
+                            action: { loginWithOAuth("google") }
+                        )
 
-                    SecureField("Password", text: $password)
-                        .textFieldStyle(PurmemoFieldStyle())
-                        .textContentType(.password)
-                        .onSubmit { login() }
+                        OAuthButton(
+                            provider: "github",
+                            label: "Continue with GitHub",
+                            icon: "chevron.left.forwardslash.chevron.right",
+                            isLoading: oauthLoading == "github",
+                            action: { loginWithOAuth("github") }
+                        )
+                    }
+                    .disabled(isLoading || oauthLoading != nil)
 
-                    if let error = errorMessage {
-                        Text(error)
+                    // Divider
+                    HStack(spacing: 12) {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 1)
+                        Text("or")
                             .font(.system(size: 13))
-                            .foregroundColor(.red.opacity(0.8))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 4)
+                            .foregroundColor(.white.opacity(0.25))
+                        Rectangle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 1)
                     }
 
-                    Button(action: login) {
-                        Group {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                            } else {
-                                Text("Sign In")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.black)
-                            }
+                    // Email/password form
+                    VStack(spacing: 12) {
+                        TextField("Email", text: $email)
+                            .textFieldStyle(PurmemoFieldStyle())
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                            .autocorrectionDisabled()
+
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(PurmemoFieldStyle())
+                            .textContentType(.password)
+                            .onSubmit { login() }
+
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(.system(size: 13))
+                                .foregroundColor(.red.opacity(0.8))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 4)
                         }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color(hex: "#E7FC44"))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                        Button(action: login) {
+                            Group {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text("Sign In")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.black)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color(hex: "#E7FC44"))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                        .disabled(isLoading || oauthLoading != nil || email.isEmpty || password.isEmpty)
+                        .padding(.top, 4)
                     }
-                    .disabled(isLoading || email.isEmpty || password.isEmpty)
-                    .padding(.top, 8)
                 }
                 .padding(.horizontal, 24)
 
@@ -91,6 +128,60 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
             }
             isLoading = false
+        }
+    }
+
+    private func loginWithOAuth(_ provider: String) {
+        oauthLoading = provider
+        errorMessage = nil
+        Task {
+            do {
+                try await authService.loginWithOAuth(provider: provider)
+            } catch let error as NSError where error.domain == ASWebAuthenticationSessionErrorDomain
+                && error.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                // User cancelled — no error message needed
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            oauthLoading = nil
+        }
+    }
+}
+
+// MARK: - OAuth Button Component
+
+struct OAuthButton: View {
+    let provider: String
+    let label: String
+    let icon: String
+    let isLoading: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(width: 20, height: 20)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 20, height: 20)
+                }
+                Text(label)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color(hex: "#1a1a1a"))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
         }
     }
 }
