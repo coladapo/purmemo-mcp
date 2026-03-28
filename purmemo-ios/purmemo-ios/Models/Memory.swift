@@ -1,0 +1,25 @@
+import Foundation
+
+struct SaveMemoryRequest: Encodable {
+    let content: String
+    let source_type: String = "mobile_ios"
+}
+
+struct SaveMemoryResponse: Codable {
+    let id: String
+    let content: String
+    let created_at: String
+}
+
+struct RecallMemory: Codable, Identifiable {
+    let id: String
+    let title: String?
+    let content: String
+    let score: Double?
+    let created_at: String?
+}
+
+struct RecallResponse: Codable {
+    let memories: [RecallMemory]
+    let query: String?
+}

@@ -1,0 +1,1015 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001MSGS0000000000021 /* PurmemoMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA000001MSGS0000000000011 /* PurmemoMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA000001SHARE000000000021 /* PurmemoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA000001SHARE000000000011 /* PurmemoShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BB000001SCRN0000000000001 /* ScreenshotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001SCRN0000000000011 /* ScreenshotManager.swift */; };
+		BB000001SCRN0000000000002 /* SaveScreenshotIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001SCRN0000000000012 /* SaveScreenshotIntent.swift */; };
+		BB000001SCRN0000000000003 /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001SCRN0000000000013 /* AppShortcuts.swift */; };
+		BB000001SCRN0000000000004 /* ScreenshotCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001SCRN0000000000014 /* ScreenshotCaptureView.swift */; };
+		E3201C662F64AB4500F9DCFA /* PurmemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5A2F64AB4500F9DCFA /* PurmemoApp.swift */; };
+		E3201C672F64AB4500F9DCFA /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C642F64AB4500F9DCFA /* MessageBubble.swift */; };
+		E3201C682F64AB4500F9DCFA /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C632F64AB4500F9DCFA /* LoginView.swift */; };
+		E3201C692F64AB4500F9DCFA /* Memory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C572F64AB4500F9DCFA /* Memory.swift */; };
+		E3201C6A2F64AB4500F9DCFA /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C612F64AB4500F9DCFA /* ChatView.swift */; };
+		CC000001IMGP0000000000001 /* ImagePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC000001IMGP0000000000002 /* ImagePickerView.swift */; };
+		E3201C6B2F64AB4500F9DCFA /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5B2F64AB4500F9DCFA /* AuthService.swift */; };
+		E3201C6C2F64AB4500F9DCFA /* PurmemoAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5D2F64AB4500F9DCFA /* PurmemoAPI.swift */; };
+		E3201C6D2F64AB4500F9DCFA /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C622F64AB4500F9DCFA /* ComposerView.swift */; };
+		E3201C6E2F64AB4500F9DCFA /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C582F64AB4500F9DCFA /* Message.swift */; };
+		E3201C6F2F64AB4500F9DCFA /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5F2F64AB4500F9DCFA /* ChatViewModel.swift */; };
+		E3201C702F64AB4500F9DCFA /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3201C5C2F64AB4500F9DCFA /* KeychainService.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA000001MSGS0000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3201C0B2F648F8F00F9DCFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA000001MSGS0000000000010;
+			remoteInfo = PurmemoMessages;
+		};
+		AA000001SHARE000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3201C0B2F648F8F00F9DCFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA000001SHARE000000000010;
+			remoteInfo = PurmemoShare;
+		};
+		E3201C212F648F9000F9DCFA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3201C0B2F648F8F00F9DCFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E3201C122F648F8F00F9DCFA;
+			remoteInfo = "purmemo-ios";
+		};
+		E3201C2B2F648F9000F9DCFA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3201C0B2F648F8F00F9DCFA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E3201C122F648F8F00F9DCFA;
+			remoteInfo = "purmemo-ios";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA000001SHARE000000000020 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA000001SHARE000000000021 /* PurmemoShare.appex in Embed Foundation Extensions */,
+				AA000001MSGS0000000000021 /* PurmemoMessages.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AA000001MSGS0000000000011 /* PurmemoMessages.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PurmemoMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000001SHARE000000000011 /* PurmemoShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PurmemoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB000001SCRN0000000000011 /* ScreenshotManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotManager.swift; sourceTree = "<group>"; };
+		BB000001SCRN0000000000012 /* SaveScreenshotIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveScreenshotIntent.swift; sourceTree = "<group>"; };
+		BB000001SCRN0000000000013 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
+		BB000001SCRN0000000000014 /* ScreenshotCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCaptureView.swift; sourceTree = "<group>"; };
+		E3201C132F648F8F00F9DCFA /* purmemo-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "purmemo-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3201C202F648F9000F9DCFA /* purmemo-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "purmemo-iosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3201C2A2F648F9000F9DCFA /* purmemo-iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "purmemo-iosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3201C572F64AB4500F9DCFA /* Memory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memory.swift; sourceTree = "<group>"; };
+		E3201C582F64AB4500F9DCFA /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
+		E3201C5A2F64AB4500F9DCFA /* PurmemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurmemoApp.swift; sourceTree = "<group>"; };
+		E3201C5B2F64AB4500F9DCFA /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		E3201C5C2F64AB4500F9DCFA /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		E3201C5D2F64AB4500F9DCFA /* PurmemoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurmemoAPI.swift; sourceTree = "<group>"; };
+		E3201C5F2F64AB4500F9DCFA /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		E3201C612F64AB4500F9DCFA /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		E3201C622F64AB4500F9DCFA /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
+		E3201C632F64AB4500F9DCFA /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		E3201C642F64AB4500F9DCFA /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		CC000001IMGP0000000000002 /* ImagePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA000001MSGS0000000000031 /* Exceptions for "PurmemoMessages" folder in "PurmemoMessages" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA000001MSGS0000000000010 /* PurmemoMessages */;
+		};
+		AA000001SHARE000000000031 /* Exceptions for "PurmemoShare" folder in "PurmemoShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA000001SHARE000000000010 /* PurmemoShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		AA000001MSGS0000000000030 /* PurmemoMessages */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA000001MSGS0000000000031 /* Exceptions for "PurmemoMessages" folder in "PurmemoMessages" target */,
+			);
+			path = PurmemoMessages;
+			sourceTree = "<group>";
+		};
+		AA000001SHARE000000000030 /* PurmemoShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA000001SHARE000000000031 /* Exceptions for "PurmemoShare" folder in "PurmemoShare" target */,
+			);
+			path = PurmemoShare;
+			sourceTree = "<group>";
+		};
+		E3201C152F648F8F00F9DCFA /* purmemo-ios */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "purmemo-ios";
+			sourceTree = "<group>";
+		};
+		E3201C232F648F9000F9DCFA /* purmemo-iosTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "purmemo-iosTests";
+			sourceTree = "<group>";
+		};
+		E3201C2D2F648F9000F9DCFA /* purmemo-iosUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "purmemo-iosUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA000001MSGS0000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA000001SHARE000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C102F648F8F00F9DCFA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C1D2F648F9000F9DCFA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C272F648F9000F9DCFA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BB000001SCRN0000000000020 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				BB000001SCRN0000000000012 /* SaveScreenshotIntent.swift */,
+				BB000001SCRN0000000000013 /* AppShortcuts.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		E3201C0A2F648F8F00F9DCFA = {
+			isa = PBXGroup;
+			children = (
+				E3201C152F648F8F00F9DCFA /* purmemo-ios */,
+				AA000001SHARE000000000030 /* PurmemoShare */,
+				AA000001MSGS0000000000030 /* PurmemoMessages */,
+				E3201C232F648F9000F9DCFA /* purmemo-iosTests */,
+				E3201C2D2F648F9000F9DCFA /* purmemo-iosUITests */,
+				E3201C142F648F8F00F9DCFA /* Products */,
+				E3201C592F64AB4500F9DCFA /* Models */,
+				E3201C5A2F64AB4500F9DCFA /* PurmemoApp.swift */,
+				E3201C5E2F64AB4500F9DCFA /* Services */,
+				E3201C602F64AB4500F9DCFA /* ViewModels */,
+				E3201C652F64AB4500F9DCFA /* Views */,
+				BB000001SCRN0000000000020 /* Intents */,
+			);
+			sourceTree = "<group>";
+		};
+		E3201C142F648F8F00F9DCFA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E3201C132F648F8F00F9DCFA /* purmemo-ios.app */,
+				E3201C202F648F9000F9DCFA /* purmemo-iosTests.xctest */,
+				E3201C2A2F648F9000F9DCFA /* purmemo-iosUITests.xctest */,
+				AA000001SHARE000000000011 /* PurmemoShare.appex */,
+				AA000001MSGS0000000000011 /* PurmemoMessages.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E3201C592F64AB4500F9DCFA /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				E3201C572F64AB4500F9DCFA /* Memory.swift */,
+				E3201C582F64AB4500F9DCFA /* Message.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E3201C5E2F64AB4500F9DCFA /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				E3201C5B2F64AB4500F9DCFA /* AuthService.swift */,
+				E3201C5C2F64AB4500F9DCFA /* KeychainService.swift */,
+				E3201C5D2F64AB4500F9DCFA /* PurmemoAPI.swift */,
+				BB000001SCRN0000000000011 /* ScreenshotManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		E3201C602F64AB4500F9DCFA /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				E3201C5F2F64AB4500F9DCFA /* ChatViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		E3201C652F64AB4500F9DCFA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				E3201C612F64AB4500F9DCFA /* ChatView.swift */,
+				E3201C622F64AB4500F9DCFA /* ComposerView.swift */,
+				E3201C632F64AB4500F9DCFA /* LoginView.swift */,
+				E3201C642F64AB4500F9DCFA /* MessageBubble.swift */,
+				BB000001SCRN0000000000014 /* ScreenshotCaptureView.swift */,
+				CC000001IMGP0000000000002 /* ImagePickerView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA000001MSGS0000000000010 /* PurmemoMessages */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000001MSGS0000000000040 /* Build configuration list for PBXNativeTarget "PurmemoMessages" */;
+			buildPhases = (
+				AA000001MSGS0000000000013 /* Sources */,
+				AA000001MSGS0000000000012 /* Frameworks */,
+				AA000001MSGS0000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA000001MSGS0000000000030 /* PurmemoMessages */,
+			);
+			name = PurmemoMessages;
+			packageProductDependencies = (
+			);
+			productName = PurmemoMessages;
+			productReference = AA000001MSGS0000000000011 /* PurmemoMessages.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		AA000001SHARE000000000010 /* PurmemoShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000001SHARE000000000040 /* Build configuration list for PBXNativeTarget "PurmemoShare" */;
+			buildPhases = (
+				AA000001SHARE000000000013 /* Sources */,
+				AA000001SHARE000000000012 /* Frameworks */,
+				AA000001SHARE000000000014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA000001SHARE000000000030 /* PurmemoShare */,
+			);
+			name = PurmemoShare;
+			packageProductDependencies = (
+			);
+			productName = PurmemoShare;
+			productReference = AA000001SHARE000000000011 /* PurmemoShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		E3201C122F648F8F00F9DCFA /* purmemo-ios */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3201C342F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-ios" */;
+			buildPhases = (
+				E3201C0F2F648F8F00F9DCFA /* Sources */,
+				E3201C102F648F8F00F9DCFA /* Frameworks */,
+				E3201C112F648F8F00F9DCFA /* Resources */,
+				AA000001SHARE000000000020 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA000001SHARE000000000002 /* PBXTargetDependency */,
+				AA000001MSGS0000000000002 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E3201C152F648F8F00F9DCFA /* purmemo-ios */,
+			);
+			name = "purmemo-ios";
+			packageProductDependencies = (
+			);
+			productName = "purmemo-ios";
+			productReference = E3201C132F648F8F00F9DCFA /* purmemo-ios.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E3201C1F2F648F9000F9DCFA /* purmemo-iosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3201C372F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-iosTests" */;
+			buildPhases = (
+				E3201C1C2F648F9000F9DCFA /* Sources */,
+				E3201C1D2F648F9000F9DCFA /* Frameworks */,
+				E3201C1E2F648F9000F9DCFA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E3201C222F648F9000F9DCFA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E3201C232F648F9000F9DCFA /* purmemo-iosTests */,
+			);
+			name = "purmemo-iosTests";
+			packageProductDependencies = (
+			);
+			productName = "purmemo-iosTests";
+			productReference = E3201C202F648F9000F9DCFA /* purmemo-iosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E3201C292F648F9000F9DCFA /* purmemo-iosUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3201C3A2F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-iosUITests" */;
+			buildPhases = (
+				E3201C262F648F9000F9DCFA /* Sources */,
+				E3201C272F648F9000F9DCFA /* Frameworks */,
+				E3201C282F648F9000F9DCFA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E3201C2C2F648F9000F9DCFA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E3201C2D2F648F9000F9DCFA /* purmemo-iosUITests */,
+			);
+			name = "purmemo-iosUITests";
+			packageProductDependencies = (
+			);
+			productName = "purmemo-iosUITests";
+			productReference = E3201C2A2F648F9000F9DCFA /* purmemo-iosUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E3201C0B2F648F8F00F9DCFA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					AA000001MSGS0000000000010 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					AA000001SHARE000000000010 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					E3201C122F648F8F00F9DCFA = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					E3201C1F2F648F9000F9DCFA = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = E3201C122F648F8F00F9DCFA;
+					};
+					E3201C292F648F9000F9DCFA = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = E3201C122F648F8F00F9DCFA;
+					};
+				};
+			};
+			buildConfigurationList = E3201C0E2F648F8F00F9DCFA /* Build configuration list for PBXProject "purmemo-ios" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E3201C0A2F648F8F00F9DCFA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E3201C142F648F8F00F9DCFA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E3201C122F648F8F00F9DCFA /* purmemo-ios */,
+				AA000001SHARE000000000010 /* PurmemoShare */,
+				AA000001MSGS0000000000010 /* PurmemoMessages */,
+				E3201C1F2F648F9000F9DCFA /* purmemo-iosTests */,
+				E3201C292F648F9000F9DCFA /* purmemo-iosUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA000001MSGS0000000000014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA000001SHARE000000000014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C112F648F8F00F9DCFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C1E2F648F9000F9DCFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C282F648F9000F9DCFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA000001MSGS0000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA000001SHARE000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C0F2F648F8F00F9DCFA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E3201C662F64AB4500F9DCFA /* PurmemoApp.swift in Sources */,
+				E3201C672F64AB4500F9DCFA /* MessageBubble.swift in Sources */,
+				E3201C682F64AB4500F9DCFA /* LoginView.swift in Sources */,
+				E3201C692F64AB4500F9DCFA /* Memory.swift in Sources */,
+				E3201C6A2F64AB4500F9DCFA /* ChatView.swift in Sources */,
+				E3201C6B2F64AB4500F9DCFA /* AuthService.swift in Sources */,
+				E3201C6C2F64AB4500F9DCFA /* PurmemoAPI.swift in Sources */,
+				E3201C6D2F64AB4500F9DCFA /* ComposerView.swift in Sources */,
+				E3201C6E2F64AB4500F9DCFA /* Message.swift in Sources */,
+				E3201C6F2F64AB4500F9DCFA /* ChatViewModel.swift in Sources */,
+				E3201C702F64AB4500F9DCFA /* KeychainService.swift in Sources */,
+				CC000001IMGP0000000000001 /* ImagePickerView.swift in Sources */,
+				BB000001SCRN0000000000001 /* ScreenshotManager.swift in Sources */,
+				BB000001SCRN0000000000002 /* SaveScreenshotIntent.swift in Sources */,
+				BB000001SCRN0000000000003 /* AppShortcuts.swift in Sources */,
+				BB000001SCRN0000000000004 /* ScreenshotCaptureView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C1C2F648F9000F9DCFA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3201C262F648F9000F9DCFA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA000001MSGS0000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA000001MSGS0000000000010 /* PurmemoMessages */;
+			targetProxy = AA000001MSGS0000000000001 /* PBXContainerItemProxy */;
+		};
+		AA000001SHARE000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA000001SHARE000000000010 /* PurmemoShare */;
+			targetProxy = AA000001SHARE000000000001 /* PBXContainerItemProxy */;
+		};
+		E3201C222F648F9000F9DCFA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E3201C122F648F8F00F9DCFA /* purmemo-ios */;
+			targetProxy = E3201C212F648F9000F9DCFA /* PBXContainerItemProxy */;
+		};
+		E3201C2C2F648F9000F9DCFA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E3201C122F648F8F00F9DCFA /* purmemo-ios */;
+			targetProxy = E3201C2B2F648F9000F9DCFA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AA000001MSGS0000000000041 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PurmemoMessages/PurmemoMessages.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PurmemoMessages/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "pūrmemo";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios.PurmemoMessages";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA000001MSGS0000000000042 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PurmemoMessages/PurmemoMessages.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PurmemoMessages/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "pūrmemo";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios.PurmemoMessages";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AA000001SHARE000000000041 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PurmemoShare/PurmemoShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PurmemoShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PurmemoShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "pūrmemo uses your microphone to add voice notes to shared content.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "pūrmemo uses speech recognition to convert your voice note into text.";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios.PurmemoShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA000001SHARE000000000042 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PurmemoShare/PurmemoShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PurmemoShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PurmemoShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "pūrmemo uses your microphone to add voice notes to shared content.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "pūrmemo uses speech recognition to convert your voice note into text.";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios.PurmemoShare";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E3201C322F648F9000F9DCFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E3201C332F648F9000F9DCFA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E3201C352F648F9000F9DCFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "purmemo-ios/purmemo-ios.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "pūrmemo";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "pūrmemo uses your microphone to transcribe voice notes into memories.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "pūrmemo uses speech recognition to convert your voice into text.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E3201C362F648F9000F9DCFA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "purmemo-ios/purmemo-ios.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "pūrmemo";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "pūrmemo uses your microphone to transcribe voice notes into memories.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "pūrmemo uses speech recognition to convert your voice into text.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-ios";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E3201C382F648F9000F9DCFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-iosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/purmemo-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/purmemo-ios";
+			};
+			name = Debug;
+		};
+		E3201C392F648F9000F9DCFA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-iosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/purmemo-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/purmemo-ios";
+			};
+			name = Release;
+		};
+		E3201C3B2F648F9000F9DCFA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-iosUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "purmemo-ios";
+			};
+			name = Debug;
+		};
+		E3201C3C2F648F9000F9DCFA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.purmemo.purmemo-iosUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "purmemo-ios";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA000001MSGS0000000000040 /* Build configuration list for PBXNativeTarget "PurmemoMessages" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA000001MSGS0000000000041 /* Debug */,
+				AA000001MSGS0000000000042 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA000001SHARE000000000040 /* Build configuration list for PBXNativeTarget "PurmemoShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA000001SHARE000000000041 /* Debug */,
+				AA000001SHARE000000000042 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E3201C0E2F648F8F00F9DCFA /* Build configuration list for PBXProject "purmemo-ios" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E3201C322F648F9000F9DCFA /* Debug */,
+				E3201C332F648F9000F9DCFA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E3201C342F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-ios" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E3201C352F648F9000F9DCFA /* Debug */,
+				E3201C362F648F9000F9DCFA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E3201C372F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-iosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E3201C382F648F9000F9DCFA /* Debug */,
+				E3201C392F648F9000F9DCFA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E3201C3A2F648F9000F9DCFA /* Build configuration list for PBXNativeTarget "purmemo-iosUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E3201C3B2F648F9000F9DCFA /* Debug */,
+				E3201C3C2F648F9000F9DCFA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E3201C0B2F648F8F00F9DCFA /* Project object */;
+}

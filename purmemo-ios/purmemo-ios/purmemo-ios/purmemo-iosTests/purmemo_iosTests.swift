@@ -1,0 +1,17 @@
+//
+//  purmemo_iosTests.swift
+//  purmemo-iosTests
+//
+//  Created by wivak on 3/13/26.
+//
+
+import Testing
+@testable import purmemo_ios
+
+struct purmemo_iosTests {
+
+    @Test func example() async throws {
+        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    }
+
+}

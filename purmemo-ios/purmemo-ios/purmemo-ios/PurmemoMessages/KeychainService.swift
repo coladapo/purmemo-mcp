@@ -8,17 +8,15 @@ enum KeychainKey: String {
 }
 
 struct KeychainService {
-
-    /// Shared access group so the Share Extension can read tokens
     private static let accessGroup = "DC7489SG7F.ai.purmemo.shared"
 
     static func save(_ value: String, for key: KeychainKey) {
         guard let data = value.data(using: .utf8) else { return }
         let query: [CFString: Any] = [
-            kSecClass:          kSecClassGenericPassword,
-            kSecAttrAccount:    key.rawValue,
+            kSecClass:           kSecClassGenericPassword,
+            kSecAttrAccount:     key.rawValue,
             kSecAttrAccessGroup: accessGroup,
-            kSecValueData:      data
+            kSecValueData:       data
         ]
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
@@ -48,11 +46,5 @@ struct KeychainService {
             kSecAttrAccessGroup: accessGroup
         ]
         SecItemDelete(query as CFDictionary)
-    }
-
-    static func deleteAll() {
-        delete(.accessToken)
-        delete(.refreshToken)
-        delete(.userEmail)
     }
 }
