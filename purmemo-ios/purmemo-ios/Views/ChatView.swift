@@ -112,9 +112,8 @@ struct ChatView: View {
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(.vertical, 12)
-                .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
-                .animation(.easeOut(duration: 0.2), value: viewModel.isLoading)
             }
+            .scrollDismissesKeyboard(.interactively)
             .onAppear { scrollProxy = proxy }
             .onChange(of: viewModel.messages.count) {
                 // Small delay so user can still scroll up; only auto-scroll for new messages

@@ -9,6 +9,7 @@ struct ComposerView: View {
 
     @State private var voiceService = VoiceService()
     @State private var isRecording = false
+    @State private var micPulse = false
 
     private var hasText: Bool {
         !text.trimmingCharacters(in: .whitespaces).isEmpty
@@ -66,6 +67,19 @@ struct ComposerView: View {
         .background(Color.black)
         .animation(.easeInOut(duration: 0.2), value: hasText)
         .animation(.easeInOut(duration: 0.2), value: isRecording)
+        .overlay(alignment: .top) {
+            if isRecording {
+                Text("Listening...")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color(hex: "#E7FC44"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "#E7FC44").opacity(0.1))
+                    .clipShape(Capsule())
+                    .offset(y: -24)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
         .onChange(of: voiceService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue
@@ -82,39 +96,39 @@ struct ComposerView: View {
     }
 
     private var micButton: some View {
-        Image(systemName: isRecording ? "waveform" : "mic.fill")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(isRecording ? .black : .white.opacity(0.6))
-            .frame(width: 44, height: 44)
-            .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
-            .clipShape(Circle())
-            .overlay(
+        ZStack {
+            // Pulsing ring when recording
+            if isRecording {
                 Circle()
-                    .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
-            )
-            .scaleEffect(isRecording ? 1.15 : 1.0)
-            .gesture(
-                LongPressGesture(minimumDuration: 0.15)
-                    .onEnded { _ in
-                        startRecording()
-                    }
-                    .sequenced(before: DragGesture(minimumDistance: 0)
-                        .onEnded { _ in
-                            stopRecording()
-                        }
-                    )
-            )
-            .simultaneousGesture(
-                TapGesture()
-                    .onEnded {
-                        // Tap toggles recording
-                        if isRecording {
-                            stopRecording()
-                        } else {
-                            startRecording()
-                        }
-                    }
-            )
+                    .stroke(Color(hex: "#E7FC44").opacity(0.3), lineWidth: 2)
+                    .frame(width: 56, height: 56)
+                    .scaleEffect(micPulse ? 1.3 : 1.0)
+                    .opacity(micPulse ? 0 : 0.6)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false), value: micPulse)
+                    .onAppear { micPulse = true }
+                    .onDisappear { micPulse = false }
+            }
+
+            Image(systemName: isRecording ? "waveform" : "mic.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(isRecording ? .black : .white.opacity(0.6))
+                .symbolEffect(.variableColor.iterative, isActive: isRecording)
+                .frame(width: 44, height: 44)
+                .background(isRecording ? Color(hex: "#E7FC44") : Color(hex: "#1a1a1a"))
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .scaleEffect(isRecording ? 1.1 : 1.0)
+        }
+        .onTapGesture {
+            if isRecording {
+                stopRecording()
+            } else {
+                startRecording()
+            }
+        }
     }
 
     private func startRecording() {
