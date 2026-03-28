@@ -979,6 +979,16 @@ const TOOLS = [
           type: 'boolean',
           default: true,
           description: 'Include all linked parts if this is a chunked memory'
+        },
+        offset: {
+          type: 'integer',
+          default: 0,
+          description: 'Character offset for paginated retrieval of large memories. When a response says "use offset: N to continue", pass that value here to get the next page.'
+        },
+        maxChars: {
+          type: 'integer',
+          default: 80000,
+          description: 'Maximum characters per page (default 80000, min 1000, max 500000). Reduce for faster responses on slow connections.'
         }
       },
       required: ['memoryId']
@@ -2638,7 +2648,9 @@ async function handleGetMemoryDetails(args) {
         tool: 'get_memory_details',
         arguments: {
           memoryId: resolvedId,
-          includeLinkedParts: args.includeLinkedParts !== false
+          includeLinkedParts: args.includeLinkedParts !== false,
+          ...(args.offset != null ? { offset: args.offset } : {}),
+          ...(args.maxChars != null ? { maxChars: args.maxChars } : {}),
         }
       })
     });
