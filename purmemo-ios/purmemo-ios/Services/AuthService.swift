@@ -26,8 +26,9 @@ class AuthService {
     private let baseURL = "https://api.purmemo.ai"
     static let oauthCallbackScheme = "purmemo"
 
-    /// Retain the auth session so it isn't deallocated mid-flow
-    private var activeAuthSession: ASWebAuthenticationSession?
+    /// Retain the auth session so it isn't deallocated mid-flow.
+    /// Static to guarantee it survives any @Observable view redraws.
+    private nonisolated(unsafe) static var activeAuthSession: ASWebAuthenticationSession?
 
     init() {
         if let token = KeychainService.load(.accessToken), !token.isEmpty {
@@ -81,14 +82,14 @@ class AuthService {
         ) { @Sendable [weak self] callbackUrl, error in
             // Completion fires on arbitrary thread — dispatch to main
             DispatchQueue.main.async {
-                self?.activeAuthSession = nil
+                AuthService.activeAuthSession = nil
                 self?.handleOAuthCallback(callbackUrl: callbackUrl, error: error)
             }
         }
         session.prefersEphemeralWebBrowserSession = false
         session.presentationContextProvider = OAuthPresentationContext.shared
 
-        self.activeAuthSession = session
+        Self.activeAuthSession = session
         session.start()
     }
 
