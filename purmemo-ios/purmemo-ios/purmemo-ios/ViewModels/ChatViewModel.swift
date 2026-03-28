@@ -29,6 +29,9 @@ class ChatViewModel {
     var isLoading = false
     var errorMessage: String?
 
+    /// Maps message IDs to their recall results (for tappable memory cards)
+    var recallResults: [UUID: [RecallMemory]] = [:]
+
     private let api: PurmemoAPI
 
     init(authService: AuthService) {
@@ -66,8 +69,12 @@ class ChatViewModel {
             case .recall:
                 let response = try await api.recall(query: text)
                 let reply = self.formatRecallResponse(response)
+                let msg = Message(role: .assistant, content: reply)
                 await MainActor.run {
-                    self.messages.append(Message(role: .assistant, content: reply))
+                    if !response.memories.isEmpty {
+                        self.recallResults[msg.id] = Array(response.memories.prefix(5))
+                    }
+                    self.messages.append(msg)
                 }
             }
         } catch {

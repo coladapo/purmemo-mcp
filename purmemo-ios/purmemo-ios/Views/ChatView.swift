@@ -7,6 +7,7 @@ struct ChatView: View {
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var showImagePicker = false
     @State private var showSettings = false
+    @State private var selectedMemory: RecallMemory?
 
     init(authService: AuthService) {
         self.authService = authService
@@ -34,6 +35,9 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(authService: authService)
+        }
+        .sheet(item: $selectedMemory) { memory in
+            MemoryDetailView(memory: memory)
         }
     }
 
@@ -83,10 +87,19 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
+                        if let memories = viewModel.recallResults[message.id] {
+                            RecallResultBubble(memories: memories) { memory in
+                                selectedMemory = memory
+                            }
                             .id(message.id)
                             .padding(.horizontal, 12)
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        } else {
+                            MessageBubble(message: message)
+                                .id(message.id)
+                                .padding(.horizontal, 12)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
                     }
 
                     if viewModel.isLoading {

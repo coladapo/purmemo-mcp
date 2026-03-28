@@ -11,12 +11,15 @@ struct SaveMemoryResponse: Codable {
     let created_at: String
 }
 
-struct RecallMemory: Codable, Identifiable {
+struct RecallMemory: Codable, Identifiable, Hashable {
     let id: String
     let title: String?
     let content: String
     let score: Double?
     let created_at: String?
+
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: RecallMemory, rhs: RecallMemory) -> Bool { lhs.id == rhs.id }
 }
 
 struct RecallResponse: Codable {
