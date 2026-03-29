@@ -54,8 +54,6 @@ struct ComposerView: View {
             .padding(.bottom, 12)
         }
         .background(Color.black)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: pillState)
-        .animation(.easeInOut(duration: 0.2), value: hasText)
         .onChange(of: voiceService.transcript) { _, newValue in
             if !newValue.isEmpty {
                 text = newValue
@@ -102,6 +100,7 @@ struct ComposerView: View {
                         Circle()
                             .stroke(isRecording ? Color.clear : Color.white.opacity(0.08), lineWidth: 1)
                     )
+                    .animation(.easeInOut(duration: 0.2), value: isRecording)
             }
         }
     }
@@ -150,6 +149,7 @@ struct ComposerView: View {
                       : Color(hex: "#E7FC44").opacity(0.12))
         )
         .clipShape(Capsule())
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: pillState)
     }
 
     // MARK: - Actions
@@ -158,19 +158,10 @@ struct ComposerView: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
 
-        // Dismiss keyboard first, then start voice after keyboard animation completes
-        if isTextFieldFocused {
-            isTextFieldFocused = false
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            // Wait for keyboard dismiss animation before activating voice mode
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                isRecording = true
-                voiceService.startListening()
-            }
-        } else {
-            isRecording = true
-            voiceService.startListening()
-        }
+        // Dismiss keyboard and start voice simultaneously
+        isTextFieldFocused = false
+        isRecording = true
+        voiceService.startListening()
     }
 
     private func stopRecording() {
