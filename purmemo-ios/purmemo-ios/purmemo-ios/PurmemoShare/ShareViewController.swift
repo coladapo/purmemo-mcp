@@ -157,6 +157,11 @@ class ShareViewController: UIViewController {
             "source_type": hasImages ? "ios_image_share" : "ios_share_extension"
         ]
 
+        // Pass source_url so link enrichment triggers (transcripts, thumbnails, OG metadata)
+        if !sharedURL.isEmpty {
+            body["source_url"] = sharedURL
+        }
+
         if hasImages {
             body["title"] = note.isEmpty
                 ? (sharedImages.count == 1 ? "Image" : "\(sharedImages.count) Images")
