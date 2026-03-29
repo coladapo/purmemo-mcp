@@ -193,7 +193,7 @@ class PurmemoAPI {
                     memoryCount: (item["memory_count"] as? Int) ?? Int(item["memory_count"] as? String ?? "0") ?? 0,
                     openItems: (item["open_items"] as? Int) ?? Int(item["open_items"] as? String ?? "0") ?? 0,
                     blockerCount: (item["blocker_count"] as? Int) ?? Int(item["blocker_count"] as? String ?? "0") ?? 0,
-                    lastActivity: item["last_activity"] as? String
+                    lastActivity: (item["latest_memory"] as? String) ?? (item["last_activity"] as? String)
                 ))
             }
         }
