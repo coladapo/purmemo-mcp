@@ -155,14 +155,22 @@ struct ComposerView: View {
     // MARK: - Actions
 
     private func startRecording() {
-        // Dismiss keyboard when entering voice mode
-        isTextFieldFocused = false
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        isRecording = true
-        voiceService.startListening()
+
+        // Dismiss keyboard first, then start voice after keyboard animation completes
+        if isTextFieldFocused {
+            isTextFieldFocused = false
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            // Wait for keyboard dismiss animation before activating voice mode
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                isRecording = true
+                voiceService.startListening()
+            }
+        } else {
+            isRecording = true
+            voiceService.startListening()
+        }
     }
 
     private func stopRecording() {
