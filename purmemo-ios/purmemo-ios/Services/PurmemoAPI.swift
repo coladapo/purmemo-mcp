@@ -158,6 +158,91 @@ class PurmemoAPI {
         }
     }
 
+    // MARK: - Projects Summary
+
+    func getProjectsSummary() async throws -> ProjectsSummary {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/projects/summary")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+        if httpStatus == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return try Self.parseProjectsSummary(retryData)
+        }
+
+        return try Self.parseProjectsSummary(data)
+    }
+
+    private static func parseProjectsSummary(_ data: Data) throws -> ProjectsSummary {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError
+        }
+
+        var projects: [ProjectItem] = []
+        if let items = json["projects"] as? [[String: Any]] {
+            for item in items {
+                projects.append(ProjectItem(
+                    name: item["project_name"] as? String ?? "Untitled",
+                    memoryCount: (item["memory_count"] as? Int) ?? Int(item["memory_count"] as? String ?? "0") ?? 0,
+                    openItems: (item["open_items"] as? Int) ?? Int(item["open_items"] as? String ?? "0") ?? 0,
+                    blockerCount: (item["blocker_count"] as? Int) ?? Int(item["blocker_count"] as? String ?? "0") ?? 0,
+                    lastActivity: item["last_activity"] as? String
+                ))
+            }
+        }
+
+        var workItems: [WorkItem] = []
+        if let items = json["work_items"] as? [[String: Any]] {
+            for item in items {
+                workItems.append(WorkItem(
+                    memoryId: item["memory_id"] as? String ?? "",
+                    memoryTitle: item["memory_title"] as? String,
+                    projectName: item["project_name"] as? String,
+                    text: item["item_text"] as? String ?? "",
+                    type: item["item_type"] as? String ?? "task",
+                    priority: item["item_priority"] as? String ?? "medium",
+                    deadline: item["item_deadline"] as? String
+                ))
+            }
+        }
+
+        var completions: [CompletionItem] = []
+        if let items = json["completions"] as? [[String: Any]] {
+            for item in items {
+                completions.append(CompletionItem(
+                    memoryId: item["memory_id"] as? String ?? "",
+                    memoryTitle: item["memory_title"] as? String,
+                    projectName: item["project_name"] as? String,
+                    text: item["completion_text"] as? String ?? item["completed_item"] as? String ?? "",
+                    createdAt: item["created_at"] as? String
+                ))
+            }
+        }
+
+        var blockers: [BlockerItem] = []
+        if let items = json["blockers"] as? [[String: Any]] {
+            for item in items {
+                blockers.append(BlockerItem(
+                    memoryId: item["memory_id"] as? String ?? "",
+                    memoryTitle: item["memory_title"] as? String,
+                    projectName: item["project_name"] as? String,
+                    text: item["blocker_text"] as? String ?? "",
+                    severity: item["severity"] as? String ?? "minor",
+                    blockingCause: item["blocking_cause"] as? String
+                ))
+            }
+        }
+
+        return ProjectsSummary(projects: projects, workItems: workItems, completions: completions, blockers: blockers)
+    }
+
     // MARK: - Get Full Memory
 
     func getMemory(id: String) async throws -> FullMemory {

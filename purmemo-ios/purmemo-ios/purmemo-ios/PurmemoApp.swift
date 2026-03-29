@@ -9,7 +9,7 @@ struct PurmemoApp: App {
         WindowGroup {
             Group {
                 if authService.isAuthenticated {
-                    ChatView(authService: authService)
+                    mainTabView
                 } else {
                     LoginView(authService: authService)
                 }
@@ -25,5 +25,28 @@ struct PurmemoApp: App {
                 )
             }
         }
+    }
+
+    private var mainTabView: some View {
+        TabView {
+            ProjectsView(authService: authService)
+                .tabItem {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                    Text("Projects")
+                }
+
+            ChatView(authService: authService)
+                .tabItem {
+                    Image(systemName: "message")
+                    Text("Chat")
+                }
+
+            SettingsView(authService: authService)
+                .tabItem {
+                    Image(systemName: "gearshape")
+                    Text("Settings")
+                }
+        }
+        .tint(Color(hex: "#E7FC44"))
     }
 }

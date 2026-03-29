@@ -28,6 +28,7 @@
 		DD000001SETT000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001SETT000000000002 /* SettingsView.swift */; };
 		EE000001MEMD000000000001 /* MemoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000001MEMD000000000002 /* MemoryDetailView.swift */; };
 		EE000001RCLL000000000001 /* RecallResultBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000001RCLL000000000002 /* RecallResultBubble.swift */; };
+		FF000001PROJ000000000001 /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000001PROJ000000000002 /* ProjectsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		DD000001SETT000000000002 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EE000001MEMD000000000002 /* MemoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryDetailView.swift; sourceTree = "<group>"; };
 		EE000001RCLL000000000002 /* RecallResultBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallResultBubble.swift; sourceTree = "<group>"; };
+		FF000001PROJ000000000002 /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -272,6 +274,7 @@
 				DD000001SETT000000000002 /* SettingsView.swift */,
 				EE000001MEMD000000000002 /* MemoryDetailView.swift */,
 				EE000001RCLL000000000002 /* RecallResultBubble.swift */,
+				FF000001PROJ000000000002 /* ProjectsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -522,6 +525,7 @@
 				DD000001SETT000000000001 /* SettingsView.swift in Sources */,
 				EE000001MEMD000000000001 /* MemoryDetailView.swift in Sources */,
 				EE000001RCLL000000000001 /* RecallResultBubble.swift in Sources */,
+				FF000001PROJ000000000001 /* ProjectsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
