@@ -2241,16 +2241,12 @@ async function handleSaveConversation(args) {
     const progressIndicators = extractProgressIndicators(content);
     const relationships = extractRelationships(content);
 
-    const tags = args.tags || ['complete-conversation'];
-
-    structuredLog.info(`${toolName}: args.tags debug`, {
-      request_id: requestId,
-      args_tags_type: typeof args.tags,
-      args_tags_isArray: Array.isArray(args.tags),
-      args_tags_length: Array.isArray(args.tags) ? args.tags.length : 'N/A',
-      args_tags_preview: JSON.stringify(args.tags)?.substring(0, 500),
-      final_tags_length: tags.length,
-    });
+    // args.tags may arrive as a JSON string from some MCP transports — parse it
+    let rawTags = args.tags;
+    if (typeof rawTags === 'string') {
+      try { rawTags = JSON.parse(rawTags); } catch { rawTags = [rawTags]; }
+    }
+    const tags: string[] = Array.isArray(rawTags) ? rawTags : (rawTags ? [String(rawTags)] : ['complete-conversation']);
 
     let conversationId = args.conversationId;
     if (!conversationId && title && !title.startsWith('Conversation 202')) {
@@ -2464,7 +2460,11 @@ async function handleSaveArtifact(args) {
     const artifactType = args.type;
     const rawContent = args.content || '';
     const content = sanitizeUnicode(rawContent);
-    const tags = [...(args.tags || []), 'artifact', artifactType];
+    let rawArtifactTags = args.tags;
+    if (typeof rawArtifactTags === 'string') {
+      try { rawArtifactTags = JSON.parse(rawArtifactTags); } catch { rawArtifactTags = [rawArtifactTags]; }
+    }
+    const tags = [...(Array.isArray(rawArtifactTags) ? rawArtifactTags : []), 'artifact', artifactType];
 
     // Validate required fields
     if (!parentConversationId || !title || !artifactType || content.length < 100) {
