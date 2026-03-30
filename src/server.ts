@@ -2740,6 +2740,12 @@ async function handleRecallMemories(args) {
     // Update last recall cache for ordinal lookups
     lastRecallIds = recalledIds;
 
+    // Preserve active todos section from API response (appended after memories)
+    const todosMatch = responseText.match(/---\n\*\*Active Todos[\s\S]*/);
+    if (todosMatch) {
+      resultText += todosMatch[0] + '\n\n';
+    }
+
     resultText += `${'─'.repeat(60)}\n\n`;
     resultText += `💡 **Discover More:**\n`;
     resultText += `Use 'discover_related_conversations' with your query to find related\n`;
