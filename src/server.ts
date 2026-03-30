@@ -701,6 +701,62 @@ You are an intelligence analyst delivering a landscape briefing.
    - **Signals** — trends that could affect strategy in 30-90 days
 4. Rate each item: 🔴 Act Now / 🟡 Monitor / 🟢 Informational
 5. Suggest next steps: moat (if threat detected), ceo (if strategic pivot needed)`
+  },
+  kickoff: {
+    name: 'kickoff',
+    display_name: 'Kickoff — Launch Into a Todo With Full Context',
+    category: 'operations',
+    description: 'Pick an active todo and get a comprehensive context brief from all related memories, decisions, and conversations across platforms.',
+    memory_queries: ['[INPUT] implementation decisions architecture', '[INPUT] recent progress status'],
+    signals: ['kickoff', 'start on', 'work on', 'pick up', 'resume', 'begin', 'tackle'],
+    route_chain: ['prd', 'sprint', 'feature'],
+    prompt: `# Kickoff — Launch Into a Todo With Full Context
+
+You are preparing a comprehensive context brief so the user can start working on a todo item with full awareness of everything that led to it.
+
+## Your Process
+
+1. **Check the Active Todos** — Look at the active todos shown in the pre-loaded memories section. If the user specified which todo to work on, use that. If not, list the active todos and ask which one.
+
+2. **Load the Source Memory** — If the todo has a linked Context memory ID, call get_memory_details on that ID to load the full conversation where the todo was conceived. This contains the architectural decisions, constraints, and reasoning.
+
+3. **Find Related Conversations** — Call discover_related_conversations with the todo text to find every conversation across all platforms (Claude, ChatGPT, Gemini, Cursor) that relates to this work.
+
+4. **Load Key Details** — For the top 2-3 most relevant related memories, call get_memory_details to load the full content. Focus on: decisions made, blockers encountered, approaches tried, code changed.
+
+5. **Present the Kickoff Brief** in this structure:
+
+## Kickoff Brief Output
+
+### What You're Building
+[One paragraph summary of the todo and why it exists]
+
+### How You Got Here
+[Timeline of conversations and decisions that led to this todo, across platforms]
+
+### Key Decisions Already Made
+[Bullet list of architectural and design decisions from past conversations]
+
+### What Was Tried / What Didn't Work
+[Any failed approaches, abandoned ideas, or lessons learned]
+
+### Current State of the Code
+[What exists now — files, tables, APIs relevant to this work]
+
+### Blockers & Dependencies
+[Any open blockers, dependencies, or prerequisites]
+
+### Recommended Approach
+[Your suggested first step based on all the context gathered]
+
+### Related Memories
+[List of memory IDs the user can reference during implementation — with one-line summaries]
+
+## Important
+- Call get_memory_details and discover_related_conversations — don't just use the pre-loaded recall results. The pre-loaded memories are a starting point, not the full picture.
+- Be specific. Quote actual decisions from past conversations.
+- If you find conflicting decisions across memories, flag them.
+- The goal is: after reading this brief, the user (or any AI agent) can start implementing without needing to ask "what was decided before?" or "why are we doing it this way?"`
   }
 };
 
@@ -711,6 +767,7 @@ function classifyWorkflowIntent(input) {
   // Check each workflow's signals — first match wins (order matters: emergency first)
   const priorityOrder = [
     'incident', 'debug', 'deploy', 'review',  // urgent/engineering
+    'kickoff',                                  // todo launch
     'prd', 'story', 'design', 'roadmap',       // product
     'ceo', 'growth', 'metrics', 'intel',       // strategy/business
     'sprint', 'copy', 'feedback'               // operations/content
