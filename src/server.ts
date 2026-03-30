@@ -71,7 +71,7 @@ if (['setup', 'init', 'status', 'logout', 'hooks'].includes(_subcommand)) {
   // setup.js manages its own process lifecycle
 } else {
 
-const API_URL = process.env.PURMEMO_API_URL || 'https://api.purmemo.ai';
+const API_URL = (process.env.PURMEMO_API_URL || 'https://api.purmemo.ai').replace(/\/+$/, '');
 
 // ============================================================================
 // Version check — runs once on startup, non-blocking
