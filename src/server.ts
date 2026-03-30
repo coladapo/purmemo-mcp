@@ -2152,6 +2152,17 @@ async function saveSingleContent(content, title, tags = [], metadata = {}) {
   // Only include session_id if it's a real string (Zod rejects null)
   if (sessionId) payload.session_id = sessionId;
 
+  structuredLog.info('saveSingleContent: payload keys', {
+    keys: Object.keys(payload),
+    content_length: typeof payload.content === 'string' ? payload.content.length : 'not-string',
+    platform: payload.platform,
+    mode: payload.mode,
+    has_session_id: 'session_id' in payload,
+    session_id_value: payload.session_id ?? 'not-set',
+    conversation_id: payload.conversation_id,
+    metadata_size: payload.metadata ? JSON.stringify(payload.metadata).length : 0,
+  });
+
   const data = await makeApiCall('/api/v1/memories/', {
     method: 'POST',
     body: JSON.stringify(payload)
@@ -2231,6 +2242,15 @@ async function handleSaveConversation(args) {
     const relationships = extractRelationships(content);
 
     const tags = args.tags || ['complete-conversation'];
+
+    structuredLog.info(`${toolName}: args.tags debug`, {
+      request_id: requestId,
+      args_tags_type: typeof args.tags,
+      args_tags_isArray: Array.isArray(args.tags),
+      args_tags_length: Array.isArray(args.tags) ? args.tags.length : 'N/A',
+      args_tags_preview: JSON.stringify(args.tags)?.substring(0, 500),
+      final_tags_length: tags.length,
+    });
 
     let conversationId = args.conversationId;
     if (!conversationId && title && !title.startsWith('Conversation 202')) {
