@@ -1491,15 +1491,16 @@ report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional 
       idempotentHint: true,
       openWorldHint: true
     },
-    description: `Fetch acknowledged errors waiting for AI investigation.
+    description: `Fetch open and acknowledged errors waiting for AI investigation.
 
-    Used to fetch errors that have been acknowledged in the admin panel and need investigation.
-    Returns errors with full context including logs, metadata, occurrence count.
+    Returns errors with status 'open' or 'acknowledged' — all errors needing
+    attention. Each error includes recent_occurrences[] with per-request context
+    (user_id, path, method) for investigation.
 
     USAGE:
-    - Call this when user says "investigate acknowledged errors" or "/investigate-errors"
+    - Call this when user says "investigate errors" or "/investigate-errors"
     - Errors are sorted by occurrence count (most frequent first)
-    - Returns full error details for investigation
+    - Each result includes recent_occurrences[] for per-request investigation context
 
     QUERY PARAMETERS:
     - limit: Max errors to return (default: 10)
@@ -1511,7 +1512,7 @@ report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional 
     → Returns top 5 error-level issues that occurred 3+ times
 
     RETURNS:
-    - acknowledged_errors: Array of error objects
+    - acknowledged_errors: Array of error objects (open + acknowledged)
     - total_count: Number of errors returned
     - filters_applied: Summary of filters used`,
     inputSchema: {
