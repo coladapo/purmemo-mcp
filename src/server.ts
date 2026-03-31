@@ -3649,7 +3649,7 @@ async function handleGetAcknowledgedErrors(args) {
       return {
         content: [{
           type: 'text',
-          text: `✅ No acknowledged errors found!\n\nAll acknowledged errors have been investigated and resolved.`
+          text: `✅ No open errors found!\n\nAll errors have been resolved or none have occurred since the last deploy.`
         }]
       };
     }
@@ -3662,41 +3662,21 @@ async function handleGetAcknowledgedErrors(args) {
    Last Seen: ${err.last_seen_at}
    Source: ${err.source}`;
 
-      if (err.metadata) {
-        if (err.metadata.exception_type) {
-          output += `\n\n   🔍 EXCEPTION DETAILS:`;
-          output += `\n   Type: ${err.metadata.exception_type}`;
-          if (err.metadata.exception_message) {
-            output += `\n   Message: ${err.metadata.exception_message}`;
-          }
+      // Recent occurrences — per-request context from TypeScript API
+      if (err.recent_occurrences && err.recent_occurrences.length > 0) {
+        output += `\n\n   📍 RECENT OCCURRENCES (${err.recent_occurrences.length}):`;
+        err.recent_occurrences.forEach((occ, i) => {
+          output += `\n   ${i + 1}. [${new Date(occ.created_at).toISOString()}]`;
+          if (occ.method && occ.path) output += ` ${occ.method} ${occ.path}`;
+          if (occ.user_id) output += ` — user: ${occ.user_id}`;
+        });
+      } else if (err.metadata) {
+        // First-seen context on the incident itself
+        if (err.metadata.path || err.metadata.method) {
+          output += `\n\n   📍 FIRST SEEN CONTEXT:`;
+          if (err.metadata.method && err.metadata.path) output += `\n   ${err.metadata.method} ${err.metadata.path}`;
+          if (err.metadata.node_version) output += ` (Node ${err.metadata.node_version})`;
         }
-        if (err.metadata.error_location) {
-          const loc = err.metadata.error_location;
-          output += `\n\n   📍 ERROR LOCATION:`;
-          output += `\n   File: ${loc.file || loc.full_path}`;
-          output += `\n   Line: ${loc.line}`;
-          output += `\n   Function: ${loc.function}`;
-          if (loc.code) output += `\n   Code: ${loc.code}`;
-        }
-        if (err.metadata.traceback_frames && err.metadata.traceback_frames.length > 0) {
-          output += `\n\n   📚 STACK TRACE:`;
-          const frames = err.metadata.traceback_frames.slice(-5);
-          frames.forEach((frame, i) => {
-            output += `\n   ${i + 1}. ${frame.file}:${frame.line} in ${frame.function}`;
-            if (frame.code) output += `\n      ${frame.code}`;
-          });
-        }
-        if (err.metadata.request_context) {
-          const req = err.metadata.request_context;
-          output += `\n\n   🌐 REQUEST CONTEXT:`;
-          output += `\n   Endpoint: ${req.endpoint || req.path}`;
-          output += `\n   Method: ${req.method}`;
-          if (req.user) output += `\n   User: ${req.user}`;
-        }
-      }
-
-      if (err.sample_log_ids && err.sample_log_ids.length > 0) {
-        output += `\n\n   📝 Sample Logs: ${err.sample_log_ids.join(', ')}`;
       }
 
       if (err.similar_investigations && err.similar_investigations.length > 0) {
@@ -3720,7 +3700,7 @@ async function handleGetAcknowledgedErrors(args) {
     return {
       content: [{
         type: 'text',
-        text: `🔍 Found ${response.total_count} Acknowledged Errors\n\nFilters Applied: Level=${levelFilter}, Min Occurrences=${minOccurrences}\n${errorList}\n\n📝 Next Steps:\n1. Choose an error to investigate\n2. Use recall_memories to check if we've seen similar errors\n3. Use search_web_ai to research solutions\n4. Use Context7 for library-specific docs\n5. Propose fix with confidence score\n6. Deploy fix when approved\n7. Call save_investigation_result to store audit trail`
+        text: `🔍 Found ${response.total_count} Open Error${response.total_count === 1 ? '' : 's'}\n\nFilters Applied: Level=${levelFilter}, Min Occurrences=${minOccurrences}\n${errorList}\n\n📝 Next Steps:\n1. Choose an error to investigate\n2. Use recall_memories to check if we've seen similar errors\n3. Use search_web_ai to research solutions\n4. Use Context7 for library-specific docs\n5. Propose fix with confidence score\n6. Deploy fix when approved\n7. Call save_investigation_result to store audit trail (auto-resolves incident when deployment_results.success=true)`
       }]
     };
 
