@@ -17,6 +17,7 @@ struct RefreshRequest: Codable {
     let refresh_token: String
 }
 
+@MainActor
 @Observable
 class AuthService {
     var isAuthenticated = false
@@ -28,7 +29,7 @@ class AuthService {
 
     /// Retain the auth session so it isn't deallocated mid-flow.
     /// Static to guarantee it survives any @Observable view redraws.
-    private nonisolated(unsafe) static var activeAuthSession: ASWebAuthenticationSession?
+    private static var activeAuthSession: ASWebAuthenticationSession?
 
     init() {
         if let token = KeychainService.load(.accessToken), !token.isEmpty {
