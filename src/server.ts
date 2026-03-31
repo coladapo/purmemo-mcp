@@ -2318,15 +2318,21 @@ async function handleSaveConversation(args) {
         content: [{
           type: 'text',
           text: `❌ INSUFFICIENT CONTENT DETECTED!\n\n` +
-                `You provided only ${contentLength} characters.\n` +
-                `This tool requires the COMPLETE conversation content.\n\n` +
-                `What you sent: "${content.substring(0, 100)}..."\n\n` +
-                `REQUIREMENTS:\n` +
-                `- Include ALL user messages verbatim\n` +
-                `- Include ALL assistant responses completely\n` +
-                `- Include ALL code blocks and artifacts\n` +
-                `- Minimum 500 characters expected for real conversations\n\n` +
-                `Please retry with the FULL conversation content.`
+                `You provided only ${contentLength} characters.\n\n` +
+                `This usually means the conversation is too long to inline into a single tool call.\n\n` +
+                `SOLUTION — Write a rich summary instead:\n` +
+                `Call save_conversation again with conversationContent set to a detailed summary (500+ chars) like:\n\n` +
+                `=== CONVERSATION SUMMARY ===\n` +
+                `Topic: [what this session was about]\n` +
+                `Accomplished: [what was done]\n` +
+                `Key decisions: [decisions made]\n` +
+                `Code changes: [files changed + what changed]\n` +
+                `Errors fixed: [bugs found and resolved]\n` +
+                `Status: [done/in-progress/blocked]\n` +
+                `Next steps: [what to do next]\n` +
+                `=== END ===\n\n` +
+                `The auto-capture hook will save the full transcript separately.\n` +
+                `The summary ensures key decisions and context are searchable.`
         }]
       };
     }
@@ -4357,6 +4363,11 @@ if (REMOTE_MODE) {
       'run_workflow': handleRunWorkflow,
       'list_workflows': handleListWorkflows,
       'save_conversation': handleSaveConversation, // local for tag preservation + validation parity
+      'save_artifact': handleSaveArtifact,
+      'share_memory': handleShareMemory,
+      'recall_public': handleRecallPublic,
+      'get_public_memory': handleGetPublicMemory,
+      'report_memory': handleReportMemory,
     };
 
     const localHandler = localOnlyHandlers[toolName];

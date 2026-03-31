@@ -6,29 +6,53 @@
     "url": "https://github.com/purmemo-ai/purmemo-mcp",
     "source": "github"
   },
-  "version": "15.2.5",
+  "version": "15.2.6",
   "icon": {
     "src": "https://purmemo.ai/favicon.png"
   },
   "tools": [
-    { "name": "save_conversation" },
-    { "name": "save_artifact" },
-    { "name": "recall_memories" },
-    { "name": "get_memory_details" },
-    { "name": "discover_related_conversations" },
-    { "name": "get_user_context" },
-    { "name": "run_workflow" },
-    { "name": "list_workflows" },
-    { "name": "share_memory" },
-    { "name": "recall_public" },
-    { "name": "get_public_memory" },
-    { "name": "report_memory" }
+    {
+      "name": "save_conversation"
+    },
+    {
+      "name": "save_artifact"
+    },
+    {
+      "name": "recall_memories"
+    },
+    {
+      "name": "get_memory_details"
+    },
+    {
+      "name": "discover_related_conversations"
+    },
+    {
+      "name": "get_user_context"
+    },
+    {
+      "name": "run_workflow"
+    },
+    {
+      "name": "list_workflows"
+    },
+    {
+      "name": "share_memory"
+    },
+    {
+      "name": "recall_public"
+    },
+    {
+      "name": "get_public_memory"
+    },
+    {
+      "name": "report_memory"
+    }
   ],
   "packages": [
     {
       "registryType": "npm",
       "identifier": "purmemo-mcp",
-      "version": "15.2.5",
+      "version": "15.2.6",
       "runtimeHint": "node",
       "transport": {
         "type": "stdio"
