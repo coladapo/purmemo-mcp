@@ -20,7 +20,7 @@ struct LoginView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 56)
-                    Text("Your AI memory layer")
+                    Text("Save once. Recall everywhere you work.")
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.4))
                 }

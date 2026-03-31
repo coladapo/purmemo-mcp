@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import SwiftUI
 import AuthenticationServices
 
 struct LoginRequest: Codable {

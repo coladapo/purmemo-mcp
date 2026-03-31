@@ -5,6 +5,12 @@ struct ProjectsView: View {
     @State private var summary: ProjectsSummary?
     @State private var isLoading = true
     @State private var selectedTab = 0
+    @State private var selectedMemoryId: String?
+    @State private var selectedMemoryTitle: String?
+    @State private var addedTodoIds: Set<String> = []
+    @State private var showSettings = false
+    @State private var selectedProject: ProjectItem?
+    @State private var blockersExpanded = false
 
     var body: some View {
         ZStack {
@@ -16,8 +22,7 @@ struct ProjectsView: View {
 
                 if isLoading {
                     Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.4)))
+                    RingLoader(size: 56)
                     Spacer()
                 } else if let summary {
                     TabView(selection: $selectedTab) {
@@ -29,6 +34,8 @@ struct ProjectsView: View {
                             .tag(2)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
+                    .background(Color.clear)
+                    .ignoresSafeArea(edges: .bottom)
                 } else {
                     emptyState
                 }
@@ -36,13 +43,43 @@ struct ProjectsView: View {
         }
         .preferredColorScheme(.dark)
         .task { await loadData() }
+        .sheet(isPresented: Binding(
+            get: { selectedMemoryId != nil },
+            set: { if !$0 { selectedMemoryId = nil; selectedMemoryTitle = nil } }
+        )) {
+            if let memId = selectedMemoryId {
+                MemoryDetailView(memoryId: memId, memoryTitle: selectedMemoryTitle, authService: authService)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(authService: authService)
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedProject != nil },
+            set: { if !$0 { selectedProject = nil } }
+        )) {
+            if let project = selectedProject, let summary {
+                ProjectDetailView(
+                    project: project,
+                    workItems: summary.workItems,
+                    blockers: summary.blockers,
+                    completions: summary.completions,
+                    authService: authService
+                )
+            }
+        }
+    }
+
+    private func openMemory(_ id: String, title: String?) {
+        selectedMemoryId = id
+        selectedMemoryTitle = title
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 6) {
                 Image("PurmemoWordmark")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -52,10 +89,10 @@ struct ProjectsView: View {
                     .foregroundColor(.white.opacity(0.4))
             }
             Spacer()
-            Button { Task { await loadData() } } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.4))
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18))
+                    .foregroundColor(.white.opacity(0.5))
             }
         }
         .padding(.horizontal, 20)
@@ -112,69 +149,22 @@ struct ProjectsView: View {
 
     private func projectsList(_ summary: ProjectsSummary) -> some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
-                // Blockers section (if any)
+            VStack(spacing: 4) {
                 if !summary.blockers.isEmpty {
-                    sectionHeader("Blockers", icon: "exclamationmark.triangle.fill", color: "#FF3B30")
-                    ForEach(summary.blockers) { blocker in
-                        blockerRow(blocker)
-                    }
-                    .padding(.bottom, 8)
+                    blockerStack(summary.blockers)
+                        .padding(.horizontal, 12)
                 }
 
-                // Projects
-                ForEach(summary.projects) { project in
-                    projectCard(project)
-                }
+                BubbleGridView(
+                    projects: summary.projects,
+                    onSelect: { selectedProject = $0 }
+                )
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.top, 6)
+            .padding(.bottom, 60)
         }
-    }
-
-    private func projectCard(_ project: ProjectItem) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(project.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                Spacer()
-                if let date = project.lastActivity {
-                    Text(formatRelative(date))
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.25))
-                }
-            }
-
-            HStack(spacing: 16) {
-                statBadge("\(project.memoryCount)", label: "memories", color: "#E7FC44")
-                if project.openItems > 0 {
-                    statBadge("\(project.openItems)", label: "open", color: "#FF9500")
-                }
-                if project.blockerCount > 0 {
-                    statBadge("\(project.blockerCount)", label: "blocked", color: "#FF3B30")
-                }
-            }
-        }
-        .padding(14)
-        .background(Color(hex: "#1a1a1a"))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
-        )
-    }
-
-    private func statBadge(_ value: String, label: String, color: String) -> some View {
-        HStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Color(hex: color))
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.3))
-        }
+        .refreshable { await loadData() }
     }
 
     private func blockerRow(_ blocker: BlockerItem) -> some View {
@@ -187,13 +177,13 @@ struct ProjectsView: View {
                     .font(.system(size: 13))
                     .foregroundColor(.white)
                     .lineLimit(2)
-                if let project = blocker.projectName {
-                    Text(project)
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.3))
-                }
+                Text(displayLabel(project: blocker.projectName, memoryTitle: blocker.memoryTitle))
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.3))
+                    .lineLimit(1)
             }
             Spacer()
+            addTodoButton(text: blocker.text, memoryId: blocker.memoryId, field: "blocker", project: blocker.projectName, priority: blocker.severity == "critical" ? "urgent" : "high", sourceIndex: blocker.sourceIndex)
         }
         .padding(12)
         .background(Color(hex: "#1a1a1a"))
@@ -204,13 +194,123 @@ struct ProjectsView: View {
         )
     }
 
+    // MARK: - Blocker Stack
+
+    private func blockerStack(_ blockers: [BlockerItem]) -> some View {
+        VStack(spacing: 0) {
+            // Header — always visible, tappable
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    blockersExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "#FF3B30"))
+                    Text("\(blockers.count) Blocker\(blockers.count == 1 ? "" : "s")")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(hex: "#FF3B30"))
+                    Spacer()
+                    // Preview: first blocker text
+                    if !blockersExpanded {
+                        Text(blockers.first?.text ?? "")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.4))
+                            .lineLimit(1)
+                            .frame(maxWidth: 160, alignment: .trailing)
+                    }
+                    Image(systemName: blockersExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+
+            // Expanded: show all blockers
+            if blockersExpanded {
+                VStack(spacing: 1) {
+                    ForEach(blockers) { blocker in
+                        Button { openMemory(blocker.memoryId, title: blocker.memoryTitle) } label: {
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(Color(hex: blocker.severityColor))
+                                    .frame(width: 6, height: 6)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(blocker.text)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                    Text(displayLabel(project: blocker.projectName, memoryTitle: blocker.memoryTitle))
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.3))
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.15))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(Color(hex: "#1a1a1a"))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(hex: "#FF3B30").opacity(0.2), lineWidth: 1)
+        )
+        // Stacked card effect — show cards peeking behind when collapsed
+        .background(
+            Group {
+                if !blockersExpanded && blockers.count > 1 {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(hex: "#1a1a1a").opacity(0.6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(hex: "#FF3B30").opacity(0.1), lineWidth: 1)
+                        )
+                        .offset(y: 6)
+                        .padding(.horizontal, 6)
+                }
+            }
+        )
+        .background(
+            Group {
+                if !blockersExpanded && blockers.count > 2 {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(hex: "#1a1a1a").opacity(0.3))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(hex: "#FF3B30").opacity(0.05), lineWidth: 1)
+                        )
+                        .offset(y: 12)
+                        .padding(.horizontal, 12)
+                }
+            }
+        )
+        .padding(.bottom, blockersExpanded ? 0 : (blockers.count > 2 ? 12 : blockers.count > 1 ? 6 : 0))
+    }
+
     // MARK: - Work Items List
 
     private func workItemsList(_ summary: ProjectsSummary) -> some View {
         ScrollView {
             LazyVStack(spacing: 6) {
                 ForEach(summary.workItems) { item in
-                    workItemRow(item)
+                    Button { openMemory(item.memoryId, title: item.memoryTitle) } label: {
+                        workItemRow(item)
+                    }
+                    .buttonStyle(.plain)
                 }
                 if summary.workItems.isEmpty {
                     emptySection("No open work items", icon: "checkmark.circle")
@@ -218,7 +318,9 @@ struct ProjectsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            .padding(.bottom, 60)
         }
+        .refreshable { await loadData() }
     }
 
     private func workItemRow(_ item: WorkItem) -> some View {
@@ -234,11 +336,10 @@ struct ProjectsView: View {
                     .foregroundColor(.white)
                     .lineLimit(2)
                 HStack(spacing: 8) {
-                    if let project = item.projectName {
-                        Text(project)
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.3))
-                    }
+                    Text(displayLabel(project: item.projectName, memoryTitle: item.memoryTitle))
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.3))
+                        .lineLimit(1)
                     Text(item.type)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.white.opacity(0.4))
@@ -251,10 +352,7 @@ struct ProjectsView: View {
 
             Spacer(minLength: 4)
 
-            // Priority dot
-            Circle()
-                .fill(Color(hex: item.priorityColor))
-                .frame(width: 6, height: 6)
+            addTodoButton(text: item.text, memoryId: item.memoryId, field: "work_item", project: item.projectName, priority: item.priority, sourceIndex: item.sourceIndex)
         }
         .padding(12)
         .background(Color(hex: "#1a1a1a"))
@@ -270,8 +368,15 @@ struct ProjectsView: View {
     private func completionsList(_ summary: ProjectsSummary) -> some View {
         ScrollView {
             LazyVStack(spacing: 6) {
-                ForEach(summary.completions) { item in
-                    completionRow(item)
+                let grouped = groupCompletionsByTimeline(summary.completions)
+                ForEach(grouped, id: \.title) { group in
+                    timelineHeader(group.title)
+                    ForEach(group.completions) { item in
+                        Button { openMemory(item.memoryId, title: item.memoryTitle) } label: {
+                            completionRow(item)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 if summary.completions.isEmpty {
                     emptySection("No recent completions", icon: "tray")
@@ -279,7 +384,9 @@ struct ProjectsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            .padding(.bottom, 60)
         }
+        .refreshable { await loadData() }
     }
 
     private func completionRow(_ item: CompletionItem) -> some View {
@@ -294,11 +401,10 @@ struct ProjectsView: View {
                     .foregroundColor(.white)
                     .lineLimit(2)
                 HStack(spacing: 8) {
-                    if let project = item.projectName {
-                        Text(project)
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.3))
-                    }
+                    Text(displayLabel(project: item.projectName, memoryTitle: item.memoryTitle))
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.3))
+                        .lineLimit(1)
                     if let date = item.createdAt {
                         Text(formatRelative(date))
                             .font(.system(size: 11))
@@ -311,6 +417,39 @@ struct ProjectsView: View {
         .padding(12)
         .background(Color(hex: "#1a1a1a"))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    // MARK: - Add to Todos
+
+    private func addTodoButton(text: String, memoryId: String, field: String, project: String?, priority: String, sourceIndex: Int? = nil) -> some View {
+        let itemKey = "\(memoryId)-\(text.prefix(20))"
+        let added = addedTodoIds.contains(itemKey)
+
+        return Button {
+            guard !added else { return }
+            Task { await addToTodos(text: text, memoryId: memoryId, field: field, project: project, priority: priority, sourceIndex: sourceIndex, key: itemKey) }
+        } label: {
+            Image(systemName: added ? "checkmark.circle.fill" : "plus.circle")
+                .font(.system(size: 18))
+                .foregroundColor(added ? Color(hex: "#E7FC44") : .white.opacity(0.25))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func addToTodos(text: String, memoryId: String, field: String, project: String?, priority: String, sourceIndex: Int?, key: String) async {
+        let api = PurmemoAPI(authService: authService)
+        do {
+            _ = try await api.createTodo(
+                text: text,
+                priority: priority,
+                sourceType: "extracted",
+                sourceMemoryId: memoryId,
+                sourceField: field,
+                sourceIndex: sourceIndex,
+                projectName: project
+            )
+            withAnimation { addedTodoIds.insert(key) }
+        } catch {}
     }
 
     // MARK: - Helpers
@@ -358,6 +497,17 @@ struct ProjectsView: View {
         .padding(.vertical, 40)
     }
 
+    /// Shows project name if resolved, otherwise falls back to memory title
+    private func displayLabel(project: String?, memoryTitle: String?) -> String {
+        if let project, project != "Other", !project.isEmpty {
+            return project
+        }
+        if let title = memoryTitle, !title.isEmpty {
+            return String(title.prefix(40))
+        }
+        return "Uncategorized"
+    }
+
     private func formatRelative(_ dateString: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -375,11 +525,84 @@ struct ProjectsView: View {
         return String(dateString.prefix(10))
     }
 
+    // MARK: - Timeline Grouping
+
+    private func parseDate(_ dateString: String?) -> Date? {
+        guard let dateString else { return nil }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: dateString) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        if let d = f.date(from: dateString) { return d }
+        // Try plain date
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df.date(from: String(dateString.prefix(10)))
+    }
+
+    private struct CompletionTimelineGroup {
+        let title: String
+        let completions: [CompletionItem]
+    }
+
+    private func groupCompletionsByTimeline(_ items: [CompletionItem]) -> [CompletionTimelineGroup] {
+        let calendar = Calendar.current
+        let now = Date()
+        var today: [CompletionItem] = []
+        var yesterday: [CompletionItem] = []
+        var thisWeek: [CompletionItem] = []
+        var thisMonth: [CompletionItem] = []
+        var older: [CompletionItem] = []
+
+        for item in items {
+            guard let date = parseDate(item.createdAt) else {
+                older.append(item)
+                continue
+            }
+            if calendar.isDateInToday(date) {
+                today.append(item)
+            } else if calendar.isDateInYesterday(date) {
+                yesterday.append(item)
+            } else if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now), date >= weekAgo {
+                thisWeek.append(item)
+            } else if let monthAgo = calendar.date(byAdding: .month, value: -1, to: now), date >= monthAgo {
+                thisMonth.append(item)
+            } else {
+                older.append(item)
+            }
+        }
+
+        var groups: [CompletionTimelineGroup] = []
+        if !today.isEmpty { groups.append(CompletionTimelineGroup(title: "Today", completions: today)) }
+        if !yesterday.isEmpty { groups.append(CompletionTimelineGroup(title: "Yesterday", completions: yesterday)) }
+        if !thisWeek.isEmpty { groups.append(CompletionTimelineGroup(title: "This Week", completions: thisWeek)) }
+        if !thisMonth.isEmpty { groups.append(CompletionTimelineGroup(title: "This Month", completions: thisMonth)) }
+        if !older.isEmpty { groups.append(CompletionTimelineGroup(title: "Earlier", completions: older)) }
+        return groups
+    }
+
+    private func timelineHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.white.opacity(0.3))
+            .tracking(0.8)
+            .padding(.top, 8)
+    }
+
     private func loadData() async {
         isLoading = true
         let api = PurmemoAPI(authService: authService)
         do {
             summary = try await api.getProjectsSummary()
+            // Load existing todos to know which items are already promoted
+            let existingTodos = try await api.getTodos()
+            var ids = Set<String>()
+            for todo in existingTodos {
+                if todo.sourceType == "extracted", let memId = todo.sourceMemoryId {
+                    ids.insert("\(memId)-\(todo.text.prefix(20))")
+                }
+            }
+            addedTodoIds = ids
         } catch {
             summary = nil
         }

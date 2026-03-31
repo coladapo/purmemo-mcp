@@ -29,6 +29,14 @@
 		EE000001MEMD000000000001 /* MemoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000001MEMD000000000002 /* MemoryDetailView.swift */; };
 		EE000001RCLL000000000001 /* RecallResultBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE000001RCLL000000000002 /* RecallResultBubble.swift */; };
 		FF000001PROJ000000000001 /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000001PROJ000000000002 /* ProjectsView.swift */; };
+		FF000002MDIA000000000001 /* MediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000002MDIA000000000002 /* MediaView.swift */; };
+		FF000003MDTL000000000001 /* MediaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000003MDTL000000000002 /* MediaDetailView.swift */; };
+		FF000004RLDR000000000001 /* RingLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000004RLDR000000000002 /* RingLoader.swift */; };
+		FF000005THNK000000000001 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000005THNK000000000002 /* ThinkingView.swift */; };
+		FF000006PJDT000000000001 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000006PJDT000000000002 /* ProjectDetailView.swift */; };
+		FF000007BPKL000000000001 /* BubblePackingLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000007BPKL000000000002 /* BubblePackingLayout.swift */; };
+		FF000008GLBV000000000001 /* GlassBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000008GLBV000000000002 /* GlassBubbleView.swift */; };
+		FF000009BGRD000000000001 /* BubbleGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF000009BGRD000000000002 /* BubbleGridView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +111,14 @@
 		EE000001MEMD000000000002 /* MemoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryDetailView.swift; sourceTree = "<group>"; };
 		EE000001RCLL000000000002 /* RecallResultBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallResultBubble.swift; sourceTree = "<group>"; };
 		FF000001PROJ000000000002 /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsView.swift; sourceTree = "<group>"; };
+		FF000002MDIA000000000002 /* MediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaView.swift; sourceTree = "<group>"; };
+		FF000003MDTL000000000002 /* MediaDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDetailView.swift; sourceTree = "<group>"; };
+		FF000004RLDR000000000002 /* RingLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingLoader.swift; sourceTree = "<group>"; };
+		FF000005THNK000000000002 /* ThinkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingView.swift; sourceTree = "<group>"; };
+		FF000006PJDT000000000002 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
+		FF000007BPKL000000000002 /* BubblePackingLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubblePackingLayout.swift; sourceTree = "<group>"; };
+		FF000008GLBV000000000002 /* GlassBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBubbleView.swift; sourceTree = "<group>"; };
+		FF000009BGRD000000000002 /* BubbleGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleGridView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -275,6 +291,14 @@
 				EE000001MEMD000000000002 /* MemoryDetailView.swift */,
 				EE000001RCLL000000000002 /* RecallResultBubble.swift */,
 				FF000001PROJ000000000002 /* ProjectsView.swift */,
+				FF000002MDIA000000000002 /* MediaView.swift */,
+				FF000003MDTL000000000002 /* MediaDetailView.swift */,
+				FF000004RLDR000000000002 /* RingLoader.swift */,
+				FF000005THNK000000000002 /* ThinkingView.swift */,
+				FF000006PJDT000000000002 /* ProjectDetailView.swift */,
+				FF000007BPKL000000000002 /* BubblePackingLayout.swift */,
+				FF000008GLBV000000000002 /* GlassBubbleView.swift */,
+				FF000009BGRD000000000002 /* BubbleGridView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -526,6 +550,14 @@
 				EE000001MEMD000000000001 /* MemoryDetailView.swift in Sources */,
 				EE000001RCLL000000000001 /* RecallResultBubble.swift in Sources */,
 				FF000001PROJ000000000001 /* ProjectsView.swift in Sources */,
+				FF000002MDIA000000000001 /* MediaView.swift in Sources */,
+				FF000003MDTL000000000001 /* MediaDetailView.swift in Sources */,
+				FF000004RLDR000000000001 /* RingLoader.swift in Sources */,
+				FF000005THNK000000000001 /* ThinkingView.swift in Sources */,
+				FF000006PJDT000000000001 /* ProjectDetailView.swift in Sources */,
+				FF000007BPKL000000000001 /* BubblePackingLayout.swift in Sources */,
+				FF000008GLBV000000000001 /* GlassBubbleView.swift in Sources */,
+				FF000009BGRD000000000001 /* BubbleGridView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

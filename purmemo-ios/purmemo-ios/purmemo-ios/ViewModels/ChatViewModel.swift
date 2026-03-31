@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import SwiftUI
 
 // Simple intent detection — determines save vs recall
 private func detectIntent(_ text: String) -> ChatIntent {

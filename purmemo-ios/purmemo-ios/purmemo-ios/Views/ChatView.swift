@@ -5,8 +5,6 @@ struct ChatView: View {
     @State private var viewModel: ChatViewModel
     @State private var composerText = ""
     @State private var scrollProxy: ScrollViewProxy? = nil
-    @State private var showImagePicker = false
-    // Settings moved to tab bar
     @State private var selectedMemory: RecallMemory?
 
     init(authService: AuthService) {
@@ -30,9 +28,6 @@ struct ChatView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePickerView(authService: authService)
-        }
         .sheet(item: $selectedMemory) { memory in
             MemoryDetailView(memory: memory, authService: authService)
         }
@@ -42,25 +37,17 @@ struct ChatView: View {
 
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 6) {
                 Image("PurmemoWordmark")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(height: 34)
-                Text(authService.userEmail)
+                Text("Chat")
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.4))
             }
 
             Spacer()
-
-            Button(action: { showImagePicker = true }) {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 18))
-                    .foregroundColor(Color(UIColor(red: 0.906, green: 0.988, blue: 0.267, alpha: 1)))
-            }
-
-            // Settings accessible via tab bar
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

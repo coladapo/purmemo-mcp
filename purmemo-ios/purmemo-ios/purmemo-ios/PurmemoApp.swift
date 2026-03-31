@@ -35,18 +35,20 @@ struct PurmemoApp: App {
                     Text("Projects")
                 }
 
-            ChatView(authService: authService)
+            MediaView(authService: authService)
                 .tabItem {
-                    Image(systemName: "message")
-                    Text("Chat")
+                    Image(systemName: "photo.on.rectangle.angled")
+                    Text("Media")
                 }
 
-            SettingsView(authService: authService)
+            ThinkingView(authService: authService)
                 .tabItem {
-                    Image(systemName: "gearshape")
-                    Text("Settings")
+                    Image(systemName: "brain.head.profile")
+                    Text("Thinking")
                 }
         }
         .tint(Color(hex: "#E7FC44"))
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

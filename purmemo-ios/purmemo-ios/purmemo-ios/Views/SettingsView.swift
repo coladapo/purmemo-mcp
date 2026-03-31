@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     var authService: AuthService
+    @Environment(\.dismiss) private var dismiss
     @State private var showLogoutConfirm = false
 
     var body: some View {
@@ -18,6 +19,7 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 20)
+                    .padding(.bottom, 60)
                 }
             }
         }
@@ -33,12 +35,29 @@ struct SettingsView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
-            Image("PurmemoWordmark")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 34)
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Back")
+                        .font(.system(size: 17))
+                }
+                .foregroundColor(Color(hex: "#E7FC44"))
+            }
             Spacer()
+            Text("Settings")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+            Spacer()
+            // Invisible balancer for centering
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Back")
+                    .font(.system(size: 17))
+            }
+            .opacity(0)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

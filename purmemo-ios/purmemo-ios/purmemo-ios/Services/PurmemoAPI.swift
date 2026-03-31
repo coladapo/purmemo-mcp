@@ -158,6 +158,111 @@ class PurmemoAPI {
         }
     }
 
+    // MARK: - Get Memory Images
+
+    func getMemoryImages(memoryId: String) async throws -> [String] {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/memories/\(memoryId)/images")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+        if httpStatus == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return Self.parseImageUrls(retryData)
+        }
+
+        return Self.parseImageUrls(data)
+    }
+
+    private static func parseImageUrls(_ data: Data) -> [String] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let images = json["images"] as? [[String: Any]] else { return [] }
+        return images.compactMap { $0["url"] as? String }
+    }
+
+    // MARK: - Update Entities
+
+    func updateEntities(memoryId: String, entities: [Entity]) async throws {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/memories/\(memoryId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let entityDicts = entities.map { e -> [String: String] in
+            var d = ["name": e.name]
+            if let type = e.type { d["type"] = type }
+            return d
+        }
+        let body: [String: Any] = ["entities": entityDicts]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            _ = try await perform(request)
+        }
+    }
+
+    // MARK: - Media List
+
+    func getMediaItems(page: Int = 1, pageSize: Int = 40) async throws -> MediaListResponse {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/memories/?has_media=true&page=\(page)&page_size=\(pageSize)&sort=created_at&order=desc")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+        if httpStatus == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return try Self.parseMediaList(retryData)
+        }
+
+        return try Self.parseMediaList(data)
+    }
+
+    private static func parseMediaList(_ data: Data) throws -> MediaListResponse {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError
+        }
+
+        let total = json["total"] as? Int ?? 0
+        let hasMore = json["has_more"] as? Bool ?? false
+
+        var items: [MediaItem] = []
+        if let memories = json["memories"] as? [[String: Any]] {
+            for m in memories {
+                items.append(MediaItem(
+                    id: m["id"] as? String ?? "",
+                    title: m["title"] as? String,
+                    sourceUrl: m["source_url"] as? String,
+                    sourceType: m["source_type"] as? String,
+                    platform: m["platform"] as? String,
+                    thumbnailUrl: m["thumbnail_url"] as? String,
+                    imageCount: m["image_count"] as? Int ?? 0,
+                    hasImages: m["has_images"] as? Bool ?? false,
+                    createdAt: m["created_at"] as? String,
+                    category: m["category"] as? String
+                ))
+            }
+        }
+
+        return MediaListResponse(items: items, total: total, hasMore: hasMore)
+    }
+
     // MARK: - Projects Summary
 
     func getProjectsSummary() async throws -> ProjectsSummary {
@@ -208,7 +313,8 @@ class PurmemoAPI {
                     text: item["item_text"] as? String ?? "",
                     type: item["item_type"] as? String ?? "task",
                     priority: item["item_priority"] as? String ?? "medium",
-                    deadline: item["item_deadline"] as? String
+                    deadline: item["item_deadline"] as? String,
+                    sourceIndex: (item["source_index"] as? Int) ?? (item["source_index"] as? String).flatMap { Int($0) }
                 ))
             }
         }
@@ -235,7 +341,8 @@ class PurmemoAPI {
                     projectName: item["project_name"] as? String,
                     text: item["blocker_text"] as? String ?? "",
                     severity: item["severity"] as? String ?? "minor",
-                    blockingCause: item["blocking_cause"] as? String
+                    blockingCause: item["blocking_cause"] as? String,
+                    sourceIndex: (item["source_index"] as? Int) ?? (item["source_index"] as? String).flatMap { Int($0) }
                 ))
             }
         }
@@ -259,10 +366,259 @@ class PurmemoAPI {
             let newToken = try await authService.refreshToken()
             request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
             let (retryData, _) = try await perform(request)
-            return try JSONDecoder().decode(FullMemory.self, from: retryData)
+            return try Self.parseFullMemory(retryData)
         }
 
-        return try JSONDecoder().decode(FullMemory.self, from: data)
+        return try Self.parseFullMemory(data)
+    }
+
+    private static func parseFullMemory(_ data: Data) throws -> FullMemory {
+        guard let m = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError
+        }
+
+        let observations: [MemoryObservation] = (m["observations"] as? [[String: Any]] ?? []).compactMap { o in
+            guard let text = o["text"] as? String, !text.isEmpty else { return nil }
+            return MemoryObservation(text: text, confidence: o["confidence"] as? Double, type: o["type"] as? String)
+        }
+
+        let entities: [Entity] = (m["entities"] as? [[String: Any]] ?? []).compactMap { e in
+            guard let name = e["name"] as? String, !name.isEmpty else { return nil }
+            return Entity(name: name, type: e["type"] as? String)
+        }
+
+        let workItems: [MemoryWorkItem] = (m["work_items"] as? [[String: Any]] ?? []).compactMap { w in
+            guard let text = w["text"] as? String, !text.isEmpty else { return nil }
+            return MemoryWorkItem(text: text, type: w["type"] as? String, priority: w["priority"] as? String, status: w["status"] as? String)
+        }
+
+        let blockers: [MemoryBlocker] = (m["blockers"] as? [[String: Any]] ?? []).compactMap { b in
+            guard let text = b["text"] as? String, !text.isEmpty else { return nil }
+            return MemoryBlocker(text: text, severity: b["severity"] as? String)
+        }
+
+        let completions: [MemoryCompletion] = (m["completions"] as? [[String: Any]] ?? []).compactMap { c in
+            guard let text = c["text"] as? String, !text.isEmpty else { return nil }
+            return MemoryCompletion(text: text)
+        }
+
+        return FullMemory(
+            id: m["id"] as? String ?? "",
+            title: m["title"] as? String,
+            content: m["content"] as? String,
+            created_at: m["created_at"] as? String,
+            updated_at: m["updated_at"] as? String,
+            source_type: m["source_type"] as? String,
+            platform: m["platform"] as? String,
+            tags: m["tags"] as? [String],
+            category: m["category"] as? String,
+            intent: m["intent"] as? String,
+            status: m["status"] as? String,
+            project_name: m["project_name"] as? String,
+            technologies: m["technologies"] as? [String] ?? [],
+            observations: observations,
+            entities: entities,
+            workItems: workItems,
+            blockers: blockers,
+            completions: completions,
+            image_count: m["image_count"] as? Int ?? 0,
+            has_images: m["has_images"] as? Bool ?? false,
+            word_count: m["word_count"] as? Int,
+            read_time_minutes: m["read_time_minutes"] as? Int
+        )
+    }
+
+    // MARK: - Todos
+
+    func getTodos() async throws -> [TodoItem] {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return Self.parseTodos(retryData)
+        }
+        return Self.parseTodos(data)
+    }
+
+    func getAllTodos(limit: Int = 50) async throws -> [TodoItem] {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos/all?limit=\(limit)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return Self.parseTodos(retryData)
+        }
+        return Self.parseTodos(data)
+    }
+
+    func createTodo(text: String, priority: String = "medium", sourceType: String = "manual", sourceMemoryId: String? = nil, sourceField: String? = nil, sourceIndex: Int? = nil, projectName: String? = nil) async throws -> TodoItem {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        var body: [String: Any] = [
+            "text": text,
+            "priority": priority,
+            "source_type": sourceType
+        ]
+        if let id = sourceMemoryId { body["source_memory_id"] = id }
+        if let field = sourceField { body["source_field"] = field }
+        if let idx = sourceIndex { body["source_index"] = idx }
+        if let proj = projectName { body["project_name"] = proj }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return try Self.parseSingleTodo(retryData)
+        }
+        return try Self.parseSingleTodo(data)
+    }
+
+    func updateTodo(id: String, status: String? = nil, priority: String? = nil, snoozedUntil: String? = nil) async throws {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        var body: [String: Any] = [:]
+        if let s = status { body["status"] = s }
+        if let p = priority { body["priority"] = p }
+        if let snz = snoozedUntil { body["snoozed_until"] = snz }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            _ = try await perform(request)
+        }
+    }
+
+    func deleteTodo(id: String) async throws {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            _ = try await perform(request)
+        }
+    }
+
+    private static func parseTodos(_ data: Data) -> [TodoItem] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = json["todos"] as? [[String: Any]] else { return [] }
+        return items.compactMap { parseTodoDict($0) }
+    }
+
+    private static func parseSingleTodo(_ data: Data) throws -> TodoItem {
+        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let todo = parseTodoDict(dict) else { throw APIError.decodingError }
+        return todo
+    }
+
+    private static func parseTodoDict(_ t: [String: Any]) -> TodoItem? {
+        guard let id = t["id"] as? String, let text = t["text"] as? String else { return nil }
+        return TodoItem(
+            id: id,
+            text: text,
+            status: t["status"] as? String ?? "pending",
+            priority: t["priority"] as? String ?? "medium",
+            sourceType: t["source_type"] as? String ?? t["sourceType"] as? String ?? "manual",
+            sourceMemoryId: t["source_memory_id"] as? String ?? t["sourceMemoryId"] as? String,
+            projectName: t["project_name"] as? String ?? t["projectName"] as? String,
+            notes: t["notes"] as? String,
+            deadline: t["deadline"] as? String,
+            snoozedUntil: t["snoozed_until"] as? String ?? t["snoozedUntil"] as? String,
+            completedAt: t["completed_at"] as? String ?? t["completedAt"] as? String,
+            createdAt: t["created_at"] as? String ?? t["createdAt"] as? String,
+            updatedAt: t["updated_at"] as? String ?? t["updatedAt"] as? String
+        )
+    }
+
+    // MARK: - Todo Suggestions
+
+    func getTodoSuggestions() async throws -> [TodoSuggestion] {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos/suggestions")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            let (retryData, _) = try await perform(request)
+            return Self.parseSuggestions(retryData)
+        }
+        return Self.parseSuggestions(data)
+    }
+
+    func resolveSuggestion(id: String, accept: Bool) async throws {
+        let token = try await authService.validToken()
+        let url = URL(string: "\(baseURL)/api/v1/todos/suggestions/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["status": accept ? "accepted" : "dismissed"])
+
+        let (_, response) = try await perform(request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let newToken = try await authService.refreshToken()
+            request.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            _ = try await perform(request)
+        }
+    }
+
+    private static func parseSuggestions(_ data: Data) -> [TodoSuggestion] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let items = json["suggestions"] as? [[String: Any]] else { return [] }
+        return items.compactMap { s in
+            guard let id = s["id"] as? String,
+                  let todoId = s["todoId"] as? String ?? s["todo_id"] as? String,
+                  let memoryId = s["memoryId"] as? String ?? s["memory_id"] as? String,
+                  let text = s["completionText"] as? String ?? s["completion_text"] as? String
+            else { return nil }
+            return TodoSuggestion(
+                id: id,
+                todoId: todoId,
+                memoryId: memoryId,
+                completionText: text,
+                matchReason: s["matchReason"] as? String ?? s["match_reason"] as? String ?? "",
+                confidence: s["confidence"] as? Double ?? 0,
+                todoText: s["todoText"] as? String ?? s["todo_text"] as? String,
+                memoryTitle: s["memoryTitle"] as? String ?? s["memory_title"] as? String
+            )
+        }
     }
 
     // MARK: - Recall Memories
