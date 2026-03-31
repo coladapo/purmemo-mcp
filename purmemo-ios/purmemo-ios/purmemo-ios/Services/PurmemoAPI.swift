@@ -411,6 +411,7 @@ class PurmemoAPI {
             source_type: m["source_type"] as? String,
             platform: m["platform"] as? String,
             tags: m["tags"] as? [String],
+            summary: m["summary"] as? String,
             category: m["category"] as? String,
             intent: m["intent"] as? String,
             status: m["status"] as? String,

@@ -80,6 +80,13 @@ struct MemoryDetailView: View {
                     .foregroundColor(.white)
             }
 
+            if let summary = fm.summary, !summary.isEmpty {
+                Text(summary)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.65))
+                    .lineSpacing(4)
+            }
+
             HStack(spacing: 12) {
                 if let date = fm.created_at {
                     Label(formatDate(date), systemImage: "clock")

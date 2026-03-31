@@ -119,6 +119,7 @@ struct FullMemory {
     let tags: [String]?
 
     // Intelligence fields
+    let summary: String?
     let category: String?
     let intent: String?
     let status: String?
