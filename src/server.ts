@@ -1481,8 +1481,8 @@ report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional 
       required: ['memory_id', 'reason']
     }
   },
-  // Admin-only tools — only included when PURMEMO_ADMIN=1
-  ...(ADMIN_MODE ? [{
+  // Admin-only tools — always registered, access guarded in handler
+  {
     name: 'get_acknowledged_errors',
     annotations: {
       title: 'Get Acknowledged Errors',
@@ -1653,7 +1653,7 @@ report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional 
       },
       required: ['incident_id']
     }
-  }] : [])
+  }
 ];
 
 const server = new Server(
@@ -3826,10 +3826,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case 'report_memory':
       return withUpdateNotice(await handleReportMemory(args));
     case 'get_acknowledged_errors':
-      if (!ADMIN_MODE) break;
+      if (!ADMIN_MODE) return { content: [{ type: 'text', text: '❌ Admin access required. Set PURMEMO_ADMIN=1 and provide a valid admin API key.' }] };
       return withUpdateNotice(await handleGetAcknowledgedErrors(args));
     case 'save_investigation_result':
-      if (!ADMIN_MODE) break;
+      if (!ADMIN_MODE) return { content: [{ type: 'text', text: '❌ Admin access required. Set PURMEMO_ADMIN=1 and provide a valid admin API key.' }] };
       return withUpdateNotice(await handleSaveInvestigation(args));
     default:
       return {
