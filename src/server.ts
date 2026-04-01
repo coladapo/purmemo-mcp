@@ -4353,15 +4353,10 @@ if (REMOTE_MODE) {
 
     const localHandler = localOnlyHandlers[toolName];
     if (localHandler) {
-      // SECURITY: Pass user's OAuth token as parameter (concurrency-safe)
-      // instead of swapping the global resolvedApiKey which races under load
-      const prevKey = resolvedApiKey;
-      if (apiKey) resolvedApiKey = apiKey;
-      try { return await localHandler(toolArgs); }
+      // Use per-request API key for the handler call (concurrency-safe)
+      const effectiveKey = apiKey || resolvedApiKey;
+      try { return await localHandler(toolArgs, effectiveKey); }
       catch (e) { return { content: [{ type: 'text', text: `Error: ${e.message}` }] }; }
-      finally { resolvedApiKey = prevKey; }
-      // NOTE: Full fix requires threading apiKey through all local handlers.
-      // The global swap is kept as interim until handlers accept apiKey param.
     }
 
     // recall_memories, get_memory_details, discover_related_conversations
