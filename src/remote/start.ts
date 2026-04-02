@@ -76,7 +76,7 @@ export async function startRemoteServer(ctx) {
   let recentErrors = []; // last 100 errors
 
   // Connection monitoring
-  const { ConnectionMonitor } = await import('./remote/connection-monitor.js');
+  const { ConnectionMonitor } = await import('./connection-monitor.js');
   const connMonitor = new ConnectionMonitor(100);
   connMonitor.start();
 
@@ -460,7 +460,7 @@ export async function startRemoteServer(ctx) {
           const { readFileSync: rfs } = await import('node:fs');
           const { dirname: dn, join: jn } = await import('node:path');
           const { fileURLToPath: fu } = await import('node:url');
-          const html = rfs(jn(dn(fu(import.meta.url)), 'remote', 'widgets', widgetFiles[uri]), 'utf8');
+          const html = rfs(jn(dn(fu(import.meta.url)), 'widgets', widgetFiles[uri]), 'utf8');
           return sendJSON(res, {
             jsonrpc: '2.0', id: requestId,
             result: { contents: [{ uri, mimeType: 'text/html+skybridge', text: html }] }
@@ -789,7 +789,7 @@ export async function startRemoteServer(ctx) {
   });
 
   // ── OAuth Module ──
-  const { generateCode, storeAuthCode, exchangeCodeForToken } = await import('./remote/oauth-simple.js');
+  const { generateCode, storeAuthCode, exchangeCodeForToken } = await import('./oauth-simple.js');
   const { readFileSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');
   const { fileURLToPath: furl } = await import('node:url');
@@ -890,7 +890,7 @@ export async function startRemoteServer(ctx) {
           if (state) callbackUrl += `&state=${state}`;
 
           // Return success page
-          let successHtml = readFileSync(join(__remoteDir, 'remote', 'success.html'), 'utf8');
+          let successHtml = readFileSync(join(__remoteDir, 'success.html'), 'utf8');
           successHtml = successHtml.replace('<!-- REDIRECT_URL -->', callbackUrl);
           return res.type('html').send(successHtml);
         }
@@ -910,7 +910,7 @@ export async function startRemoteServer(ctx) {
   app.get('/login', (req, res) => {
     const params = req.query.params || '';
     const signupComplete = req.query.signup_complete;
-    let html = readFileSync(join(__remoteDir, 'remote', 'login.html'), 'utf8');
+    let html = readFileSync(join(__remoteDir, 'login.html'), 'utf8');
     // Inject params into template
     html = html.replace(/<!-- PARAMS -->/g, params);
     if (signupComplete) {
@@ -1103,7 +1103,7 @@ export async function startRemoteServer(ctx) {
       if (decodedParams.state) finalRedirect += `&state=${decodedParams.state}`;
 
       // Return success page
-      let successHtml = readFileSync(join(__remoteDir, 'remote', 'success.html'), 'utf8');
+      let successHtml = readFileSync(join(__remoteDir, 'success.html'), 'utf8');
       successHtml = successHtml.replace('<!-- REDIRECT_URL -->', finalRedirect);
       res.type('html').send(successHtml);
     } catch (e) {
@@ -1148,7 +1148,7 @@ export async function startRemoteServer(ctx) {
       const { readFileSync: rfs } = await import('node:fs');
       const { dirname: dn, join: jn } = await import('node:path');
       const { fileURLToPath: fu } = await import('node:url');
-      const iconPath = jn(dn(fu(import.meta.url)), 'remote', 'icon.png');
+      const iconPath = jn(dn(fu(import.meta.url)), 'icon.png');
       const data = rfs(iconPath);
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 'public, max-age=86400');
