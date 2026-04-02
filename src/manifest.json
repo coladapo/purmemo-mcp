@@ -98,6 +98,10 @@
     {
       "name": "report_memory",
       "description": "Report inappropriate or harmful public memories"
+    },
+    {
+      "name": "generate_handoff_brief",
+      "description": "Generate a surgical context brief for new AI sessions — AI already knows where you left off"
     }
   ],
   "tools_generated": false,

@@ -83,6 +83,7 @@ import {
   handleGetAcknowledgedErrors,
   handleSaveInvestigation
 } from './tools/handlers.js';
+import { handleGenerateHandoffBrief } from './tools/handoff.js';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -1088,6 +1089,44 @@ report_memory({ memory_id: "abc-123", reason: "spam", description: "Promotional 
       },
       required: ['incident_id']
     }
+  },
+  {
+    name: 'generate_handoff_brief',
+    annotations: {
+      title: 'Generate Handoff Brief',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true
+    },
+    description: `Generate a surgical context brief for a new AI session. Instead of re-explaining your context, the AI already knows where you left off.
+
+Uses a 5-layer compaction hierarchy to maximize signal in ~2,000 tokens:
+1. Intent — What you were trying to accomplish (never cut)
+2. Decisions — What was decided and completed
+3. Open Loops — Blockers, unresolved items, active todos
+4. Context — Technologies, entities, project details
+5. Content — Brief excerpts (trimmed to fit budget)
+
+Call this at the start of a new session or when switching projects to give the AI instant context.
+No new data is generated — composes from your existing V2 intelligence extraction data.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_name: {
+          type: 'string',
+          description: 'Optional: filter brief to a specific project. If omitted, uses all recent activity.'
+        },
+        token_budget: {
+          type: 'number',
+          description: 'Optional: approximate token budget for the brief (default ~2000 tokens). Range: 500-5000.',
+          minimum: 500,
+          maximum: 5000,
+          default: 2000
+        }
+      },
+      required: []
+    }
   }
 ];
 
@@ -1300,6 +1339,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case 'save_investigation_result':
       if (!ADMIN_MODE) return { content: [{ type: 'text', text: '❌ Admin access required. Set PURMEMO_ADMIN=1 and provide a valid admin API key.' }] };
       return withUpdateNotice(await handleSaveInvestigation(args));
+    case 'generate_handoff_brief':
+      return withUpdateNotice(await handleGenerateHandoffBrief(args));
     default:
       return {
         content: [{

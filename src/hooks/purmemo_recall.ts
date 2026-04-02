@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 /**
- * Purmemo Claude Code — Session Recall
+ * Purmemo Claude Code — Session Recall + Handoff Brief
  *
  * Fires on SessionStart. Fetches the 5 most recently user-touched memories
- * and injects them as numbered context. Sorts by user_updated_at (not
- * updated_at, which gets bumped by background Gemini processing).
+ * and active todos, then composes a handoff brief using 5-layer compaction:
+ *   Layer 1: Intent (what user was doing — never cut)
+ *   Layer 2: Decisions & completions
+ *   Layer 3: Open loops (blockers, todos)
+ *   Layer 4: Context (tech stack, projects)
+ *   Layer 5: Content excerpts (trimmed to budget)
  *
+ * Sorts by user_updated_at (not updated_at, which gets bumped by Gemini).
  * Skips on compact/clear. Posts a session context heartbeat.
  * Never blocks session start on any error.
  */
@@ -21,6 +26,7 @@ import {
 const TAG = 'recall';
 const MAX_MEMORIES = 5;
 const MAX_PREVIEW = 300;
+const MAX_TODOS = 8;
 
 function relativeTime(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -31,6 +37,96 @@ function relativeTime(date: Date): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+// ── Handoff Brief Composer ──────────────────────────────────────────────────
+// Compaction hierarchy: Intent → Decisions → Open Loops → Context → Content
+
+function composeHandoffBrief(
+  memories: Array<Record<string, unknown>>,
+  todos: Array<Record<string, unknown>>,
+  projectName: string,
+): string {
+  if (!memories.length) return '';
+
+  const lines: string[] = [`[Purmemo — handoff brief for "${projectName}"]`];
+
+  // Layer 1: Intent — what user was trying to accomplish
+  const primary = memories[0];
+  if (primary.summary) lines.push(`Last session: ${primary.summary}`);
+  if (primary.key_result) lines.push(`Key result: ${primary.key_result}`);
+  if (primary.next_phase_hint && primary.next_phase_hint !== 'other') {
+    lines.push(`Next phase: ${primary.next_phase_hint}`);
+  }
+
+  // Prior session summaries (dedup by project)
+  const seenProjects = new Set<string>();
+  if (primary.project_name) seenProjects.add(primary.project_name as string);
+  for (let i = 1; i < memories.length; i++) {
+    const m = memories[i];
+    if (!m.summary) continue;
+    const proj = (m.project_name as string) || '';
+    if (proj && seenProjects.has(proj)) continue;
+    if (proj) seenProjects.add(proj);
+    lines.push(`Prior: ${m.summary}`);
+  }
+
+  // Layer 2: Decisions & completions
+  const decisions: string[] = [];
+  const completions: string[] = [];
+  for (const m of memories) {
+    const workItems = (m.work_items as Array<Record<string, unknown>>) || [];
+    for (const item of workItems) {
+      if (item.type === 'decision' && decisions.length < 4) {
+        decisions.push(`  - ${item.text}`);
+      }
+    }
+    const comps = (m.completions as Array<Record<string, unknown>>) || [];
+    for (const c of comps) {
+      if (completions.length < 3) completions.push(`  - ${c.text}`);
+    }
+  }
+  if (decisions.length) lines.push(`Decisions:\n${decisions.join('\n')}`);
+  if (completions.length) lines.push(`Completed:\n${completions.join('\n')}`);
+
+  // Layer 3: Open loops — blockers, open items, todos
+  const blockers: string[] = [];
+  const openItems: string[] = [];
+  for (const m of memories) {
+    const bList = (m.blockers as Array<Record<string, unknown>>) || [];
+    for (const b of bList) {
+      if (blockers.length < 4) blockers.push(`  - ${b.text}`);
+    }
+    const wList = (m.work_items as Array<Record<string, unknown>>) || [];
+    for (const item of wList) {
+      if (item.type !== 'decision' && item.status !== 'done' && openItems.length < 4) {
+        openItems.push(`  - ${item.text}`);
+      }
+    }
+  }
+  const activeTodos: string[] = [];
+  for (const t of todos) {
+    if (t.status !== 'done' && activeTodos.length < 4) {
+      const prio = t.priority ? ` [${t.priority}]` : '';
+      activeTodos.push(`  - ${t.text}${prio}`);
+    }
+  }
+  if (blockers.length) lines.push(`Blockers:\n${blockers.join('\n')}`);
+  if (openItems.length) lines.push(`Open items:\n${openItems.join('\n')}`);
+  if (activeTodos.length) lines.push(`Active todos:\n${activeTodos.join('\n')}`);
+
+  // Layer 4: Context — technologies, projects
+  const techs = new Set<string>();
+  for (const m of memories) {
+    const tList = (m.technologies as string[]) || [];
+    for (const t of tList) techs.add(t);
+  }
+  if (techs.size > 0) lines.push(`Stack: ${Array.from(techs).slice(0, 8).join(', ')}`);
+
+  lines.push('');
+  lines.push(`${memories.length} recent memories loaded. Type a number to load fully.`);
+
+  return lines.join('\n');
 }
 
 async function main(): Promise<void> {
@@ -60,36 +156,34 @@ async function main(): Promise<void> {
     project: projectName, platform: platformName, auto: true,
   }, 5000).then(r => dbg(TAG, `session POST → ${r ? 'ok' : 'error'}`));
 
-  // Fetch most recent memories by user activity (not background processing)
+  // Fetch recent memories + active todos in parallel
   const params = new URLSearchParams({
     limit: String(MAX_MEMORIES),
     sort: 'user_updated_at',
     order: 'desc',
   });
-  const result = await apiGet(apiKey, `/api/v1/memories/?${params}`);
-  const memories = (result as { memories?: Array<Record<string, unknown>> })?.memories || [];
-  dbg(TAG, `recalled ${memories.length} recent memories`);
+  const [memResult, todosResult] = await Promise.all([
+    apiGet(apiKey, `/api/v1/memories/?${params}`),
+    apiGet(apiKey, `/api/v1/todos?limit=${MAX_TODOS}`).catch(() => null),
+  ]);
+  const memories = (memResult as { memories?: Array<Record<string, unknown>> })?.memories || [];
+  const todos = (Array.isArray(todosResult) ? todosResult : (todosResult as { todos?: Array<Record<string, unknown>> })?.todos) || [];
+  dbg(TAG, `recalled ${memories.length} memories, ${todos.length} todos`);
 
   if (!memories.length) { dbg(TAG, 'no memories found'); return; }
 
-  // Build context for Claude (injected silently)
-  const contextLines = [
-    `[Purmemo — recent context for "${projectName}"]`,
-    `${memories.length} recent memories:\n`,
-  ];
+  // Compose handoff brief from V2 intelligence data
+  const handoffBrief = composeHandoffBrief(memories, todos, projectName);
+
+  // Also build numbered list for quick-load (backward compat)
+  const contextLines = [handoffBrief];
+  contextLines.push('');
   memories.forEach((mem, i) => {
     const title = (mem.title as string) || 'Untitled';
-    const preview = ((mem.content_preview as string) || (mem.content as string) || '')
-      .replace(/\n+/g, ' ').trim().slice(0, MAX_PREVIEW);
     const ts = (mem.updated_at as string) || (mem.created_at as string);
     const when = ts ? relativeTime(new Date(ts)) : '';
     contextLines.push(`${i + 1}. ${title}${when ? ` (${when})` : ''}`);
-    if (preview) contextLines.push(`   ${preview}${preview.length >= MAX_PREVIEW ? '…' : ''}`);
-    contextLines.push('');
   });
-  contextLines.push(source === 'resume'
-    ? '(Session resumed — context above from Purmemo)'
-    : '(New session — context auto-loaded from Purmemo. Type a number to load fully.)');
 
   // Store recall data for first_message hook
   const state = readState();
