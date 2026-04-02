@@ -46,6 +46,8 @@ interface Memory {
   feature_name?: string;
   status?: string;
   next_phase_hint?: string;
+  primary_intent?: string;
+  decisions?: Decision[];
   work_items?: WorkItem[];
   blockers?: Blocker[];
   completions?: Completion[];
@@ -78,6 +80,13 @@ interface Blocker {
 interface Completion {
   text: string;
   completed_item?: string;
+}
+
+interface Decision {
+  text: string;
+  rationale?: string;
+  alternatives_considered?: string[];
+  confidence?: number;
 }
 
 interface Entity {
@@ -120,6 +129,9 @@ function composeIntentLayer(memories: Memory[]): string {
 
   // Most recent memory's intent is primary
   const primary = memories[0];
+  if (primary?.primary_intent) {
+    lines.push(`**Goal**: ${primary.primary_intent}`);
+  }
   if (primary?.summary) {
     lines.push(`**Last session**: ${primary.summary}`);
   }
@@ -158,15 +170,23 @@ function composeIntentLayer(memories: Memory[]): string {
 
 /**
  * Layer 2: Decisions made — What was decided and why.
- * Uses work_items with type=decision and completions.
+ * Uses V2.1 decisions[] (with rationale) first, falls back to work_items type=decision.
  */
 function composeDecisionsLayer(memories: Memory[]): string {
   const decisions: string[] = [];
   const completions: string[] = [];
 
   for (const m of memories) {
-    // Extract decision-type work items
-    if (m.work_items) {
+    // Prefer V2.1 decisions[] (has rationale + alternatives)
+    if (m.decisions && m.decisions.length > 0) {
+      for (const d of m.decisions) {
+        if (decisions.length < 5) {
+          const rationale = d.rationale ? ` — ${d.rationale}` : '';
+          decisions.push(`- ${d.text}${rationale}`);
+        }
+      }
+    } else if (m.work_items) {
+      // Fall back to decision-type work items (pre-V2.1 data)
       for (const item of m.work_items) {
         if (item.type === 'decision' && decisions.length < 5) {
           decisions.push(`- ${item.text}`);

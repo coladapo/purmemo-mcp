@@ -53,6 +53,7 @@ function composeHandoffBrief(
 
   // Layer 1: Intent — what user was trying to accomplish
   const primary = memories[0];
+  if (primary.primary_intent) lines.push(`Goal: ${primary.primary_intent}`);
   if (primary.summary) lines.push(`Last session: ${primary.summary}`);
   if (primary.key_result) lines.push(`Key result: ${primary.key_result}`);
   if (primary.next_phase_hint && primary.next_phase_hint !== 'other') {
@@ -71,14 +72,24 @@ function composeHandoffBrief(
     lines.push(`Prior: ${m.summary}`);
   }
 
-  // Layer 2: Decisions & completions
+  // Layer 2: Decisions & completions (prefer V2.1 decisions[] over work_items)
   const decisions: string[] = [];
   const completions: string[] = [];
   for (const m of memories) {
-    const workItems = (m.work_items as Array<Record<string, unknown>>) || [];
-    for (const item of workItems) {
-      if (item.type === 'decision' && decisions.length < 4) {
-        decisions.push(`  - ${item.text}`);
+    const decisionsList = (m.decisions as Array<Record<string, unknown>>) || [];
+    if (decisionsList.length > 0) {
+      for (const d of decisionsList) {
+        if (decisions.length < 4) {
+          const rationale = d.rationale ? ` — ${d.rationale}` : '';
+          decisions.push(`  - ${d.text}${rationale}`);
+        }
+      }
+    } else {
+      const workItems = (m.work_items as Array<Record<string, unknown>>) || [];
+      for (const item of workItems) {
+        if (item.type === 'decision' && decisions.length < 4) {
+          decisions.push(`  - ${item.text}`);
+        }
       }
     }
     const comps = (m.completions as Array<Record<string, unknown>>) || [];
