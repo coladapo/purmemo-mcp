@@ -23,7 +23,7 @@
 
 import * as path from 'node:path';
 import {
-  dbg, readState, writeState, loadApiKey,
+  dbg, errLog, readState, writeState, pruneState, loadApiKey,
   readTranscript, extractMessages, buildContent,
   apiPost, readHookInput,
   detectPlatform, initPlatformPaths, normalizeEvent,
@@ -75,7 +75,12 @@ async function main(): Promise<void> {
 
   // Normalize Gemini event names to internal (Claude) names
   const event = normalizeEvent(hook_event_name || 'unknown');
-  const state = readState();
+  let state = readState();
+
+  // Prune stale keys on Stop (low frequency, good trigger for cleanup)
+  if (event === 'Stop') {
+    state = pruneState(state);
+  }
 
   // ── Heartbeat: count tool calls, only save at intervals ──────────────────
   if (event === 'PostToolUse') {
@@ -107,7 +112,7 @@ async function main(): Promise<void> {
   dbg(TAG, `${event} fired — session=${session_id} transcript=${transcript_path || 'none'}`);
 
   const apiKey = loadApiKey();
-  if (!apiKey) { dbg(TAG, 'skip — no api key'); return; }
+  if (!apiKey) { errLog(TAG, 'no API key — set PURMEMO_API_KEY or run purmemo setup'); return; }
 
   // ── Read and build content ───────────────────────────────────────────────
   const entries  = readTranscript(transcript_path);
@@ -158,9 +163,9 @@ async function main(): Promise<void> {
     }
     dbg(TAG, `${event} saved — ${messages.length} msgs, ${content.length} chars, convId=${conversationId}`);
   } else {
-    dbg(TAG, `${event} error — save failed`);
+    errLog(TAG, `${event} save failed — ${messages.length} msgs, ${content.length} chars`);
   }
 }
 
 // Top-level await keeps the process alive until all HTTP requests complete
-await main().catch(() => {});
+await main().catch((e: Error) => { process.stderr.write(`[purmemo:capture] fatal: ${e.message}\n`); });

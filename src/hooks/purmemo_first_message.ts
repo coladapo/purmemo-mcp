@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import {
-  dbg, readState, writeState, loadApiKey,
+  dbg, errLog, readState, writeState, loadApiKey,
   apiGet, readHookInput,
   detectPlatform, initPlatformPaths, platformEvent,
 } from './purmemo_lib.js';
@@ -111,11 +111,11 @@ async function main(): Promise<void> {
           return;
         }
       }
-      dbg(TAG, `failed to load ${memId}`);
+      errLog(TAG, `failed to load memory ${memId}`);
     }
   }
 
   dbg(TAG, `first message — no number shortcut, session ${session_id}`);
 }
 
-await main().catch(() => {});
+await main().catch((e: Error) => { process.stderr.write(`[purmemo:first_msg] fatal: ${e.message}\n`); });

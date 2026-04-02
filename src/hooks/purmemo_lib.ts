@@ -132,10 +132,25 @@ export function dbg(tag: string, msg: string): void {
   try { fs.appendFileSync(_paths.debugLog, `[${new Date().toISOString()}] [${tag}] ${msg}\n`); } catch {}
 }
 
+/** Log errors to stderr so Claude Code can surface them. Use sparingly. */
+export function errLog(tag: string, msg: string): void {
+  dbg(tag, `ERROR: ${msg}`);
+  process.stderr.write(`[purmemo:${tag}] ${msg}\n`);
+}
+
 // ─── State management ────────────────────────────────────────────────────────
 
+const STATE_KEY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 export function readState(): Record<string, unknown> {
-  try { return JSON.parse(fs.readFileSync(_paths.stateFile, 'utf8')); } catch { return {}; }
+  try {
+    return JSON.parse(fs.readFileSync(_paths.stateFile, 'utf8'));
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      errLog('state', `corrupted state file, resetting: ${(e as Error).message}`);
+    }
+    return {};
+  }
 }
 
 export function writeState(state: Record<string, unknown>): void {
@@ -145,7 +160,36 @@ export function writeState(state: Record<string, unknown>): void {
     const tmp = _paths.stateFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(state), 'utf8');
     fs.renameSync(tmp, _paths.stateFile);
-  } catch {}
+  } catch (e: unknown) {
+    errLog('state', `write failed: ${(e as Error).message}`);
+  }
+}
+
+/** Remove stale per-session keys older than 7 days. */
+export function pruneState(state: Record<string, unknown>): Record<string, unknown> {
+  const now = Date.now();
+  const prefixes = ['session_recall_', 'banner_shown_', 'hb_count_', 'cd_', 'stop_', 'precompact_'];
+  let pruned = 0;
+  for (const key of Object.keys(state)) {
+    const isSessionKey = prefixes.some(p => key.startsWith(p));
+    if (!isSessionKey) continue;
+    const val = state[key];
+    if (typeof val === 'number' && val < now - STATE_KEY_MAX_AGE_MS) {
+      delete state[key];
+      pruned++;
+    } else if (typeof val !== 'number') {
+      const sessionId = key.replace(/^(session_recall_|banner_shown_|hb_count_|cd_\w+_|stop_|precompact_)/, '');
+      const hasRecentActivity = Object.keys(state).some(k =>
+        k.endsWith(sessionId) && typeof state[k] === 'number' && (state[k] as number) > now - STATE_KEY_MAX_AGE_MS
+      );
+      if (!hasRecentActivity) {
+        delete state[key];
+        pruned++;
+      }
+    }
+  }
+  if (pruned > 0) dbg('state', `pruned ${pruned} stale keys (${Object.keys(state).length} remaining)`);
+  return state;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -171,15 +215,17 @@ export function loadApiKey(): string | null {
 
 // ─── Transcript reading ──────────────────────────────────────────────────────
 
-/** Read Claude Code JSONL transcript */
+/** Read Claude Code JSONL or Gemini JSON transcript */
 export function readTranscript(transcriptPath: string | undefined): TranscriptEntry[] {
   try {
     if (!transcriptPath || !fs.existsSync(transcriptPath)) return [];
     const raw = fs.readFileSync(transcriptPath, 'utf8').trim();
     if (!raw) return [];
 
-    // Auto-detect: if it starts with '{' or '[', it's Gemini JSON; otherwise JSONL
-    if (raw.startsWith('{') || raw.startsWith('[')) {
+    // Use platform detection (set by detectPlatform() before this runs).
+    // JSONL lines also start with '{', so content-sniffing was wrong — it
+    // routed every Claude Code transcript to the Gemini JSON parser.
+    if (_detectedPlatform === 'gemini') {
       return readGeminiTranscript(raw);
     }
 
@@ -270,12 +316,22 @@ export function apiGet(apiKey: string, urlPath: string, timeout = 8000): Promise
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
       res.on('end', () => {
-        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-        catch { resolve(null); }
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if (res.statusCode && res.statusCode >= 400) {
+            errLog('api', `GET ${urlPath} → ${res.statusCode}: ${body?.error || body?.message || 'unknown'}`);
+            resolve(null);
+            return;
+          }
+          resolve(body);
+        } catch {
+          errLog('api', `GET ${urlPath} → ${res.statusCode} (invalid JSON)`);
+          resolve(null);
+        }
       });
     });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.on('error', (e: Error) => { errLog('api', `GET ${urlPath} → network error: ${e.message}`); resolve(null); });
+    req.on('timeout', () => { req.destroy(); errLog('api', `GET ${urlPath} → timeout (${timeout}ms)`); resolve(null); });
     req.end();
   });
 }
@@ -299,12 +355,22 @@ export function apiPost(apiKey: string, urlPath: string, payload: unknown, timeo
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
       res.on('end', () => {
-        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-        catch { resolve(null); }
+        try {
+          const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if (res.statusCode && res.statusCode >= 400) {
+            errLog('api', `POST ${urlPath} → ${res.statusCode}: ${parsed?.error || parsed?.message || 'unknown'}`);
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch {
+          errLog('api', `POST ${urlPath} → ${res.statusCode} (invalid JSON)`);
+          resolve(null);
+        }
       });
     });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.on('error', (e: Error) => { errLog('api', `POST ${urlPath} → network error: ${e.message}`); resolve(null); });
+    req.on('timeout', () => { req.destroy(); errLog('api', `POST ${urlPath} → timeout (${timeout}ms)`); resolve(null); });
     req.write(body);
     req.end();
   });

@@ -17,7 +17,7 @@
 
 import * as path from 'node:path';
 import {
-  dbg, readState, writeState, loadApiKey,
+  dbg, errLog, readState, writeState, pruneState, loadApiKey,
   apiGet, apiPost, readHookInput,
   checkForUpdate, autoUpdateHooks, HOOKS_VERSION,
   detectPlatform, initPlatformPaths, platformEvent,
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
   }
 
   const apiKey = loadApiKey();
-  if (!apiKey) { dbg(TAG, 'skip — no api key'); return; }
+  if (!apiKey) { errLog(TAG, 'no API key — set PURMEMO_API_KEY or run purmemo setup'); return; }
 
   const projectName = path.basename(cwd || process.cwd());
 
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
   });
 
   // Store recall data for first_message hook
-  const state = readState();
+  let state = pruneState(readState());
   state[`session_recall_${session_id}`] = {
     project: projectName,
     titles: memories.map(m => (m.title as string) || 'Untitled'),
@@ -230,4 +230,4 @@ async function main(): Promise<void> {
   }));
 }
 
-await main().catch(() => {});
+await main().catch((e: Error) => { process.stderr.write(`[purmemo:recall] fatal: ${e.message}\n`); });
