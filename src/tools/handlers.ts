@@ -1278,11 +1278,11 @@ export async function handleRunWorkflow(args) {
       // Database unavailable — use hardcoded default
     }
 
-    // Pre-load memories and identity in parallel
+    // Pre-load memories, identity, and (for kickoff) active todos in parallel
     const memoryQueries = buildMemoryQueries(template, input);
 
-    const [identityResult, ...memoryResults] = await Promise.allSettled([
-      // Identity
+    const parallelCalls = [
+      // [0] Identity
       (async () => {
         try {
           const [meResponse, sessionResponse] = await Promise.allSettled([
@@ -1302,7 +1302,7 @@ export async function handleRunWorkflow(args) {
           };
         } catch { return null; }
       })(),
-      // Memories (one call per query)
+      // [1..N] Memories (one call per query)
       ...memoryQueries.map(async (query) => {
         try {
           const data = await makeApiCall('/api/v10/mcp/tools/execute', {
@@ -1320,7 +1320,33 @@ export async function handleRunWorkflow(args) {
           return null;
         } catch { return null; }
       })
-    ]);
+    ];
+
+    // Pre-load active todos for kickoff workflow (or any workflow with preloadTodos)
+    if (template.preloadTodos) {
+      parallelCalls.push(
+        (async () => {
+          try {
+            const data = await makeApiCall('/api/v1/todos/', { method: 'GET' });
+            const todos = data.todos || [];
+            if (todos.length === 0) return null;
+            // Format as a readable block for the LLM
+            const lines = todos.map((t, i) => {
+              const status = t.status === 'blocked' ? '🔴' : t.status === 'active' ? '🟢' : '⚪';
+              const project = t.project_name ? ` [${t.project_name}]` : '';
+              const priority = t.priority ? ` (${t.priority})` : '';
+              return `${i + 1}. ${status} ${t.text}${project}${priority}`;
+            });
+            return `## 📋 Active Todos (${todos.length})\n${lines.join('\n')}`;
+          } catch { return null; }
+        })()
+      );
+    }
+
+    const allResults = await Promise.allSettled(parallelCalls);
+    const identityResult = allResults[0];
+    const memoryResults = allResults.slice(1, 1 + memoryQueries.length);
+    const todosResult = template.preloadTodos ? allResults[allResults.length - 1] : null;
 
     // Assemble the identity context
     let identityBlock = '';
@@ -1368,9 +1394,16 @@ export async function handleRunWorkflow(args) {
       }
     }
 
+    // Build todos block if pre-loaded
+    let todosBlock = '';
+    if (todosResult && todosResult.status === 'fulfilled' && todosResult.value) {
+      todosBlock = todosResult.value;
+    }
+
     // Assemble the full response — transparency block FIRST so user sees context before output
     const assembled = [
       transparencyBlock,
+      todosBlock,
       '',
       workflowPrompt,
       '',

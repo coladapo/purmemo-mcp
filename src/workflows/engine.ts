@@ -396,16 +396,18 @@ You are an intelligence analyst delivering a landscape briefing.
     display_name: 'Kickoff — Launch Into a Todo With Full Context',
     category: 'operations',
     description: 'Pick an active todo and get a comprehensive context brief from all related memories, decisions, and conversations across platforms.',
-    memory_queries: ['[INPUT] implementation decisions architecture', '[INPUT] recent progress status'],
+    memory_queries: ['[INPUT] implementation decisions architecture', '[INPUT] recent progress status', '[INPUT] project todos blockers'],
     signals: ['kickoff', 'start on', 'work on', 'pick up', 'resume', 'begin', 'tackle'],
     route_chain: ['prd', 'sprint', 'feature'],
+    // Flag: handleRunWorkflow pre-loads active todos when this is true
+    preloadTodos: true,
     prompt: `# Kickoff — Launch Into a Todo With Full Context
 
 You are preparing a comprehensive context brief so the user can start working on a todo item with full awareness of everything that led to it.
 
 ## Your Process
 
-1. **Check the Active Todos** — Look at the active todos shown in the pre-loaded memories section. If the user specified which todo to work on, use that. If not, list the active todos and ask which one.
+1. **Check the Active Todos** — Look at the active todos shown in the pre-loaded data below. If the user specified which todo to work on, use that. If not, list the active todos and ask which one.
 
 2. **Load the Source Memory** — If the todo has a linked Context memory ID, call get_memory_details on that ID to load the full conversation where the todo was conceived. This contains the architectural decisions, constraints, and reasoning.
 
@@ -432,6 +434,9 @@ You are preparing a comprehensive context brief so the user can start working on
 ### Current State of the Code
 [What exists now — files, tables, APIs relevant to this work]
 
+### Sibling Todos (Same Project)
+[List other active todos for the same project — shows what else is in flight and potential dependencies]
+
 ### Blockers & Dependencies
 [Any open blockers, dependencies, or prerequisites]
 
@@ -445,7 +450,13 @@ You are preparing a comprehensive context brief so the user can start working on
 - Call get_memory_details and discover_related_conversations — don't just use the pre-loaded recall results. The pre-loaded memories are a starting point, not the full picture.
 - Be specific. Quote actual decisions from past conversations.
 - If you find conflicting decisions across memories, flag them.
-- The goal is: after reading this brief, the user (or any AI agent) can start implementing without needing to ask "what was decided before?" or "why are we doing it this way?"`
+- The goal is: after reading this brief, the user (or any AI agent) can start implementing without needing to ask "what was decided before?" or "why are we doing it this way?"
+
+## After Presenting the Brief
+Save this kickoff brief as a living document using save_conversation with:
+- title: "Kickoff Brief — [todo summary]"
+- tags: ["kickoff-brief", "context-package"]
+This persists the brief so the user (or another AI agent) can recall it later without re-assembling.`
   }
 };
 
