@@ -19,6 +19,7 @@ import {
   handleGetPublicMemory,
   handleReportMemory
 } from '../tools/handlers.js';
+import { handleGenerateHandoffBrief } from '../tools/handoff.js';
 
 export async function startRemoteServer(ctx) {
   // Destructure all server.ts dependencies — same variable names, zero body changes
@@ -257,6 +258,7 @@ export async function startRemoteServer(ctx) {
       'recall_public': handleRecallPublic,
       'get_public_memory': handleGetPublicMemory,
       'report_memory': handleReportMemory,
+      'generate_handoff_brief': handleGenerateHandoffBrief,
     };
 
     const localHandler = localOnlyHandlers[toolName];
