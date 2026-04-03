@@ -1,0 +1,390 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10001 /* PurmemoSyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001; };
+		A10002 /* PopoverRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002; };
+		A10003 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
+		A10004 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
+		A10005 /* SessionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
+		A10006 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009; };
+		A10007 /* SessionWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
+		A10008 /* CloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
+		A10009 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
+		A10011 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013; };
+		A10012 /* HistoryScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
+		A10013 /* CodexScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
+		A10014 /* CursorScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10016; };
+		A10015 /* ClaudeDesktopScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
+		A10025 /* GeminiScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10025; };
+		A10016 /* SourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
+		A10017 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019; };
+		A10018 /* SyncDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
+		A10019 /* ManifestMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10021; };
+		A10020 /* CloudDownloadSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
+		A10021 /* DropQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10023; };
+		A10022 /* DropPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10024; };
+		A10026 /* ProjectResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10026; };
+		A10010 /* PurmemoShared in Frameworks */ = {isa = PBXBuildFile; productRef = D10001; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10001 /* PurmemoSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurmemoSyncApp.swift; sourceTree = "<group>"; };
+		B10002 /* PopoverRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverRootView.swift; sourceTree = "<group>"; };
+		B10003 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		B10004 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
+		B10005 /* SessionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionScanner.swift; sourceTree = "<group>"; };
+		B10009 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		B10010 /* SessionWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionWatcher.swift; sourceTree = "<group>"; };
+		B10011 /* CloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSync.swift; sourceTree = "<group>"; };
+		B10012 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
+		B10013 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		B10014 /* HistoryScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryScanner.swift; sourceTree = "<group>"; };
+		B10015 /* CodexScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexScanner.swift; sourceTree = "<group>"; };
+		B10016 /* CursorScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorScanner.swift; sourceTree = "<group>"; };
+		B10017 /* ClaudeDesktopScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDesktopScanner.swift; sourceTree = "<group>"; };
+		B10025 /* GeminiScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiScanner.swift; sourceTree = "<group>"; };
+		B10018 /* SourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesView.swift; sourceTree = "<group>"; };
+		B10019 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		B10020 /* SyncDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDatabase.swift; sourceTree = "<group>"; };
+		B10021 /* ManifestMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestMigrator.swift; sourceTree = "<group>"; };
+		B10022 /* CloudDownloadSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudDownloadSync.swift; sourceTree = "<group>"; };
+		B10023 /* DropQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropQueue.swift; sourceTree = "<group>"; };
+		B10024 /* DropPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropPromptView.swift; sourceTree = "<group>"; };
+		B10026 /* ProjectResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectResolver.swift; sourceTree = "<group>"; };
+		B10006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10007 /* PurmemoSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PurmemoSync.entitlements; sourceTree = "<group>"; };
+		B10008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E10001 /* PurmemoSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PurmemoSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F10001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10010 /* PurmemoShared in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G10001 = {
+			isa = PBXGroup;
+			children = (
+				G10002 /* PurmemoSync */,
+				G10005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G10002 /* PurmemoSync */ = {
+			isa = PBXGroup;
+			children = (
+				B10001 /* PurmemoSyncApp.swift */,
+				G10003 /* Views */,
+				G10004 /* Services */,
+				B10008 /* Assets.xcassets */,
+				B10006 /* Info.plist */,
+				B10007 /* PurmemoSync.entitlements */,
+			);
+			path = PurmemoSync;
+			sourceTree = "<group>";
+		};
+		G10003 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B10002 /* PopoverRootView.swift */,
+				B10003 /* LoginView.swift */,
+				B10004 /* SessionsView.swift */,
+				B10012 /* SessionDetailView.swift */,
+				B10013 /* HistoryView.swift */,
+				B10018 /* SourcesView.swift */,
+				B10024 /* DropPromptView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		G10004 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B10005 /* SessionScanner.swift */,
+				B10009 /* SessionStore.swift */,
+				B10010 /* SessionWatcher.swift */,
+				B10011 /* CloudSync.swift */,
+				B10014 /* HistoryScanner.swift */,
+				B10015 /* CodexScanner.swift */,
+				B10016 /* CursorScanner.swift */,
+				B10017 /* ClaudeDesktopScanner.swift */,
+				B10025 /* GeminiScanner.swift */,
+				B10019 /* Logger.swift */,
+				B10020 /* SyncDatabase.swift */,
+				B10021 /* ManifestMigrator.swift */,
+				B10022 /* CloudDownloadSync.swift */,
+				B10023 /* DropQueue.swift */,
+				B10026 /* ProjectResolver.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		G10005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E10001 /* PurmemoSync.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T10001 /* PurmemoSync */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10003;
+			buildPhases = (
+				S10001 /* Sources */,
+				F10001 /* Frameworks */,
+				R10001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PurmemoSync;
+			packageProductDependencies = (
+				D10001 /* PurmemoShared */,
+			);
+			productName = PurmemoSync;
+			productReference = E10001 /* PurmemoSync.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		P10001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					T10001 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = C10001;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G10001;
+			packageReferences = (
+				K10001 /* PurmemoShared */,
+			);
+			productRefGroup = G10005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T10001 /* PurmemoSync */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R10001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S10001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001 /* PurmemoSyncApp.swift in Sources */,
+				A10002 /* PopoverRootView.swift in Sources */,
+				A10003 /* LoginView.swift in Sources */,
+				A10004 /* SessionsView.swift in Sources */,
+				A10005 /* SessionScanner.swift in Sources */,
+				A10006 /* SessionStore.swift in Sources */,
+				A10007 /* SessionWatcher.swift in Sources */,
+				A10008 /* CloudSync.swift in Sources */,
+				A10009 /* SessionDetailView.swift in Sources */,
+				A10011 /* HistoryView.swift in Sources */,
+				A10012 /* HistoryScanner.swift in Sources */,
+				A10013 /* CodexScanner.swift in Sources */,
+				A10014 /* CursorScanner.swift in Sources */,
+				A10015 /* ClaudeDesktopScanner.swift in Sources */,
+				A10025 /* GeminiScanner.swift in Sources */,
+				A10016 /* SourcesView.swift in Sources */,
+				A10018 /* SyncDatabase.swift in Sources */,
+				A10019 /* ManifestMigrator.swift in Sources */,
+				A10020 /* CloudDownloadSync.swift in Sources */,
+				A10021 /* DropQueue.swift in Sources */,
+				A10022 /* DropPromptView.swift in Sources */,
+				A10017 /* Logger.swift in Sources */,
+				A10026 /* ProjectResolver.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C10011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C10012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C10021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PurmemoSync/PurmemoSync.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PurmemoSync/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright 2026 purmemo, Inc.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.purmemo.sync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C10022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PurmemoSync/PurmemoSync.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DC7489SG7F;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PurmemoSync/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright 2026 purmemo, Inc.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.purmemo.sync;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C10001 /* Build configuration list for PBXProject */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10011 /* Debug */,
+				C10012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10003 /* Build configuration list for PBXNativeTarget */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10021 /* Debug */,
+				C10022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		K10001 /* PurmemoShared */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PurmemoShared;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D10001 /* PurmemoShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PurmemoShared;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+	};
+	rootObject = P10001 /* Project object */;
+}
